@@ -5,14 +5,13 @@ Shamelessly adapted from the flint project.
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from meerkatpolpipeline.utils import execute_command
 
 
-def msoverview_summary(binds: List[Path], container: Path, ms: Path, output_to_file: Path = "./file.txt") -> Dict[str, Any]:
+def msoverview_summary(binds: list[Path], container: Path, ms: Path, output_to_file: Path = "./file.txt") -> dict[str, Any]:
     """
     Run msoverview on a measurement set within a Singularity container and parse its summary.
 
@@ -50,7 +49,7 @@ def msoverview_summary(binds: List[Path], container: Path, ms: Path, output_to_f
         f.write(output)
 
     # prepare summary dict
-    mssummary: Dict[str, Any] = {}
+    mssummary: dict[str, Any] = {}
 
     # parse spectral window line
     spw_re = re.compile(
@@ -70,7 +69,7 @@ def msoverview_summary(binds: List[Path], container: Path, ms: Path, output_to_f
         break
 
     # parse field names
-    fields: List[str] = []
+    fields: list[str] = []
     lines = output.splitlines()
     for i, line in enumerate(lines):
         if line.strip().startswith("Fields:"):
