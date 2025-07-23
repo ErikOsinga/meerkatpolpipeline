@@ -17,6 +17,9 @@ dependencies = [
     "matplotlib",
     "scipy",
     "astropy",
+    "ConfigArgParse",
+    "prefect",
+    "pydantic"
 ]
 
 classifiers = [
