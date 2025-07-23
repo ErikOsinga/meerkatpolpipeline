@@ -31,12 +31,16 @@ def add_timestamp_to_path(
 
     return output_path
 
-def execute_command(cmd: str) -> subprocess.CompletedProcess:
+def execute_command(cmd: str, test: bool = False) -> subprocess.CompletedProcess | None:
     """Wrapper around cmd with error handling"""
     
     logger = get_run_logger()
     logger.info("Executing command:")
     logger.info(cmd)
+
+    if test:
+        logger.info("Test mode is enabled, command will not be executed.")
+        return None
 
     try:
         # Run the command and capture the output

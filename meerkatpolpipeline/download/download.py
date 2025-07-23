@@ -66,12 +66,7 @@ def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, te
     else: # download MS from link
         cmd = f"wget --tries {downloadoptions['tries']} --waitretry={downloadoptions['waitretry_seconds']} -c -O {output_path} {downloadoptions['link']}"
         
-        if not test:
-            execute_command(cmd)
-        else:
-            logger.info("Created download command:")
-            logger.info(cmd)
-            logger.info("Not executing as test=True")
+        execute_command(cmd, test=test)
     
     if link_is_tar:
         logger.info(f"Extracting {output_path} to {ms_path}")

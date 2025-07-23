@@ -21,6 +21,7 @@ from meerkatpolpipeline.configuration import (
 )
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import msoverview_summary
+from meerkatpolpipeline.utils import execute_command
 
 # from meerkatpolpipeline.logging import logger
 
@@ -60,7 +61,8 @@ def process_science_fields(
         ms_path = task_start_download(download_options, working_dir=download_workdir)
 
         # get MS summary
-        ms_summary = msoverview_summary(
+        task_msoverview_summary = task(msoverview_summary, name="msoverview_summary")
+        ms_summary = task_msoverview_summary(
             binds=[str(ms_path.parent)],
             container=strategy['lofar_container'],
             ms=ms_path,
@@ -68,6 +70,19 @@ def process_science_fields(
         )
 
         # do parang correction
+
+        # TODO: check if parang correction already done. How exactly? Check for CORRECTED-DATA ?
+
+        from meerkatpolpipeline.download import go_correct_parang
+        parang_script = Path(go_correct_parang.__file__)
+        
+        cmd_parang = f"""python {parang_script} \
+            --container {strategy['lofar_container']} \
+            --binds{ str(ms_path.parent)} \
+            {ms_path}
+        """
+        task_parang_correction = execute_command
+        task_parang_correction(cmd_parang, test=True) # set test=True to not execute the command, but only log it
 
         # clip if requested
 
