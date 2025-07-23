@@ -59,7 +59,7 @@ def process_science_fields(
         download_workdir = working_dir / "download"
         download_workdir.mkdir(exist_ok=True) # runs can be repeated
 
-        download_options = get_options_from_strategy(strategy, operation="download")
+        download_options = get_options_from_strategy(strategy, operation="download_preprocess")
         
         #### 1.1 download and extract
         task_start_download = task(download_and_extract, name="download_and_extract")
