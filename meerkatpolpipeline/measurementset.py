@@ -24,7 +24,7 @@ def msoverview_summary(binds: list[Path], container: Path, ms: Path, output_to_f
     Returns:
         A dict with keys:
           - 'spwID' (int)
-          - '#Chans' (int)
+          - 'nchan' (int)
           - 'Frame' (str)
           - 'Ch0MHz' (float)
           - 'ChanWid(kHz)' (float)
@@ -60,7 +60,7 @@ def msoverview_summary(binds: list[Path], container: Path, ms: Path, output_to_f
         if not m:
             continue
         mssummary['spwID']        = int(m.group(1))
-        mssummary['#Chans']       = int(m.group(2))
+        mssummary['nchan']       = int(m.group(2))
         mssummary['Frame']        = m.group(3)
         mssummary['Ch0MHz']       = float(m.group(4))
         mssummary['ChanWid(kHz)'] = float(m.group(5))
