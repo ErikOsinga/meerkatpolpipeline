@@ -21,6 +21,7 @@ dependencies = [
     "prefect",
     "pydantic",
     "spython",
+    "ephem",
 ]
 
 classifiers = [
