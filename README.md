@@ -4,6 +4,14 @@ MeerKAT polarisation data reduction and analysis
 
 Assuming Python 3.11 for the bookkeeping scripts in this directory, though most actual software is run in Singularity containers.
 
+## Running the pipeline
+[TODO]
+
+e.g.
+```
+python meerkatpolpipeline/flows/Lband_reduction.py --cli-config-file ./meerkatpolpipeline/tests/temp_sample_configuration.yaml --working-dir ./meerkatpolpipeline/tests/temp
+```
+
 ## Installation
 
 Install e.g. with
@@ -29,6 +37,22 @@ uv pip install -e .[dev]
 ```
 
 
+## Running a Prefect server
+
+### Local prefect server
+The simplest thing is to start a local prefect server (e.g. open a second terminal)
+
+```
+conda activate meerkatpol
+
+prefect server start
+
+```
+which will start a server accessible at http://localhost:4200/
+
+The meerkat pol pipeline should automatically find the running server and report it's results to the prefect server. Check out the results at http://localhost:4200/runs
+
+### Remote prefect server 
 
 
 
