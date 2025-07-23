@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import re
 import subprocess
+from pathlib import Path
 from typing import Any, Dict, List
 
 
-def msoverview_summary(binds: List[str], container: str, ms: str, output_to_file: str = "./file.txt") -> Dict[str, Any]:
+def msoverview_summary(binds: List[Path], container: str, ms: str, output_to_file: str = "./file.txt") -> Dict[str, Any]:
     """
     Run msoverview on a measurement set within a Singularity container and parse its summary.
 

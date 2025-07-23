@@ -20,6 +20,7 @@ from meerkatpolpipeline.configuration import (
     log_enabled_operations,
 )
 from meerkatpolpipeline.download.download import download_and_extract
+from meerkatpolpipeline.measurementset import msoverview_summary
 
 # from meerkatpolpipeline.logging import logger
 
@@ -56,7 +57,15 @@ def process_science_fields(
         
         # download and extract
         task_start_download = task(download_and_extract, name="download_and_extract")
-        task_start_download(download_options, working_dir=download_workdir)
+        ms_path = task_start_download(download_options, working_dir=download_workdir)
+
+        # get MS summary
+        ms_summary = msoverview_summary(
+            binds=[str(ms_path.parent)],
+            container=strategy['lofar_container'],
+            ms=ms_path,
+            output_to_file= download_workdir / "msoverview_summary.txt",
+        )
 
         # do parang correction
 
@@ -152,8 +161,6 @@ def setup_run(
     strategy = load_and_copy_strategy(strategy_path, working_dir)
 
     # determine target from strategy file, in the caracal option
-    # note: this means 'targetfield' should be set even if caracal is disabled.
-    # TODO: this could be improved by setting the targetfield as a separate input in the config file?
     target = strategy['targetfield']
 
     print(f"Starting pipeline for {target=}")

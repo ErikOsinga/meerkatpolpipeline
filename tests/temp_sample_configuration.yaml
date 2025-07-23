@@ -2,6 +2,8 @@ version: 0.1
 
 # string matching target field name
 targetfield: "A754"
+# container with lofar software
+lofar_container: /net/achterrijn/data1/sweijen/software/containers/lofar_sksp_rijnX.sif
 
 # some default parameters that are unlikely to change
 defaults:
