@@ -16,7 +16,13 @@ from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.utils import add_timestamp_to_path
 
 # Known headers must **always** be present in the strategy file
-KNOWN_HEADERS = ("defaults", "version", "targetfield", "lofar_container")
+KNOWN_HEADERS = (
+    "defaults",
+     "version",
+     "targetfield",
+     "lofar_container",
+     "casa_container",
+     )
 # Known options are optional, but if present must be in the correct format
 KNOWN_OPERATIONS = (
     "download_preprocess",
