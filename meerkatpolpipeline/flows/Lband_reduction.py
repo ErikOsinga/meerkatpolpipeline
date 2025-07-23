@@ -176,7 +176,7 @@ def setup_run(
         # , task_runner=dask_task_runner
     )(
         strategy=strategy,
-        working_dir=working_dir
+        working_dir=working_dir.resolve() # resolve in case relative path
     )
 
 
