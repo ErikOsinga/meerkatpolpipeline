@@ -21,6 +21,7 @@ from meerkatpolpipeline.configuration import (
 )
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import msoverview_summary
+from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.utils import execute_command
 
 # from meerkatpolpipeline.logging import logger
@@ -73,16 +74,20 @@ def process_science_fields(
 
         # TODO: check if parang correction already done. How exactly? Check for CORRECTED-DATA ?
 
-        from meerkatpolpipeline.download import go_correct_parang
-        parang_script = Path(go_correct_parang.__file__)
-        
+        # grab the script from the meerkatpolpipeline package
+        import meerkatpolpipeline.download
+        parang_script = Path(meerkatpolpipeline.download) / "go_correct_parang.py"
+
+                    
         cmd_parang = f"""python {parang_script} \
-            --container {strategy['lofar_container']} \
-            --binds{ str(ms_path.parent)} \
+             --running-inside-sing \
             {ms_path}
         """
-        task_parang_correction = execute_command
-        task_parang_correction(cmd_parang, test=True) # set test=True to not execute the command, but only log it
+        # task_parang_correction = execute_command
+        # task_parang_correction(cmd_parang, test=True) # set test=True to not execute the command, but only log it
+
+        task_parang_correction = run_singularity_command
+        task_parang_correction(strategy['lofar_container'], cmd_parang, bind_dirs=ms_path, max_retries=1)
 
         # clip if requested
 
