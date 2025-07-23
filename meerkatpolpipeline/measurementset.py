@@ -9,6 +9,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List
 
+from meerkatpolpipeline.utils import execute_command
+
 
 def msoverview_summary(binds: List[Path], container: str, ms: str, output_to_file: str = "./file.txt") -> Dict[str, Any]:
     """
@@ -39,8 +41,8 @@ def msoverview_summary(binds: List[Path], container: str, ms: str, output_to_fil
         container,
         "msoverview", f"in={ms}"
     ]
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            text=True, check=True)
+
+    result = execute_command(cmd)
     output = result.stdout
 
     # write raw output to file

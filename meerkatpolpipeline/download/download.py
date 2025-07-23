@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.options import BaseOptions
+from meerkatpolpipeline.utils import execute_command
 
 # from meerkatpolpipeline.logging import logger
 
@@ -33,29 +33,6 @@ class DownloadOptions(BaseOptions):
     clip_chan_end: int = 3885
     """clip channels from MS after this number"""
 
-def execute_command(cmd: str) -> subprocess.CompletedProcess:
-    """Wrapper around cmd with error handling"""
-    
-    logger = get_run_logger()
-    logger.info("Executing command:")
-    logger.info(cmd)
-
-    try:
-        # Run the command and capture the output
-        result = subprocess.run(
-            cmd,
-            check=True,
-            capture_output=True,
-            text=True
-        )
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Command failed (exit {e.returncode}):\n")
-        logger.info(e.stderr) #  or e.stdout or ""
-        logger.info(e.returncode)
-        raise e
-    
-    return result
-
 def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, test: bool = False) -> Path:
     """
     Download MS from MeerKAT direct download link and extract it if necessary.
@@ -75,7 +52,6 @@ def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, te
     # Check if ms_path is already an existing directory
     if ms_path.exists():
         logger.info(f"The output MS '{ms_path}' already exists. Assuming MS is already downloaded")
-        execute_command('ls')
         return ms_path
     
     # check if we're downloading a .tar.gz file or .ms file directly

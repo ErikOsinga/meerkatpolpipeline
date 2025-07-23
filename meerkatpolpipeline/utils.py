@@ -1,8 +1,11 @@
 
 from __future__ import annotations
 
+import subprocess
 from datetime import datetime
 from pathlib import Path
+
+from prefect.logging import get_run_logger
 
 
 def add_timestamp_to_path(
@@ -27,3 +30,26 @@ def add_timestamp_to_path(
     output_path = input_path.with_name(new_name)
 
     return output_path
+
+def execute_command(cmd: str) -> subprocess.CompletedProcess:
+    """Wrapper around cmd with error handling"""
+    
+    logger = get_run_logger()
+    logger.info("Executing command:")
+    logger.info(cmd)
+
+    try:
+        # Run the command and capture the output
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed (exit {e.returncode}):\n")
+        logger.info(e.stderr) #  or e.stdout or ""
+        logger.info(e.returncode)
+        raise e
+    
+    return result
