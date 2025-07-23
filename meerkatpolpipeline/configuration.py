@@ -19,7 +19,7 @@ from meerkatpolpipeline.utils import add_timestamp_to_path
 KNOWN_HEADERS = ("defaults", "version", "targetfield", "lofar_container")
 # Known options are optional, but if present must be in the correct format
 KNOWN_OPERATIONS = (
-    "download",
+    "download_preprocess",
     "caracal",
     "check_calibrator",
     "facetselfcal",

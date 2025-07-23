@@ -4,11 +4,13 @@ version: 0.1
 targetfield: "A754"
 # container with lofar software
 lofar_container: /net/achterrijn/data1/sweijen/software/containers/lofar_sksp_rijnX.sif
+# container with casa
+casa_container: /net/rijn9/data2/osinga/meerkatBfields/software/containers/flint-containers_aegean.sif
 
 # some default parameters that are unlikely to change
 defaults:
   # download measurement set, untar, clip channels
-  download:
+  download_preprocess:
     tries: inf
     waitretry_seconds: 2
     # check whether outside 163-3885 have been clipped 
@@ -28,7 +30,7 @@ defaults:
     caracal_template_strategy: /home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/bologna/all_scripts/2_caracal/polcal-strategy_Lband.yml
 
 # parameters that are likely to change per target
-download:
+download_preprocess:
   enable: true
   link: https://archive-gw-1.kat.ac.za/1728976094-dataexport/1728976094_sdp_l0.ms.tar.gz?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJrYXQtYXJjaGl2ZS5rYXQuYWMuemEiLCJhdWQiOiJhcmNoaXZlLWd3LTEua2F0LmFjLnphIiwiaWF0IjoxNzI5Njg0NzUwLCJwcmVmaXgiOlsiMTcyODk3NjA5NCJdLCJleHAiOjE3MzQ4Njg3NTAsInN1YiI6ImVyaWsub3NpbmdhQHV0b3JvbnRvLmNhIiwic2NvcGVzIjpbInJlYWQiXX0.o6TGTtC3k3hInLqh0FU30ysLXA9z71oj068RXVN_pE5P22byDH95SmgP-bXCnb70Vmf1mS1nwVxClZbf9ix67A
   # will be saved in --working_dir / download /

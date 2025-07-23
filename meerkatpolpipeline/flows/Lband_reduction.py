@@ -19,6 +19,7 @@ from meerkatpolpipeline.configuration import (
     load_and_copy_strategy,
     log_enabled_operations,
 )
+from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import msoverview_summary
 from meerkatpolpipeline.sclient import run_singularity_command
@@ -50,9 +51,10 @@ def process_science_fields(
     enabled_operations = log_enabled_operations(strategy)
 
     lofar_container = Path(strategy['lofar_container'])
+    casa_container = Path(strategy['casa_container'])
 
     ########## step 1: download & clip channels ##########
-    if "download" in enabled_operations:
+    if "download_preprocess" in enabled_operations:
         # create subdirectory 'download'
         download_workdir = working_dir / "download"
         download_workdir.mkdir(exist_ok=True) # runs can be repeated
@@ -92,9 +94,25 @@ def process_science_fields(
             max_retries=1
         )
 
+        preprocessed_ms = ms_path.parent / f"{ms_path.stem}_preprocessed.ms"
+
+        if preprocessed_ms.exists():
+            logger.info(f"Preprocessed MS already exists at {preprocessed_ms}, skipping clipping and copying.")
+
         #### 1.3 copy CORRECTED_DATA over to a new MS with only DATA column including clip if requested
-        
-        # TODO: add clipping, which should be checked on re-run, even if the MS is downloaded
+        task_copy_and_clip_ms = task(copy_and_clip_ms, name="copy_and_clip_ms")
+        task_copy_and_clip_ms(
+            ms_path=ms_path,
+            ms_summary=ms_summary, 
+            clip_assumed_nchan=download_options['clip_assumed_nchan'],
+            clip_chan_start=download_options['clip_chan_start'],
+            clip_chan_end=download_options['clip_chan_end'],
+            output_ms=preprocessed_ms,
+            casa_container=casa_container,
+        )
+
+        logger.info("Download and preprocessing step completed.")
+        logger.info(f"Preprocessed MS created at {preprocessed_ms}")
 
     else:
         logger.warning("Download step is disabled, skipping download and clipping of channels.")
