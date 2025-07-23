@@ -42,7 +42,7 @@ KNOWN_OPERATIONS = (
 )
 FORMAT_VERSION = 0.1
 STRATEGY_OPTIONS_MAPPING = {
-    "download": DownloadOptions,
+    "download_preprocess": DownloadOptions,
     "caracal": CaracalOptions,
     "check_calibrator": CheckCalibratorOptions
     # TODO
