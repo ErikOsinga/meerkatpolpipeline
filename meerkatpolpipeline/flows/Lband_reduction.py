@@ -84,11 +84,14 @@ def process_science_fields(
              --running-inside-sing \
             {ms_path}
         """
-        # task_parang_correction = execute_command
-        # task_parang_correction(cmd_parang, test=True) # set test=True to not execute the command, but only log it
 
-        task_parang_correction = run_singularity_command
-        task_parang_correction(lofar_container, cmd_parang, bind_dirs=ms_path, max_retries=1)
+        task_parang_correction = task(run_singularity_command, name="run_parang_correction")
+        task_parang_correction(
+            lofar_container,
+            cmd_parang,
+            bind_dirs=[ms_path.parent,parang_script.parent],
+            max_retries=1
+        )
 
         # clip if requested
 
