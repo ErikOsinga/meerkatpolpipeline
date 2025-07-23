@@ -59,7 +59,7 @@ def process_science_fields(
 
         download_options = get_options_from_strategy(strategy, operation="download")
         
-        # download and extract
+        #### 1.1 download and extract
         task_start_download = task(download_and_extract, name="download_and_extract")
         ms_path = task_start_download(download_options, working_dir=download_workdir)
 
@@ -72,9 +72,7 @@ def process_science_fields(
             output_to_file= download_workdir / "msoverview_summary.txt",
         )
 
-        # do parang correction
-
-        # TODO: check if parang correction already done. How exactly? Check for CORRECTED-DATA ?
+        #### 1.2 parang correction, if not done yet.
 
         # grab the script from the meerkatpolpipeline package
         from meerkatpolpipeline.download import download  # cant import casa scripts
@@ -82,6 +80,7 @@ def process_science_fields(
                     
         cmd_parang = f"""python {parang_script} \
              --running-inside-sing \
+             --test-already-done \
             {ms_path}
         """
 
@@ -93,10 +92,10 @@ def process_science_fields(
             max_retries=1
         )
 
-        # clip if requested
-
-
+        #### 1.3 copy CORRECTED_DATA over to a new MS with only DATA column including clip if requested
+        
         # TODO: add clipping, which should be checked on re-run, even if the MS is downloaded
+
     else:
         logger.warning("Download step is disabled, skipping download and clipping of channels.")
 
