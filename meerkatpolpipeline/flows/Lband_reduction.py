@@ -75,9 +75,8 @@ def process_science_fields(
         # TODO: check if parang correction already done. How exactly? Check for CORRECTED-DATA ?
 
         # grab the script from the meerkatpolpipeline package
-        import meerkatpolpipeline.download
-        parang_script = Path(meerkatpolpipeline.download) / "go_correct_parang.py"
-
+        from meerkatpolpipeline.download import download  # cant import casa scripts
+        parang_script = Path(download.__file__).parent / "go_correct_parang.py"
                     
         cmd_parang = f"""python {parang_script} \
              --running-inside-sing \
