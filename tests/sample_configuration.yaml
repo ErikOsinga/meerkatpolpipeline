@@ -1,0 +1,103 @@
+version: 0.1
+
+# some default parameters that are unlikely to change
+defaults:
+  # download measurement set
+  download:
+    tries: inf
+    waitretry_seconds: 2
+    # check whether outside 163-3885 have been clipped 
+    # or still 4096 chans. 
+    # If the latter, clip
+    clip_chan_start: 163
+    clip_chan_end: 3885
+    clip_assumed_nchan: 4096
+  
+  # caracal
+  caracal:
+    prefix: caracalpipelinerun
+    backend: singularity
+    caracal_files: '/data2/osinga/meerkatBfields/caracal_files/'
+    # auto determine calibrators ?
+    auto_determine_obsconf: true
+
+  # validation plots for polarisation calibrator
+  check_calibrator:
+    channels_out: 12
+
+  # # run facetselfcal DI + DD + extract
+  # facetselfcal:
+
+  # # ~ 12 channel imaging 
+  # firstpass_cubes:
+
+  # # verify results against NVSS
+  # compare_to_nvss:
+
+  # # in case regridding of freq axis is needed (e.g. multi band imaging)
+  # grid_freq_axis:
+
+  # # full cube imaging
+  # create_iqu_cubes:
+
+  # # run 1D rm synth
+  # rmsynth1d:
+
+  # # create validation plots
+  # validate_rmsynth1d:
+
+  # # run 3D rm synth
+  # rmsynth3d:
+
+  # # create validation plots
+  # validate_rmsynth3d:
+
+  # # create some science plots
+  # science_plots:
+
+download:
+  enable: true
+  link: https://archive-gw-1.kat.ac.za/1728976094-dataexport/1728976094_sdp_l0.ms.tar.gz?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJrYXQtYXJjaGl2ZS5rYXQuYWMuemEiLCJhdWQiOiJhcmNoaXZlLWd3LTEua2F0LmFjLnphIiwiaWF0IjoxNzI5Njg0NzUwLCJwcmVmaXgiOlsiMTcyODk3NjA5NCJdLCJleHAiOjE3MzQ4Njg3NTAsInN1YiI6ImVyaWsub3NpbmdhQHV0b3JvbnRvLmNhIiwic2NvcGVzIjpbInJlYWQiXX0.o6TGTtC3k3hInLqh0FU30ysLXA9z71oj068RXVN_pE5P22byDH95SmgP-bXCnb70Vmf1mS1nwVxClZbf9ix67A
+  output_name: coma_mosaic3_uncalibrated.ms.tar.gz
+
+caracal:
+  enable: true
+  # location of ms
+  msdir: /data2/osinga/meerkatBfields/Abell754/caracal_reduction_2023-03-25/
+  # name of ms,  ".ms" will be appended
+  dataid: "Abell754_default_uncalibrated-2023-03-25"
+  targetfield: "Abell754"
+
+check_calibrator:
+  enable: true
+
+facetselfcal:
+  enable: true
+
+firstpass_cubes:
+  enable: true
+
+compare_to_nvss:
+  enable: true
+
+grid_freq_axis:
+  enable: true
+
+create_iqu_cubes:
+  enable: true
+
+rmsynth1d:
+  enable: true
+
+validate_rmsynth1d:
+  enable: true
+
+rmsynth3d:
+  enable: true
+
+validate_rmsynth3d:
+  enable: true
+
+science_plots:
+  enable: true
+
