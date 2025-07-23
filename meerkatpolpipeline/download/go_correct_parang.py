@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import argparse
 import os
 import subprocess
 import sys
 
+import numpy as np
 from casacore.tables import table
 
 """
@@ -55,6 +57,22 @@ def run_correct_parang(msfile, field_id, container, binds, inside_sing):
     print(f"Running for field ID {field_id}: {' '.join(cmd)}")
     subprocess.run(cmd, check=True, shell=False)
 
+def get_receptor_angle(vis):
+    print(f"Obtaining receptor angle for {vis=}")
+    tb = table(vis + '/FEED', readonly=True) # false for changing
+    angles = tb.getcol('RECEPTOR_ANGLE')
+    # tb.putcol('RECEPTOR_ANGLE', np.zeros_like(angles))
+    tb.close()
+    return angles
+
+def set_receptor_angle(vis, angle_rad):
+    print(f"Setting receptor angle to {angle_rad} radians for {vis=}")
+    tb = table(vis + '/FEED', readonly=False) # false for changing
+    angles = tb.getcol('RECEPTOR_ANGLE')
+    tb.putcol('RECEPTOR_ANGLE', angle_rad*np.ones_like(angles))
+    tb.close()
+    return 
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Run correct_parang.py for each field ID in an MS, optionally inside Singularity"
@@ -89,6 +107,14 @@ def parse_args():
         action='store_true',
         help="If set, skip Singularity exec and run inside the container directly"
     )
+
+    parser.add_argument(
+        '--test-already-done',
+        dest='test_already_done',
+        action='store_true',
+        help="If set, check if RECEPTOR ANGLE has been changed from -90 to 0. If so, assume parang correction is already done."
+    )
+
     return parser.parse_args()
 
 
@@ -98,6 +124,23 @@ def main():
     if not field_ids:
         print(f"No fields found in {args.msfile}")
         return
+    
+    if args.test_already_done:
+        # meerKAT MSes come out with RECEPTOR_ANGLE=-90, which implies parang needs to be corrected
+        print("Checking RECEPTOR ANGLE value in the measurement set. If zero, assuming parang correction is already done.")
+        angles = get_receptor_angle(args.msfile)
+        if (np.degrees(angles) == -90).all():
+            print("RECEPTOR ANGLE is -90 for all fields, assuming parang correction is not done yet.")
+        elif (np.degrees(angles) == 0).all():
+            print("RECEPTOR ANGLE is 0 for all fields, assuming parang correction is already done.")
+            return
+        else:
+            error = "RECEPTOR ANGLE has mixed values. Something went wrong? Please check the MS."
+            print(error)
+            print(f"Found receptor angles in degrees: {np.unique(np.degrees(angles))}")
+            raise ValueError(error)
+
+
     for fid in field_ids:
         run_correct_parang(
             msfile=args.msfile,
@@ -106,15 +149,14 @@ def main():
             binds=args.binds,
             inside_sing=args.running_inside_sing
         )
+    print("All fields processed. Rotated visibilities will be in the CORRECTED_DATA column.")
 
-    #  dp3 doesnt like multiple fields
-    # print("Copying corrected data column to new MS")
-    # run_dp3copy(
-    #     msfile=args.msfile,
-    #     container=args.container,
-    #     binds=args.binds,
-    #     inside_sing=args.running_inside_sing
-    # )
+    # if completed succesfully, set the RECEPTOR_ANGLE to 0
+    print("Setting RECEPTOR_ANGLE to 0 for all fields")
+    set_receptor_angle(
+        vis=args.msfile,
+        angle_rad=0.0
+    )
 
 if __name__ == '__main__':
     main()
