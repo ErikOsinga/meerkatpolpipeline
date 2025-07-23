@@ -19,7 +19,8 @@ dependencies = [
     "astropy",
     "ConfigArgParse",
     "prefect",
-    "pydantic"
+    "pydantic",
+    "spython",
 ]
 
 classifiers = [
