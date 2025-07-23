@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import shutil
-import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.append('/home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline')
+from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.options import BaseOptions
 

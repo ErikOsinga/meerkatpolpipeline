@@ -4,13 +4,10 @@
 from __future__ import annotations
 
 import shutil
-import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
-
-sys.path.append('/home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline')
 
 from meerkatpolpipeline.caracal._caracal import CaracalOptions
 from meerkatpolpipeline.check_calibrator.check_calibrator import CheckCalibratorOptions

@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import os
 import shutil
-import sys
 from pathlib import Path
 
 import yaml
+from prefect.logging import get_run_logger
 
-sys.path.append('/home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline')
-
-from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils import add_timestamp_to_path
 
@@ -78,6 +75,9 @@ class CaracalConfigFile(BaseOptions):
 def auto_determine_calibrators(caracal_options: CaracalOptions) -> CaracalOptions:
     """Automatically determine calibrators"""
 
+    logger = get_run_logger()
+
+
     logger.warning("TODO: automatically determine from MS. Currently hardcoded")
     
     fcal = 'J0408-6545'
@@ -101,6 +101,7 @@ def auto_determine_calibrators(caracal_options: CaracalOptions) -> CaracalOption
 
 def _update_caracal_template_with_options(caracal_template: dict, caracal_config_file_options: CaracalConfigFile) -> dict:
     """Update the caracal template dict with the user-supplied caracal config options"""
+    logger = get_run_logger()
     
     print("TODO: actually update")
     logger.warning("TODO: actually update")
@@ -118,6 +119,7 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
     Returns:
         Path: Copied and timestamped file path
     """
+    logger = get_run_logger()
 
     print("TODO: write yaml to file with same ordering. Probably some regex instead.")
     with open(output_yaml, 'w') as out_file:
@@ -172,6 +174,7 @@ def edit_caracal_template(caracal_options: CaracalOptions, working_dir: Path) ->
 
 
 def start_caracal(caracal_options: CaracalOptions, working_dir: Path) -> None:
+    logger = get_run_logger()
     
     caracal_config_file = edit_caracal_template(caracal_options, working_dir)
 

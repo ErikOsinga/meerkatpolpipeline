@@ -5,13 +5,11 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from configargparse import ArgumentParser
-from prefect import flow  #, tags, unmapped
-
-sys.path.append('/home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline')
+from prefect import flow, task  #, tags, unmapped
+from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.caracal import _caracal
 from meerkatpolpipeline.check_calibrator import check_calibrator
@@ -21,33 +19,34 @@ from meerkatpolpipeline.configuration import (
     load_and_copy_strategy,
     log_enabled_operations,
 )
-from meerkatpolpipeline.download.download import start_download
-from meerkatpolpipeline.logging import logger
+from meerkatpolpipeline.download.download import download_and_extract
+
+# from meerkatpolpipeline.logging import logger
+
+# TODO: submit prefect tasks instead of running sequentially?
+# TODO: look into logging to prefect dashboard with custom logger
 
 
 def check_caracal_run():
     print("TODO: verify that caracal completed succesfully, and return the -cal.ms path location")
 
 
-
-
-
-# @flow(name="MeerKAT L-band pipeline")
+@flow(name="MeerKAT L-band pipeline", log_prints=True)
 def process_science_fields(
     strategy: Strategy,
     working_dir: Path
 ) -> None:
     """
-    Flint flow that will execute all the enabled steps as tasks. 
+    Flow that will execute all the enabled steps as tasks. 
 
     Each task will be done in a subdirectory
     """
 
-    print("TODO")
+    logger = get_run_logger()
 
     enabled_operations = log_enabled_operations(strategy)
 
-    # first step, download & clip channels
+    ########## step 1: download & clip channels ##########
     if "download" in enabled_operations:
         # create subdirectory 'download'
         download_workdir = working_dir / "download"
@@ -55,11 +54,25 @@ def process_science_fields(
 
         download_options = get_options_from_strategy(strategy, operation="download")
         
-        start_download(download_options, working_dir=download_workdir)
+        # download and extract
+        task_start_download = task(download_and_extract, name="download_and_extract")
+        task_start_download(download_options, working_dir=download_workdir)
+
+        # do parang correction
+
+        # clip if requested
+
 
         # TODO: add clipping, which should be checked on re-run, even if the MS is downloaded
+    else:
+        logger.warning("Download step is disabled, skipping download and clipping of channels.")
 
-    # second step, caracal for cross-calibration
+
+    ########## step 2: cross-calibration with either casa or caracal ##########
+    if "caracal" in enabled_operations and "casacrosscal" in enabled_operations:
+        logger.warning("Both caracal and casacrosscal are enabled. This is not supported, please choose one of them.")
+        raise ValueError("Both caracal and casacrosscal are enabled. This is not supported, please choose one of them.")
+    
     if "caracal" in enabled_operations:
         caracal_options = get_options_from_strategy(strategy, operation="caracal")
 
@@ -67,11 +80,21 @@ def process_science_fields(
         # caracal_workdir.mkdir(exist_ok=True) # runs can be repeated
 
         _caracal.start_caracal(caracal_options, working_dir=caracal_workdir)
+    else:
+        logger.info("Caracal step is disabled, skipping caracal cross-calibration.")
 
     # TODO: optionally second step could also be casa script. 
     if "casacrosscal" in enabled_operations:
         print("TODO")
-    
+
+    elif "caracal" not in enabled_operations:
+        logger.warning("Both caracal and casacrosscal are disabled. Skipping cross-calibration")
+
+    else:
+        logger.info("Casacrosscal step is disabled, skipping casacrosscal cross-calibration.")
+        
+
+    ########## step 3: check polarisation calibrator ##########
     if "check_calibrator" in enabled_operations:
         check_calibrator_workdir = working_dir / "check_calibrator"
         check_calibrator_workdir.mkdir(exist_ok=True)
@@ -82,9 +105,42 @@ def process_science_fields(
 
 
         check_calibrator(check_calibrator_options, working_dir=check_calibrator_workdir)
+    else:
+        logger.warning("Check calibrator step is disabled, skipping checking of polarisation calibrator.")
 
 
+    ########## step 4: facetselfcal ##########
+    # DI
+    # DD
+    # Extract
+    # then DI or DD on extracted field as well
 
+    ########## step 5: IQUV cube image 12 channel ##########
+    # do I image separate from QUV
+    
+
+    ########## step 6: prelim. check of IQUV cubes vs NVSS ##########
+
+
+    ########## step 7: Resample the frequency axis if requested (required for L-band + UHF imaging) ##########
+
+
+    ########## step 8: Many-channel IQU imaging ##########
+
+
+    ########## step 9: RM synthesis 1D ##########
+
+
+    ########## step 10: Verify RMSynth1D ##########
+
+
+    ########## step 11: RM synthesis 3D ##########
+
+
+    ########## step 12: Verify RMSynth3D ##########
+
+
+    ########## step 13: Science plots ##########
 
     
 def setup_run(
@@ -100,19 +156,21 @@ def setup_run(
     # TODO: this could be improved by setting the targetfield as a separate input in the config file?
     target = strategy['targetfield']
 
-    logger.info(f"Starting pipeline for {target=}")
+    print(f"Starting pipeline for {target=}")
 
-    process_science_fields(
+    # when testing without prefect
+    # process_science_fields(
+    #     strategy=strategy,
+    #     working_dir=working_dir
+    # )
+
+    process_science_fields.with_options(
+        name=f"MeerKAT L-band pipeline - {target}"
+        # , task_runner=dask_task_runner
+    )(
         strategy=strategy,
         working_dir=working_dir
     )
-
-    # process_science_fields.with_options(
-    #     name=f"MeerKAT L-band pipeline - {target}"
-    #     # , task_runner=dask_task_runner
-    # )(
-    #     strategy=strategy,
-    # )
 
 
 def get_parser() -> ArgumentParser:

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import os
+import subprocess
 from pathlib import Path
 
-from meerkatpolpipeline.logging import logger
+from prefect.logging import get_run_logger
+
 from meerkatpolpipeline.options import BaseOptions
 
+# from meerkatpolpipeline.logging import logger
 
 class DownloadOptions(BaseOptions):
     """A basic class to handle download options. """
@@ -17,7 +19,9 @@ class DownloadOptions(BaseOptions):
     link: Path | None = None
     """Path to MeerKAT direct download link"""
     output_name: Path | None = None
-    """Path to output name, e.g. target_uncalibrated.ms.tar.gz"""
+    """Path to output name of download, e.g. target_uncalibrated.ms.tar.gz"""
+    ms_name: Path | None = None
+    """Path to output name of untarred ms, e.g. target_uncalibrated.ms"""
     tries: int | str = "inf"
     """amount of tries in wget call, integer or 'inf' for infinite tries."""
     waitretry_seconds: int = 2
@@ -29,22 +33,82 @@ class DownloadOptions(BaseOptions):
     clip_chan_end: int = 3885
     """clip channels from MS after this number"""
 
-def start_download(downloadoptions: DownloadOptions, working_dir: Path, test: bool = False) -> str:
+def execute_command(cmd: str) -> subprocess.CompletedProcess:
+    """Wrapper around cmd with error handling"""
+    
+    logger = get_run_logger()
+    logger.info("Executing command:")
+    logger.info(cmd)
 
-    output_path = working_dir / downloadoptions.output_name.name
+    try:
+        # Run the command and capture the output
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed (exit {e.returncode}):\n")
+        logger.info(e.stderr) #  or e.stdout or ""
+        logger.info(e.returncode)
+        raise e
+    
+    return result
 
-    cmd = f"wget --tries {downloadoptions.tries} --waitretry={downloadoptions.waitretry_seconds} -c -O {output_path} {downloadoptions.link}"
+def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, test: bool = False) -> Path:
+    """
+    Download MS from MeerKAT direct download link and extract it if necessary.
+    If the MS is already downloaded, it will return the path to the MS.
+    Args:
+        downloadoptions (DownloadOptions): Options for the download.
+        working_dir (Path): Directory to work in.
+        test (bool, optional): If True, will not execute the command, but only log it. Defaults to False.
+    Returns:
+        ms_path (Path): path to measurementset
+    """
+    logger = get_run_logger()
 
-    # todo: capture command?
-    if not test:
-        logger.info("Starting download command:")
-        logger.info(cmd)
-        os.system(cmd)
-    else:
-        logger.info("Created download command:")
-        logger.info(cmd)
-        logger.info("Not executing as test=True")
+    output_path = working_dir / downloadoptions['output_name']
+    ms_path = working_dir / downloadoptions['ms_name']
 
-    return cmd
+    # Check if ms_path is already an existing directory
+    if ms_path.exists():
+        logger.info(f"The output MS '{ms_path}' already exists. Assuming MS is already downloaded")
+        execute_command('ls')
+        return ms_path
+    
+    # check if we're downloading a .tar.gz file or .ms file directly
+    link_is_tar = False
+    if ".tar.gz" in downloadoptions['link']:
+        logger.info("Downloading a .tar.gz file, will extract it after download.")
+        link_is_tar = True
+
+    if output_path.exists():
+        logger.info(f"The output path '{output_path}' already exists. Assuming MS is already downloaded")
+
+    else: # download MS from link
+        cmd = f"wget --tries {downloadoptions['tries']} --waitretry={downloadoptions['waitretry_seconds']} -c -O {output_path} {downloadoptions['link']}"
+        
+        if not test:
+            execute_command(cmd)
+        else:
+            logger.info("Created download command:")
+            logger.info(cmd)
+            logger.info("Not executing as test=True")
+    
+    if link_is_tar:
+        logger.info(f"Extracting {output_path} to {ms_path}")
+        # extract the tar.gz file
+        cmd = f"tar -xzf {output_path} -C {working_dir}"
+        execute_command(cmd)
+        # grab the MS name from the download link
+        unpacked_ms_name = working_dir / downloadoptions['link'].name.split('.tar.gz')[0]
+        # check whether we can find it
+        assert unpacked_ms_name.exists(), f"Unpacked MS {unpacked_ms_name} does not exist, please check the download link and the tar.gz file."
+        # rename the MS to the expected name
+        unpacked_ms_name.rename(ms_path)
+
+    return ms_path
 
 
