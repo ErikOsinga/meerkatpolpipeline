@@ -49,6 +49,8 @@ def process_science_fields(
 
     enabled_operations = log_enabled_operations(strategy)
 
+    lofar_container = Path(strategy['lofar_container'])
+
     ########## step 1: download & clip channels ##########
     if "download" in enabled_operations:
         # create subdirectory 'download'
@@ -65,7 +67,7 @@ def process_science_fields(
         task_msoverview_summary = task(msoverview_summary, name="msoverview_summary")
         ms_summary = task_msoverview_summary(
             binds=[str(ms_path.parent)],
-            container=strategy['lofar_container'],
+            container=lofar_container,
             ms=ms_path,
             output_to_file= download_workdir / "msoverview_summary.txt",
         )
@@ -86,7 +88,7 @@ def process_science_fields(
         # task_parang_correction(cmd_parang, test=True) # set test=True to not execute the command, but only log it
 
         task_parang_correction = run_singularity_command
-        task_parang_correction(strategy['lofar_container'], cmd_parang, bind_dirs=ms_path, max_retries=1)
+        task_parang_correction(lofar_container, cmd_parang, bind_dirs=ms_path, max_retries=1)
 
         # clip if requested
 

@@ -12,12 +12,12 @@ from typing import Any, Dict, List
 from meerkatpolpipeline.utils import execute_command
 
 
-def msoverview_summary(binds: List[Path], container: str, ms: str, output_to_file: str = "./file.txt") -> Dict[str, Any]:
+def msoverview_summary(binds: List[Path], container: Path, ms: Path, output_to_file: Path = "./file.txt") -> Dict[str, Any]:
     """
     Run msoverview on a measurement set within a Singularity container and parse its summary.
 
     Parameters:
-        binds: List of directories to bind into the container (e.g. ["/data2", "/net/rijn9/"]).
+        binds: List of Paths to bind into the container (e.g. ["/data2", "/net/rijn9/"]).
         container: Path to the Singularity .sif container.
         ms: Path to the input MeasurementSet.
         output_to_file: Path where the raw msoverview output will be written.
