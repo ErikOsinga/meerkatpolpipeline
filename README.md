@@ -4,6 +4,14 @@ MeerKAT polarisation data reduction and analysis
 
 Assuming Python 3.11 for the bookkeeping scripts in this directory, though most actual software is run in Singularity containers.
 
+## Running the pipeline
+[TODO]
+
+e.g.
+```
+python meerkatpolpipeline/flows/Lband_reduction.py --cli-config-file ./meerkatpolpipeline/tests/temp_sample_configuration.yaml --working-dir ./meerkatpolpipeline/tests/temp
+```
+
 ## Installation
 
 Install e.g. with
