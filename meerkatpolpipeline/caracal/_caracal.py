@@ -20,7 +20,9 @@ class CrossCalOptions(BaseOptions):
     """A basic class to handle caracal options for meerkatpolpipeline. """
     
     enable: bool
-    """enable this step? Default False"""
+    """enable this step? Required parameter"""
+    which: str
+    """which cross-calibration to use, either 'caracal' or 'casacrosscal'. Required parameter"""
     targetfield: str | None = None
     """name of targetfield"""
     caracal_template_strategy: Path | None = None
