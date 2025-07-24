@@ -190,6 +190,6 @@ def start_caracal(caracal_options: CaracalOptions, working_dir: Path) -> None:
         file.write(f"caracal -ct singularity -c {caracal_config_file}")
 
     logger.info("Starting caracal")
-    # TODO check where caracal runs, it might be the parent directory actually..
+    # caracal always runs in the working dir
     os.system(f"bash {working_dir / 'go_caracal.sh'}")
 

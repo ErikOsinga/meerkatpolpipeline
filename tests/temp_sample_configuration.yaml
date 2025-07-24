@@ -51,13 +51,19 @@ download_preprocess:
   # ms_name is what to call the (extracted) ms.
   ms_name: coma_mosaic3_uncalibrated.ms
   # if downloading the MS directly, previous two can be the same value
+  
+  # NOTE:
+  # unless 'msdir' and 'dataid' are given in the caracal step below
+  # then even if download step is disabled, ms_name will be used to determine the
+  # location of the MS, so it can be used in caracal.
 
 caracal:
   enable: false
-  # location of ms, and where caracal will write, make sure its fairly empty for clarity.
-  msdir: /data2/osinga/meerkatBfields/Abell754/caracal_reduction_2023-03-25/
-  # name of ms,  ".ms" will be appended
+  # OPTIONAL: location of ms, and where caracal will write, make sure its fairly empty for clarity.
+  msdir: /data2/osinga/meerkatBfields/Abell754/caracal_reduction/
+  # OPTIONAL: name of ms,  ".ms" will be appended
   dataid: "Abell754_default_uncalibrated-2023-03-25"
+  # if those are not given, will create them as --workdir/ms_name from the download_preprocess step
 
 check_calibrator:
   enable: false

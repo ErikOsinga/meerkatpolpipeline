@@ -53,7 +53,7 @@ def process_science_fields(
     casa_container = Path(strategy['casa_container'])
 
     # check for additional bind directory
-    if 'casa_additional_bind' in strategy.keys():
+    if 'casa_additional_bind' in strategy:
         casa_additional_bind = strategy['casa_additional_bind']
         if isinstance(casa_additional_bind, str):
             casa_additional_bind = [casa_additional_bind]
@@ -62,13 +62,12 @@ def process_science_fields(
         casa_additional_bind = []
 
     ########## step 1: download & clip channels ##########
+    download_options = get_options_from_strategy(strategy, operation="download_preprocess")
+    download_workdir = working_dir / "download"
     if "download_preprocess" in enabled_operations:
         # create subdirectory 'download'
-        download_workdir = working_dir / "download"
         download_workdir.mkdir(exist_ok=True) # runs can be repeated
 
-        download_options = get_options_from_strategy(strategy, operation="download_preprocess")
-        
         #### 1.1 download and extract
         task_start_download = task(download_and_extract, name="download_and_extract")
         ms_path = task_start_download(download_options, working_dir=download_workdir)
@@ -123,8 +122,12 @@ def process_science_fields(
         logger.info("Download and preprocessing step completed.")
         logger.info(f"Preprocessed MS created at {preprocessed_ms}")
 
+        # TODO: clean up .tar.gz file if user requests?
+
     else:
-        logger.warning("Download step is disabled, skipping download and clipping of channels.")
+        logger.warning("Download step is disabled, skipping download and preprocessing.")
+        preprocessed_ms = ms_path.parent / f"{ms_path.stem}_preprocessed.ms"
+        logger.info(f"Assuming preprocessed MS is available at {preprocessed_ms}. If not, please enable the download step in the strategy file.")
 
 
     ########## step 2: cross-calibration with either casa or caracal ##########
@@ -135,9 +138,25 @@ def process_science_fields(
     if "caracal" in enabled_operations:
         caracal_options = get_options_from_strategy(strategy, operation="caracal")
 
-        caracal_workdir = caracal_options['msdir'] # caracal will always work in the msdir directory
-        # caracal_workdir.mkdir(exist_ok=True) # runs can be repeated
+        if caracal_options['msdir'] is None:
+            logger.info(f"Caracal msdir is not set. Will run caracal {working_dir / 'caracal'}")
+            caracal_options['msdir'] = working_dir / "caracal"
+        if caracal_options['dataid'] is None:
+            logger.info(f"Caracal dataid is not set. Will assume ms name from download+preprocess step: {preprocessed_ms.name}")
+            caracal_options['dataid'] = preprocessed_ms.stem # use stem to avoid .ms extension
 
+        caracal_workdir = caracal_options['msdir'] # caracal will always work in the msdir directory
+        caracal_workdir.mkdir(exist_ok=True) # runs can be repeated
+        
+        # symlink the preprocessed MS to the caracal workdir
+        preprocessed_ms_symlink = caracal_workdir / preprocessed_ms.name
+        if not preprocessed_ms_symlink.exists():
+            logger.info(f"Creating symlink for preprocessed MS at {preprocessed_ms_symlink}")
+            preprocessed_ms_symlink.symlink_to(preprocessed_ms)
+        else:
+            logger.info(f"Symlink for preprocessed MS already exists at {preprocessed_ms_symlink}, skipping symlink creation.")
+        
+        # start caracal
         _caracal.start_caracal(caracal_options, working_dir=caracal_workdir)
     else:
         logger.info("Caracal step is disabled, skipping caracal cross-calibration.")
