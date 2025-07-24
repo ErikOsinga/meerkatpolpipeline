@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import os
 import shutil
 from pathlib import Path
@@ -8,10 +9,14 @@ import yaml
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.options import BaseOptions
-from meerkatpolpipeline.utils import add_timestamp_to_path
+from meerkatpolpipeline.utils import (
+    add_timestamp_to_path,
+    check_create_symlink,
+    find_calibrated_ms,
+)
 
 
-class CaracalOptions(BaseOptions):
+class CrossCalOptions(BaseOptions):
     """A basic class to handle caracal options for meerkatpolpipeline. """
     
     enable: bool
@@ -103,7 +108,7 @@ def obtain_by_intent(mapping: dict, intent: str):
             return key, fid
     raise ValueError(f"Did not find {intent=} automatically.")
 
-def determine_calibrators(caracal_options: CaracalOptions, ms_summary: dict) -> CaracalOptions:
+def determine_calibrators(caracal_options: CrossCalOptions, ms_summary: dict) -> CrossCalOptions:
     """Determine calibrators automatically or from user input"""
 
     logger = get_run_logger()
@@ -141,6 +146,49 @@ def determine_calibrators(caracal_options: CaracalOptions, ms_summary: dict) -> 
 
     return caracal_options
 
+def write_crosscal_csv(
+    crosscal_options: dict[str, str | None],
+    output_path: str
+) -> Path:
+    """
+    Write a CSV file with columns: field_id, field_name, intent_string,
+    based on the entries in crosscal_options.
+
+    This function is used when 'auto_determine_obsconf' is False,
+    and the user has supplied the calibrators manually.
+    The output CSV will contain the calibrators and their intents
+
+    Only options with non‑None values are written.
+    """
+    # map each option key to its intent string
+    intent_map: dict[str, str] = {
+        "obsconf_target":    "TARGET",
+        "obsconf_xcal":      "CALIBRATE_POL",
+        "obsconf_bpcal":     "CALIBRATE_BANDPASS",
+        "obsconf_fcal":      "CALIBRATE_FLUX",
+        "obsconf_gcal":      "CALIBRATE_PHASE",
+    }
+
+    with open(output_path, mode="w", newline="") as csvfile:
+        writer = csv.DictWriter(
+            csvfile,
+            fieldnames=["field_id", "field_name", "intent_string"]
+        )
+        writer.writeheader()
+
+        for key, intent in intent_map.items():
+            value = crosscal_options.get(key)
+            if value is None:
+                continue
+
+            writer.writerow({
+                "field_id": None,
+                "field_name": value,
+                "intent_string": intent
+            })
+
+    return output_path
+
 def _update_caracal_template_with_options(caracal_template: dict, caracal_config_file_options: CaracalConfigFile) -> dict:
     """Update the caracal template dict with the user-supplied caracal config options"""
         
@@ -174,7 +222,7 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
 
     return Path(stamped_caracal_strategy)
 
-def edit_caracal_template(caracal_options: CaracalOptions, working_dir: Path) -> Path:
+def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -> Path:
     """Take the base template for a caracal strategy and update MS path, calibrators etc"""
 
     # map the input user options to the caracal names
@@ -209,14 +257,14 @@ def edit_caracal_template(caracal_options: CaracalOptions, working_dir: Path) ->
 
 
 def start_caracal(
-        caracal_options: CaracalOptions,
+        caracal_options: CrossCalOptions,
         working_dir: Path,
         ms_summary: dict | None = None,
     ) -> Path:
     """
     Start a caracal reduction run using the caracal options and working directory.
     Args:
-        caracal_options (CaracalOptions): Options for the caracal run.
+        caracal_options (CrossCalOptions): Options for the caracal run.
         working_dir (Path): Directory to work in.
         ms_summary (dict | None): Summary of the measurement set, if available.
                                   Required if caracal_options['auto_determine_obsconf'] is True.
@@ -252,3 +300,46 @@ def start_caracal(
     os.system(f"bash {working_dir / 'go_caracal.sh'}")
 
     return working_dir
+
+def do_caracal_crosscal(
+        crosscal_options: CrossCalOptions,
+        preprocessed_ms: Path,
+        crosscal_base_dir: Path,
+        ms_summary: dict
+    ) -> Path:
+    """Run the caracal cross-calibration step."""
+    logger = get_run_logger()
+
+    # field_intents_csv = crosscal_base_dir / "field_intents.csv"
+
+    # Check if caracal was already done by a previous run
+    calibrated_ms = find_calibrated_ms(crosscal_base_dir, preprocessed_ms, look_in_subdirs=['caracal'])
+    if calibrated_ms is not None:
+        logger.info(f"Caracal cross-calibration already done, found calibrated MS at {calibrated_ms}. Skipping caracal step.")
+        return calibrated_ms.parent
+
+    else: # the actual caracal step
+        caracal_workdir = crosscal_base_dir / "caracal"
+
+        # symlink the preprocessed MS to the caracal workdir
+        # we do this because caracal writes all files to the parent of the MS
+        preprocessed_ms_symlink = caracal_workdir / preprocessed_ms.name
+        preprocessed_ms_symlink = check_create_symlink(preprocessed_ms_symlink, preprocessed_ms)
+
+        if crosscal_options['msdir'] is None:
+            logger.info(f"Caracal msdir is not set. Will run caracal in {crosscal_base_dir / 'caracal'}")
+            crosscal_options['msdir'] = crosscal_base_dir / "caracal"
+        if crosscal_options['dataid'] is None:
+            logger.info(f"Caracal dataid is not set. Will assume ms name from download+preprocess step: {preprocessed_ms.name}")
+            crosscal_options['dataid'] = preprocessed_ms.stem # use stem to avoid .ms extension
+
+        caracal_workdir = crosscal_options['msdir'] # caracal will always work in the msdir directory
+        caracal_workdir.mkdir(exist_ok=True) # runs can be repeated
+        
+        logger.info(f"Starting caracal with {preprocessed_ms_symlink} in {caracal_workdir}")
+
+        # start caracal
+        start_caracal(crosscal_options, working_dir=caracal_workdir, ms_summary=ms_summary)
+
+        # return the path we did cross-calibration in
+        return caracal_workdir

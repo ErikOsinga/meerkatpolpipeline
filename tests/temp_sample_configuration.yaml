@@ -57,8 +57,10 @@ download_preprocess:
   # then even if download step is disabled, ms_name will be used to determine the
   # location of the MS, so it can be used in caracal.
 
-caracal:
+crosscal:
   enable: false
+  # either caracal or casa
+  which: caracal
   # OPTIONAL: location of ms, and where caracal will write, make sure its fairly empty for clarity.
   msdir: /data2/osinga/meerkatBfields/Abell754/caracal_reduction/
   # OPTIONAL: name of ms,  ".ms" will be appended
@@ -67,3 +69,4 @@ caracal:
 
 check_calibrator:
   enable: false
+  # crosscal_ms: will be determined automatically if not given

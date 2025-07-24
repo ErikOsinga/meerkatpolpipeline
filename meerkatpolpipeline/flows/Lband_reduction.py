@@ -12,6 +12,7 @@ from prefect import flow, task  #, tags, unmapped
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.caracal import _caracal
+from meerkatpolpipeline.casacrosscal import casacrosscal
 from meerkatpolpipeline.check_calibrator import check_calibrator
 from meerkatpolpipeline.configuration import (
     Strategy,
@@ -23,6 +24,7 @@ from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import msoverview_summary
 from meerkatpolpipeline.sclient import run_singularity_command
+from meerkatpolpipeline.utils import check_create_symlink, find_calibrated_ms
 
 # from meerkatpolpipeline.logging import logger
 
@@ -134,70 +136,64 @@ def process_science_fields(
 
 
     ########## step 2: cross-calibration with either casa or caracal ##########
-    crosscal_dir = working_dir / "crosscal"
-    crosscal_dir.mkdir(exist_ok=True) # runs can be repeated
+    crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
+    crosscal_base_dir.mkdir(exist_ok=True) # runs can be repeated
 
-    if "caracal" in enabled_operations and "casacrosscal" in enabled_operations:
-        logger.warning("Both caracal and casacrosscal are enabled. This is not supported, please choose one of them.")
-        raise ValueError("Both caracal and casacrosscal are enabled. This is not supported, please choose one of them.")
-    
-    if "caracal" in enabled_operations:
-        logger.info("Caracal cross-calibration step is enabled, starting caracal cross-calibration.")
+    if "crosscal" in enabled_operations:
+        logger.info("Cross-calibration step is enabled, starting cross-calibration.")
 
-        caracal_options = get_options_from_strategy(strategy, operation="caracal")
+        crosscal_options = get_options_from_strategy(strategy, operation="crosscal")
 
-        if caracal_options['msdir'] is None:
-            logger.info(f"Caracal msdir is not set. Will run caracal in {crosscal_dir / 'caracal'}")
-            caracal_options['msdir'] = crosscal_dir / "caracal"
-        if caracal_options['dataid'] is None:
-            logger.info(f"Caracal dataid is not set. Will assume ms name from download+preprocess step: {preprocessed_ms.name}")
-            caracal_options['dataid'] = preprocessed_ms.stem # use stem to avoid .ms extension
-
-        caracal_workdir = caracal_options['msdir'] # caracal will always work in the msdir directory
-        caracal_workdir.mkdir(exist_ok=True) # runs can be repeated
-        
-        # symlink the preprocessed MS to the caracal workdir
-        preprocessed_ms_symlink = caracal_workdir / preprocessed_ms.name
-        if not preprocessed_ms_symlink.exists():
-            logger.info(f"Creating symlink for preprocessed MS at {preprocessed_ms_symlink}")
-            preprocessed_ms_symlink.symlink_to(preprocessed_ms)
-        else:
-            logger.info(f"Symlink for preprocessed MS already exists at {preprocessed_ms_symlink}, skipping symlink creation.")
-        
+        field_intents_csv = crosscal_base_dir / "field_intents.csv"
 
         # get MS summary, optionally with scan intents if user wants auto determined calibrators
         task_msoverview_summary = task(msoverview_summary, name="msoverview_summary")
         ms_summary = task_msoverview_summary(
-            binds=[str(preprocessed_ms_symlink.parent)],
+            binds=[str(preprocessed_ms.parent)],
             container=lofar_container,
-            ms=preprocessed_ms_symlink,
-            output_to_file= caracal_workdir / "msoverview_summary.txt",
-            get_intents=caracal_options["auto_determine_obsconf"]
+            ms=preprocessed_ms,
+            output_to_file= crosscal_base_dir / "msoverview_summary.txt",
+            get_intents=crosscal_options["auto_determine_obsconf"]
         )
-        logger.info(f"Starting caracal with {preprocessed_ms_symlink} in {caracal_workdir}")
+        if not crosscal_options['auto_determine_obsconf']:
+            # then the calibrators should be set by the user. Write to an intent file
+            logger.info(f"Auto-determination of obsconf is disabled, writing user-defined field intents to {field_intents_csv}.")
+            _caracal.write_crosscal_csv(crosscal_options, output_path=field_intents_csv)
+
         logger.info(f"{ms_summary=}")
-
-        # start caracal
-        _caracal.start_caracal(caracal_options, working_dir=caracal_workdir, ms_summary=ms_summary)
-    else:
-        logger.info("Caracal step is disabled, skipping caracal cross-calibration.")
-
-    # TODO: optionally second step could also be casa script. 
-    if "casacrosscal" in enabled_operations:
-        logger.info("Casa crosscal step is enabled, starting casa cross-calibration.")
-        casa_workdir = crosscal_dir / "casacrosscal"
-        casa_options = get_options_from_strategy(strategy, operation="casacrosscal")
-        print("TODO: implement casa script for cross-calibration")
-
-    elif "caracal" not in enabled_operations:
-        logger.warning("Both caracal and casacrosscal are disabled. Skipping cross-calibration")
-
-    else:
-        logger.info("Casacrosscal step is disabled, skipping casacrosscal cross-calibration.")
         
 
-    # make sure that the result is clearly propagated. 
-    # Should we proceed with caracal-cal.ms or casacrosscal-cal.ms?
+        # Then do specifically caracal or casa crosscal
+        
+        ############ 2. option 1: caracal cross-calibration step ############
+        if crosscal_options['which'] == 'caracal':
+            logger.info("Caracal cross-calibration step is enabled, starting caracal cross-calibration.")
+            crosscal_dir = _caracal.do_caracal_crosscal(crosscal_options, preprocessed_ms, crosscal_base_dir, ms_summary)
+
+        ############ 2. option 2: caracal cross-calibration step ############
+        elif crosscal_options['which'] == 'casacrosscal':
+            logger.info("Casa crosscal step is enabled, starting casa cross-calibration.")
+            crosscal_dir = casacrosscal.do_casa_crosscal(crosscal_options, preprocessed_ms, crosscal_base_dir, ms_summary)
+
+        ############ 2. option 3: oopsie, user has made a mistake ############
+        else:
+            logger.error(f"Invalid crosscal option '{crosscal_options['which']}'. Expected 'caracal' or 'casacrosscal'.")
+            raise ValueError(f"Invalid crosscal option '{crosscal_options['which']}'. Expected 'caracal' or 'casacrosscal'.")
+
+    else:
+        logger.warning("Crosscal is disabled. Skipping cross-calibration.")
+        crosscal_dir = None
+        
+
+    # check if we should proceed with caracal-cal.ms or casacrosscal-cal.ms based on user options
+    if crosscal_dir is None:
+        logger.warning(f"No cross-calibration step was performed, checking for calibrated MS in {crosscal_base_dir}")
+        calibrated_ms = find_calibrated_ms(crosscal_base_dir, preprocessed_ms)
+        if calibrated_ms is None:
+            raise ValueError(
+                f"No calibrated measurement set found in {crosscal_base_dir}. Please enable either caracal or casacrosscal step in the strategy file."
+            )
+        crosscal_dir = calibrated_ms.parent
 
     ########## step 3: check polarisation calibrator ##########
     if "check_calibrator" in enabled_operations:
@@ -205,10 +201,12 @@ def process_science_fields(
         check_calibrator_workdir.mkdir(exist_ok=True)
 
         check_calibrator_options = get_options_from_strategy(strategy, operation="check_calibrator")
+        
+        # check for user overwrite
+        if check_calibrator_options['crosscal_ms'] is None:
+            check_calibrator_options['crosscal_ms'] = crosscal_dir / (preprocessed_ms.stem + "-cal.ms")
 
-        # need location of calibrator measurement set to split the polcal
-
-
+        # split calibrator, make images, and validation plots
         check_calibrator(check_calibrator_options, working_dir=check_calibrator_workdir)
     else:
         logger.warning("Check calibrator step is disabled, skipping checking of polarisation calibrator.")

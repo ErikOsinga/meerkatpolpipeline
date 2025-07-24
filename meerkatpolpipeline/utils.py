@@ -57,3 +57,39 @@ def execute_command(cmd: str, test: bool = False) -> subprocess.CompletedProcess
         raise e
     
     return result
+
+def check_create_symlink(symlink: Path, original_path: Path) -> Path:
+    """
+    check if 'symlink' exists, if not create it, linking to 'original_path'
+    """
+    logger = get_run_logger()
+    if not symlink.exists():
+        logger.info(f"Creating symlink at {symlink}")
+        symlink.symlink_to(original_path)
+    else:
+        logger.info(f"Symlink {symlink} already exists. Skipping symlink creation.")
+    return symlink
+
+def find_calibrated_ms(
+        crosscal_base_dir: Path,
+        preprocessed_ms: Path,
+        look_in_subdirs: list = ["caracal", "casacrosscal"]
+    ) -> Path | None:
+    """
+    If both crosscal steps are disabled, check for the existence of a calibrated
+    measurement set in either the "caracal" or "casacrosscal" subdirectory
+
+    Args:
+        crosscal_base_dir (Path): Base directory where the crosscal directories are located.
+        preprocessed_ms (Path): Path to the preprocessed measurement set.
+        look_in_subdirs (list): List of subdirectories to look for the calibrated measurement set.
+                                 Defaults to ["caracal", "casacrosscal"].
+    Returns:
+        Path | None: Path to the calibrated measurement set if found, otherwise None.
+    """
+
+    for subdir in look_in_subdirs:
+        ms_path = crosscal_base_dir / subdir / (preprocessed_ms.stem + "-cal.ms")
+        if ms_path.exists():
+            return ms_path
+    return None
