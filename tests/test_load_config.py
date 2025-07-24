@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from meerkatpolpipeline.configuration import load_and_copy_strategy
