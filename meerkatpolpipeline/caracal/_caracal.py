@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 from prefect.logging import get_run_logger
 
+from meerkatpolpipeline.measurementset import msoverview_summary
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils import (
     add_timestamp_to_path,
@@ -316,9 +317,15 @@ def do_caracal_crosscal(
         crosscal_options: CrossCalOptions,
         preprocessed_ms: Path,
         crosscal_base_dir: Path,
-        ms_summary: dict
+        ms_summary: dict,
+        lofar_container: Path | None = None
     ) -> Path:
-    """Run the caracal cross-calibration step."""
+    """Run the caracal cross-calibration step.
+    
+    lofar_container is only required if user overwrites the input MS to caracal
+    in that case we need it to do msoverview on the MS to get the summary.
+
+    """
     logger = get_run_logger()
 
     # field_intents_csv = crosscal_base_dir / "field_intents.csv"
@@ -349,6 +356,16 @@ def do_caracal_crosscal(
             # user overwrites the dataid, probably also the 'msdir', but not strictly required.
             preprocessed_ms_symlink = crosscal_options['msdir'] / (crosscal_options['dataid'] + ".ms")
             logger.info(f"Using user-supplied dataid {crosscal_options['dataid']} for caracal, will assume preprocessed data is in {preprocessed_ms_symlink}")
+
+            # in that case we have to recompute the ms summary
+            ms_summary = msoverview_summary(
+                binds=[str(preprocessed_ms.parent)],
+                container=lofar_container,
+                ms=preprocessed_ms,
+                output_to_file= crosscal_base_dir / "msoverview_summary.txt",
+                get_intents=crosscal_options["auto_determine_obsconf"]
+            )
+
 
         caracal_workdir = crosscal_options['msdir'] # caracal will always work in the msdir directory
         caracal_workdir.mkdir(exist_ok=True) # runs can be repeated
