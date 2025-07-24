@@ -42,7 +42,7 @@ def msoverview_summary(
           - 'field_intents' (dict[int, tuple[str, str]]) if get_intents is True
     """
     # build and run the command
-    bind_str = ",".join(binds)
+    bind_str = ",".join([str(b) for b in binds])
     cmd = [
         "singularity", "exec",
         "-B", bind_str,
@@ -151,7 +151,7 @@ def get_field_intents(
     binds += [intents_script_dir]
 
     # build and run the command
-    bind_str = ",".join(binds)
+    bind_str = ",".join([str(b) for b in binds])
     cmd = [
         "singularity", "exec",
         "-B", bind_str,
