@@ -359,9 +359,9 @@ def do_caracal_crosscal(
 
             # in that case we have to recompute the ms summary
             ms_summary = msoverview_summary(
-                binds=[str(preprocessed_ms.parent)],
+                binds=[str(preprocessed_ms_symlink.parent)],
                 container=lofar_container,
-                ms=preprocessed_ms,
+                ms=preprocessed_ms_symlink,
                 output_to_file= crosscal_base_dir / "msoverview_summary.txt",
                 get_intents=crosscal_options["auto_determine_obsconf"]
             )
