@@ -82,8 +82,8 @@ class CaracalConfigFile(BaseOptions):
     refant: str
     """e.g. m024"""
 
-def obtain_by_intent(mapping: dict, intent: str):
-    """return fieldname: str and field id: str(int)
+def obtain_by_intent(mapping: dict, intent: str) -> tuple[int, str]:
+    """return field id (int) and field_name (str) from a mapping dict
     
     for either:
 
@@ -105,11 +105,11 @@ def obtain_by_intent(mapping: dict, intent: str):
     if intent not in intent_to_map.keys():
         raise ValueError(f"{intent=} This is not one of {intent_to_map.keys()}")
 
-    for key, value in mapping.items():
-        fid, intents = value
+    for fid, value in mapping.items():
+        fieldname, intents = value
         if intent_to_map[intent] in intents:
-            return key, fid
-    raise ValueError(f"Did not find {intent=} automatically.")
+            return fid, fieldname
+    raise ValueError(f"Did not find {intent=} automatically. Looked in {mapping}.")
 
 def determine_calibrators(caracal_options: CrossCalOptions, ms_summary: dict) -> CrossCalOptions:
     """Determine calibrators automatically or from user input"""
@@ -122,10 +122,10 @@ def determine_calibrators(caracal_options: CrossCalOptions, ms_summary: dict) ->
         if ms_summary is None:
             raise ValueError("ms_summary must be provided if 'auto_determine_obsconf' is True")
         
-        fcal = obtain_by_intent(ms_summary['field_intents'], 'fluxcal')
-        bpcal = obtain_by_intent(ms_summary['field_intents'], 'bpcal')
-        gcal = obtain_by_intent(ms_summary['field_intents'], 'gaincal')
-        xcal = obtain_by_intent(ms_summary['field_intents'], 'polcal')
+        fcal_id, fcal = obtain_by_intent(ms_summary['field_intents'], 'fluxcal')
+        bpcal_id, bpcal = obtain_by_intent(ms_summary['field_intents'], 'bpcal')
+        gcal_id, gcal = obtain_by_intent(ms_summary['field_intents'], 'gaincal')
+        xcal_id, xcal = obtain_by_intent(ms_summary['field_intents'], 'polcal')
         
         # update the caracal options with the automatically determined calibrators
         update_caracal_options = {
