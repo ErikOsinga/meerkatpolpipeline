@@ -156,7 +156,7 @@ def get_field_intents(
         "singularity", "exec",
         "-B", bind_str,
         container,
-        "python", f"{intents_script} {ms} --outfile_csv {output_to_file}",
+        f"python {intents_script} {ms} --outfile_csv {output_to_file}",
     ]
 
     execute_command(cmd)
