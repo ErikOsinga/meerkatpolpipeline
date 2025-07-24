@@ -81,7 +81,7 @@ def process_science_fields(
             output_to_file= download_workdir / "msoverview_summary.txt",
         )
 
-        #### 1.2 parang correction, if not done yet.
+        #### 1.2 parang correction
 
         # grab the script from the meerkatpolpipeline package
         from meerkatpolpipeline.download import download  # cant import casa scripts
@@ -159,19 +159,21 @@ def process_science_fields(
         else:
             logger.info(f"Symlink for preprocessed MS already exists at {preprocessed_ms_symlink}, skipping symlink creation.")
         
-        # get MS summary
+
+        # get MS summary, optionally with scan intents if user wants auto determined calibrators
         task_msoverview_summary = task(msoverview_summary, name="msoverview_summary")
         ms_summary = task_msoverview_summary(
             binds=[str(preprocessed_ms_symlink.parent)],
             container=lofar_container,
             ms=preprocessed_ms_symlink,
             output_to_file= caracal_workdir / "msoverview_summary.txt",
+            get_intents=caracal_options["auto_determine_obsconf"]
         )
         logger.info(f"Starting caracal with {preprocessed_ms_symlink} in {caracal_workdir}")
         logger.info(f"{ms_summary=}")
 
         # start caracal
-        # _caracal.start_caracal(caracal_options, working_dir=caracal_workdir)
+        _caracal.start_caracal(caracal_options, working_dir=caracal_workdir, ms_summary=ms_summary)
     else:
         logger.info("Caracal step is disabled, skipping caracal cross-calibration.")
 

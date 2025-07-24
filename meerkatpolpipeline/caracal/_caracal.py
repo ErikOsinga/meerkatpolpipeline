@@ -72,41 +72,78 @@ class CaracalConfigFile(BaseOptions):
     refant: str
     """e.g. m024"""
 
-def auto_determine_calibrators(caracal_options: CaracalOptions) -> CaracalOptions:
-    """Automatically determine calibrators"""
+def obtain_by_intent(mapping: dict, intent: str):
+    """return fieldname: str and field id: str(int)
+    
+    for either:
+
+        intent = 'target'
+        intent = 'polcal'
+        intent = 'bpcal'
+        intent = 'fluxcal'
+        intent = 'gaincal'
+
+    """
+    intent_to_map = {
+        "target": "TARGET",
+        "polcal": "CALIBRATE_POL",
+        "bpcal": "CALIBRATE_BANDPASS",
+        "fluxcal": "CALIBRATE_FLUX",
+        "gaincal": "CALIBRATE_PHASE",
+    }
+
+    if intent not in intent_to_map.keys():
+        raise ValueError(f"{intent=} This is not one of {intent_to_map.keys()}")
+
+    for key, value in mapping.items():
+        fid, intents = value
+        if intent_to_map[intent] in intents:
+            return key, fid
+    raise ValueError(f"Did not find {intent=} automatically.")
+
+def determine_calibrators(caracal_options: CaracalOptions, ms_summary: dict) -> CaracalOptions:
+    """Determine calibrators automatically or from user input"""
 
     logger = get_run_logger()
 
+    if caracal_options["auto_determine_obsconf"]:
+        logger.info("Automatically determinining calibrators from MS...")
 
-    logger.warning("TODO: automatically determine from MS. Currently hardcoded")
-    
-    fcal = 'J0408-6545'
-    bpcal = 'J0408-6545'
-    gcal = 'J1008+0730'
-    xcal = 'J1331+3030'
+        if ms_summary is None:
+            raise ValueError("ms_summary must be provided if 'auto_determine_obsconf' is True")
+        
+        fcal = obtain_by_intent(ms_summary['field_intents'], 'fluxcal')
+        bpcal = obtain_by_intent(ms_summary['field_intents'], 'bpcal')
+        gcal = obtain_by_intent(ms_summary['field_intents'], 'gaincal')
+        xcal = obtain_by_intent(ms_summary['field_intents'], 'polcal')
+        
+        # update the caracal options with the automatically determined calibrators
+        update_caracal_options = {
+            "obsconf_fcal": fcal,
+            "obsconf_bpcal": bpcal,
+            "obsconf_gcal": gcal,
+            "obsconf_xcal": xcal
+        }
 
-    update_caracal_options = {
-        "obsconf_fcal": fcal,
-        "obsconf_bpcal": bpcal,
-        "obsconf_gcal": gcal,
-        "obsconf_xcal": xcal
-    }
+        logger.info("Automatically determined the following calibrators, please verify")
+        logger.info(update_caracal_options)
 
-    logger.info("Automatically determined the following calibrators, please verify")
-    logger.info(update_caracal_options)
+        caracal_options.update(**update_caracal_options)
 
-    caracal_options.update(**update_caracal_options)
+    else:
+        logger.info("Using user-supplied calibrators for caracal reduction")
+        logger.info(f"{caracal_options['obsconf_fcal']=}")
+        logger.info(f"{caracal_options['obsconf_bpcal']=}")
+        logger.info(f"{caracal_options['obsconf_gcal']=}")
+        logger.info(f"{caracal_options['obsconf_xcal']=}")
 
     return caracal_options
 
 def _update_caracal_template_with_options(caracal_template: dict, caracal_config_file_options: CaracalConfigFile) -> dict:
     """Update the caracal template dict with the user-supplied caracal config options"""
-    logger = get_run_logger()
-    
-    print("TODO: actually update")
-    logger.warning("TODO: actually update")
-    
-    updated_caracal_template = caracal_template
+        
+    updated_caracal_template = caracal_template.update(dict(caracal_config_file_options))
+
     return updated_caracal_template
 
 def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dict) -> Path:
@@ -121,9 +158,9 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
     """
     logger = get_run_logger()
 
-    print("TODO: write yaml to file with same ordering. Probably some regex instead.")
     with open(output_yaml, 'w') as out_file:
-        yaml.dump(caracal_options, out_file)
+        # sort_keys=False should perserve the template file ordering
+        yaml.safe_dump(caracal_options, out_file, sort_keys=False)
 
     output_dir = output_yaml.parent
 
@@ -137,10 +174,6 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
 
 def edit_caracal_template(caracal_options: CaracalOptions, working_dir: Path) -> Path:
     """Take the base template for a caracal strategy and update MS path, calibrators etc"""
-
-    # First check whether the user supplied calibrators or wants them auto determined
-    if caracal_options["auto_determine_obsconf"]:
-        caracal_options = auto_determine_calibrators(caracal_options)
 
     # map the input user options to the caracal names
     caracal_config_options = {
@@ -162,7 +195,7 @@ def edit_caracal_template(caracal_options: CaracalOptions, working_dir: Path) ->
     caracal_template = caracal_options["caracal_template_strategy"]
 
     with open(caracal_template) as in_file:
-        caracal_template_yaml = yaml.load(in_file, Loader=yaml.Loader) # dict
+        caracal_template_yaml = yaml.safe_load(in_file, Loader=yaml.Loader) # dict
 
     # update the template yaml with the user options
     final_caracal_options = _update_caracal_template_with_options(caracal_template_yaml, caracal_config_file_options)
@@ -173,9 +206,23 @@ def edit_caracal_template(caracal_options: CaracalOptions, working_dir: Path) ->
     return final_caracal_yaml_path
 
 
-def start_caracal(caracal_options: CaracalOptions, working_dir: Path) -> None:
+def start_caracal(caracal_options: CaracalOptions, working_dir: Path, ms_summary: dict | None = None) -> Path:
+    """
+    Start a caracal reduction run using the caracal options and working directory.
+    Args:
+        caracal_options (CaracalOptions): Options for the caracal run.
+        working_dir (Path): Directory to work in.
+        ms_summary (dict | None): Summary of the measurement set, if available.
+                                  Required if caracal_options['auto_determine_obsconf'] is True.
+    Returns:
+        Path: Path where the run was executed
+    """
     logger = get_run_logger()
+
+    # determine calibrators from MS summary (automatically) or from user input
+    caracal_options = determine_calibrators(caracal_options, ms_summary)
     
+    # write the caracal config file with user options
     caracal_config_file = edit_caracal_template(caracal_options, working_dir)
 
     with open(working_dir / "go_caracal.sh", "w") as file:
@@ -193,3 +240,4 @@ def start_caracal(caracal_options: CaracalOptions, working_dir: Path) -> None:
     # caracal always runs in the working dir
     os.system(f"bash {working_dir / 'go_caracal.sh'}")
 
+    return working_dir
