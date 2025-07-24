@@ -257,7 +257,7 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
     caracal_template = caracal_options["caracal_template_strategy"]
 
     with open(caracal_template) as in_file:
-        caracal_template_yaml = yaml.safe_load(in_file, Loader=yaml.Loader) # dict
+        caracal_template_yaml = yaml.safe_load(in_file) # dict
 
     # update the template yaml with the user options
     final_caracal_options = _update_caracal_template_with_options(caracal_template_yaml, caracal_config_file_options)
