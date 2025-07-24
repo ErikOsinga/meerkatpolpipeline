@@ -21,7 +21,7 @@ class CaracalOptions(BaseOptions):
     caracal_template_strategy: Path | None = None
     """path to the template polcal-strategy.yml for caracal. A copy will be made with updated parameters"""
     msdir: Path | None = None
-    """Path to the directory where MS is stored"""
+    """Path to the directory where uncalibrated MS is stored"""
     dataid: str | None = None
     """Name of the measurement set without .ms extension"""
     prefix: str = "caracalpipelinerun"

@@ -6,6 +6,7 @@ from typing import Any
 
 from prefect.logging import get_run_logger
 
+from meerkatpolpipeline.casa import casa_command
 from meerkatpolpipeline.options import BaseOptions
 
 
@@ -18,6 +19,9 @@ class CheckCalibratorOptions(BaseOptions):
     """name of targetfield"""
 
 def split_polcal():
+    """
+    Split the polarisation calibrator
+    """
     pass
 
 def go_wsclean_smallcubes():
@@ -27,6 +31,10 @@ def validate_calibrator_field():
     pass
 
 def check_calibrator(check_calibrator_options: CheckCalibratorOptions, working_dir: Path) -> Path:
+    """Check the polcal calibrator field."""
+    logger = get_run_logger()
+
+
 
     split_polcal()
 

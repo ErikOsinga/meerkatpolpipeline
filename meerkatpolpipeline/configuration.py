@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from meerkatpolpipeline.caracal._caracal import CaracalOptions
+from meerkatpolpipeline.casacrosscal.casacrosscal import CasaCrosscalOptions
 from meerkatpolpipeline.check_calibrator.check_calibrator import CheckCalibratorOptions
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
@@ -31,6 +32,7 @@ OPTIONAL_HEADERS = (
 KNOWN_OPERATIONS = (
     "download_preprocess",
     "caracal",
+    "casacrosscal",
     "check_calibrator",
     "facetselfcal",
     "firstpass_cubes",
@@ -48,6 +50,7 @@ FORMAT_VERSION = 0.1
 STRATEGY_OPTIONS_MAPPING = {
     "download_preprocess": DownloadOptions,
     "caracal": CaracalOptions,
+    "casacrosscal": CasaCrosscalOptions,
     "check_calibrator": CheckCalibratorOptions
     # TODO
 }

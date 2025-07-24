@@ -134,16 +134,21 @@ def process_science_fields(
 
 
     ########## step 2: cross-calibration with either casa or caracal ##########
+    crosscal_dir = working_dir / "crosscal"
+    crosscal_dir.mkdir(exist_ok=True) # runs can be repeated
+
     if "caracal" in enabled_operations and "casacrosscal" in enabled_operations:
         logger.warning("Both caracal and casacrosscal are enabled. This is not supported, please choose one of them.")
         raise ValueError("Both caracal and casacrosscal are enabled. This is not supported, please choose one of them.")
     
     if "caracal" in enabled_operations:
+        logger.info("Caracal cross-calibration step is enabled, starting caracal cross-calibration.")
+
         caracal_options = get_options_from_strategy(strategy, operation="caracal")
 
         if caracal_options['msdir'] is None:
-            logger.info(f"Caracal msdir is not set. Will run caracal in {working_dir / 'caracal'}")
-            caracal_options['msdir'] = working_dir / "caracal"
+            logger.info(f"Caracal msdir is not set. Will run caracal in {crosscal_dir / 'caracal'}")
+            caracal_options['msdir'] = crosscal_dir / "caracal"
         if caracal_options['dataid'] is None:
             logger.info(f"Caracal dataid is not set. Will assume ms name from download+preprocess step: {preprocessed_ms.name}")
             caracal_options['dataid'] = preprocessed_ms.stem # use stem to avoid .ms extension
@@ -179,7 +184,10 @@ def process_science_fields(
 
     # TODO: optionally second step could also be casa script. 
     if "casacrosscal" in enabled_operations:
-        print("TODO")
+        logger.info("Casa crosscal step is enabled, starting casa cross-calibration.")
+        casa_workdir = crosscal_dir / "casacrosscal"
+        casa_options = get_options_from_strategy(strategy, operation="casacrosscal")
+        print("TODO: implement casa script for cross-calibration")
 
     elif "caracal" not in enabled_operations:
         logger.warning("Both caracal and casacrosscal are disabled. Skipping cross-calibration")
@@ -187,6 +195,9 @@ def process_science_fields(
     else:
         logger.info("Casacrosscal step is disabled, skipping casacrosscal cross-calibration.")
         
+
+    # make sure that the result is clearly propagated. 
+    # Should we proceed with caracal-cal.ms or casacrosscal-cal.ms?
 
     ########## step 3: check polarisation calibrator ##########
     if "check_calibrator" in enabled_operations:
