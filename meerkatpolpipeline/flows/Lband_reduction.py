@@ -103,13 +103,13 @@ def process_science_fields(
         task_copy_and_clip_ms = task(copy_and_clip_ms, name="copy_and_clip_ms")
         task_copy_and_clip_ms(
             ms_path=ms_path,
+            output_ms=preprocessed_ms,
             ms_summary=ms_summary, 
             clip_assumed_nchan=download_options['clip_assumed_nchan'],
             clip_chan_start=download_options['clip_chan_start'],
             clip_chan_end=download_options['clip_chan_end'],
-            output_ms=preprocessed_ms,
             casa_container=casa_container,
-            # TODO give bind dirs, and max_retries=1?
+            bind_dirs = [ms_path.parent, preprocessed_ms.parent]
         )
 
         logger.info("Download and preprocessing step completed.")

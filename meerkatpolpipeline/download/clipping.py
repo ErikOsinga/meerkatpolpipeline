@@ -39,9 +39,22 @@ def copy_and_clip_ms(
         clip_chan_end: int = 3885,
         output_ms: Path | None = None,
         casa_container: Path | None = None,
-    ):
+        bind_dirs: list[Path] | None = None,
+    ) -> Path:
     """
-    copy measurement set and clip channels from it.
+    copy measurement set and clip channels from it using casa task mstransform.
+
+    Args:
+        ms_path (Path): Path to the input measurement set.
+        ms_summary (dict): Summary of the measurement set, containing 'nchan'.
+        clip_assumed_nchan (int): The number of channels assumed for clipping.
+        clip_chan_start (int): Start channel for clipping.
+        clip_chan_end (int): End channel for clipping.
+        output_ms (Path | None): Path for the output clipped measurement set. If None, it will be created with "_clipped" suffix.
+        casa_container (Path | None): Path to the CASA container.
+        bind_dirs (list[Path] | None): Directories to bind into the container.
+    Returns:
+        output_ms (Path): Path to the output clipped measurement set.
     """
     logger = get_run_logger()
 
@@ -58,6 +71,7 @@ def copy_and_clip_ms(
     )
 
     # clip MS using casa task mstransform
+    # this function is wrapped in a decorator that runs it inside a container
     casa_command(
         task="mstransform",
         vis=ms_path,
@@ -67,6 +81,7 @@ def copy_and_clip_ms(
         keepflags=True,
         usewtspectrum=False,
         container=casa_container,
+        bind_dirs=bind_dirs,
     )
 
     logger.info(f"Clipped MS saved to {output_ms} with only a DATA column")
