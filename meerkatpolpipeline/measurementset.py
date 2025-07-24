@@ -143,13 +143,18 @@ def get_field_intents(
         dict: keys are fieldnames strings; values are (field_id: int, intent: string) tuples.
     """
 
+    # workaround to get location of field_intents.py which we cant import
+    from meerkatpolpipeline.caracal import utils_caracal
+    intents_script = Path(utils_caracal.__file__).parent / "get_field_intents.py"
+
+
     # build and run the command
     bind_str = ",".join(binds)
     cmd = [
         "singularity", "exec",
         "-B", bind_str,
         container,
-        "python", f"get_field_intents.py {ms} --outfile_csv {output_to_file}",
+        "python", f"{intents_script} {ms} --outfile_csv {output_to_file}",
     ]
 
     execute_command(cmd)
