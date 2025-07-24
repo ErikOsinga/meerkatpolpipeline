@@ -332,17 +332,23 @@ def do_caracal_crosscal(
     else: # the actual caracal step
         caracal_workdir = crosscal_base_dir / "caracal"
 
-        # symlink the preprocessed MS to the caracal workdir
-        # we do this because caracal writes all files to the parent of the MS
-        preprocessed_ms_symlink = caracal_workdir / preprocessed_ms.name
-        preprocessed_ms_symlink = check_create_symlink(preprocessed_ms_symlink, preprocessed_ms)
 
         if crosscal_options['msdir'] is None:
             logger.info(f"Caracal msdir is not set. Will run caracal in {crosscal_base_dir / 'caracal'}")
             crosscal_options['msdir'] = crosscal_base_dir / "caracal"
         if crosscal_options['dataid'] is None:
             logger.info(f"Caracal dataid is not set. Will assume ms name from download+preprocess step: {preprocessed_ms.name}")
+
+            # symlink the preprocessed MS to the caracal workdir
+            # we do this because caracal writes all files to the parent of the MS
+            preprocessed_ms_symlink = caracal_workdir / preprocessed_ms.name
+            preprocessed_ms_symlink = check_create_symlink(preprocessed_ms_symlink, preprocessed_ms)
+
             crosscal_options['dataid'] = preprocessed_ms.stem # use stem to avoid .ms extension
+        else:
+            # user overwrites the dataid, probably also the 'msdir', but not strictly required.
+            preprocessed_ms_symlink = crosscal_options['msdir'] / (crosscal_options['dataid'] + ".ms")
+            logger.info(f"Using user-supplied dataid {crosscal_options['dataid']} for caracal, will assume preprocessed data is in {preprocessed_ms_symlink}")
 
         caracal_workdir = crosscal_options['msdir'] # caracal will always work in the msdir directory
         caracal_workdir.mkdir(exist_ok=True) # runs can be repeated
