@@ -109,6 +109,7 @@ def process_science_fields(
             clip_chan_end=download_options['clip_chan_end'],
             output_ms=preprocessed_ms,
             casa_container=casa_container,
+            # TODO give bind dirs, and max_retries=1?
         )
 
         logger.info("Download and preprocessing step completed.")

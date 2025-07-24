@@ -16,8 +16,8 @@ class DownloadOptions(BaseOptions):
     """enable this step? Default False"""
     targetfield: str | None = None
     """name of targetfield"""
-    link: Path | None = None
-    """Path to MeerKAT direct download link"""
+    link: str | None = None
+    """string containing to MeerKAT direct download url"""
     output_name: Path | None = None
     """Path to output name of download, e.g. target_uncalibrated.ms.tar.gz"""
     ms_name: Path | None = None
@@ -43,6 +43,8 @@ def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, te
         test (bool, optional): If True, will not execute the command, but only log it. Defaults to False.
     Returns:
         ms_path (Path): path to measurementset
+        or 
+        cmd (str): command that would be executed, if test=True
     """
     logger = get_run_logger()
 
@@ -67,6 +69,9 @@ def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, te
         cmd = f"wget --tries {downloadoptions['tries']} --waitretry={downloadoptions['waitretry_seconds']} -c -O {output_path} {downloadoptions['link']}"
         
         execute_command(cmd, test=test)
+
+        if test:
+            return cmd
     
     if link_is_tar:
         logger.info(f"Extracting {output_path} to {ms_path}")

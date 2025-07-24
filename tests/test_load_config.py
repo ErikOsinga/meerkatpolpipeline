@@ -3,8 +3,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.append('/home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline')
-
 from meerkatpolpipeline.configuration import load_and_copy_strategy
 
 """Currently assumes tests are run in the 'tests' directory """
@@ -17,7 +15,7 @@ def test_load_sample_config():
     output_path = Path("./")
     strategy = load_and_copy_strategy(strategy_file, output_path)
 
-    assert strategy['defaults']['download']['tries'] == 'inf'
+    assert strategy['defaults']['download_preprocess']['tries'] == 'inf'
 
 if __name__ == "__main__":
     test_load_sample_config()

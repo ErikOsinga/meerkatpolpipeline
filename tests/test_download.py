@@ -1,22 +1,27 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-sys.path.append('/home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline')
+from prefect.logging.loggers import disable_run_logger
 
-from meerkatpolpipeline.download.download import DownloadOptions, start_download
+from meerkatpolpipeline.download.download import DownloadOptions, download_and_extract
 
 
 def test_download() -> None:
     """Test download with wget command"""
     
-    opt_dict = {'link': 'test.com', 'output_name': 'test.tar.gz'}
+    opt_dict = {
+        'link': 'test.com',
+        'output_name': 'test.ms.tar.gz',
+        'ms_name': 'test.ms'
+    }
     downloadoptions = DownloadOptions(enable=True)
-    downloadoptions = downloadoptions.with_options(**opt_dict)
+    # options are implemented as dicts
+    downloadoptions = dict(downloadoptions.with_options(**opt_dict))
 
-    cmd = start_download(downloadoptions, working_dir=Path("/path/to/workdir"), test=True)
+    with disable_run_logger():
+        cmd = download_and_extract(downloadoptions, working_dir=Path("/path/to/workdir"), test=True)
 
-    assert cmd == "wget --tries inf --waitretry=2 -c -O /path/to/workdir/test.tar.gz test.com"
+    assert cmd == "wget --tries inf --waitretry=2 -c -O /path/to/workdir/test.ms.tar.gz test.com"
 
     return
