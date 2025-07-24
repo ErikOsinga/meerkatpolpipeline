@@ -17,7 +17,10 @@ class CheckCalibratorOptions(BaseOptions):
     """enable this step?"""
     crosscal_ms: Path | None = None
     """Path to cross-calibrated MS that contains the calibrators. If None, will be determined automatically"""
+    targetfield: str | None = None
+    """name of targetfield. This option is propagated to every step even though its not useful in this step."""
 
+    
 def split_polcal(
         cal_ms_path: Path,
         polcal_field: str,
