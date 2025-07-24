@@ -123,7 +123,7 @@ def process_science_fields(
             )
 
         logger.info("Download and preprocessing step completed.")
-        logger.info(f"Preprocessed MS created at {preprocessed_ms}")
+        logger.info(f"Preprocessed MS can be found at {preprocessed_ms}")
 
         # TODO: clean up .tar.gz file if user requests?
 
