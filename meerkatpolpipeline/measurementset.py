@@ -145,8 +145,10 @@ def get_field_intents(
 
     # workaround to get location of field_intents.py which we cant import
     from meerkatpolpipeline.caracal import utils_caracal
-    intents_script = Path(utils_caracal.__file__).parent / "get_field_intents.py"
+    intents_script_dir = Path(utils_caracal.__file__).parent
+    intents_script = intents_script_dir/ "get_field_intents.py"
 
+    binds += [intents_script_dir]
 
     # build and run the command
     bind_str = ",".join(binds)
