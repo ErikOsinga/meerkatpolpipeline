@@ -142,7 +142,7 @@ def process_science_fields(
         caracal_options = get_options_from_strategy(strategy, operation="caracal")
 
         if caracal_options['msdir'] is None:
-            logger.info(f"Caracal msdir is not set. Will run caracal {working_dir / 'caracal'}")
+            logger.info(f"Caracal msdir is not set. Will run caracal in {working_dir / 'caracal'}")
             caracal_options['msdir'] = working_dir / "caracal"
         if caracal_options['dataid'] is None:
             logger.info(f"Caracal dataid is not set. Will assume ms name from download+preprocess step: {preprocessed_ms.name}")
@@ -159,8 +159,19 @@ def process_science_fields(
         else:
             logger.info(f"Symlink for preprocessed MS already exists at {preprocessed_ms_symlink}, skipping symlink creation.")
         
+        # get MS summary
+        task_msoverview_summary = task(msoverview_summary, name="msoverview_summary")
+        ms_summary = task_msoverview_summary(
+            binds=[str(preprocessed_ms_symlink.parent)],
+            container=lofar_container,
+            ms=preprocessed_ms_symlink,
+            output_to_file= caracal_workdir / "msoverview_summary.txt",
+        )
+        logger.info(f"Starting caracal with {preprocessed_ms_symlink} in {caracal_workdir}")
+        logger.info(f"{ms_summary=}")
+
         # start caracal
-        _caracal.start_caracal(caracal_options, working_dir=caracal_workdir)
+        # _caracal.start_caracal(caracal_options, working_dir=caracal_workdir)
     else:
         logger.info("Caracal step is disabled, skipping caracal cross-calibration.")
 
