@@ -206,7 +206,12 @@ def edit_caracal_template(caracal_options: CaracalOptions, working_dir: Path) ->
     return final_caracal_yaml_path
 
 
-def start_caracal(caracal_options: CaracalOptions, working_dir: Path, ms_summary: dict | None = None) -> Path:
+def start_caracal(
+        caracal_options: CaracalOptions,
+        working_dir: Path,
+        ms_summary: dict | None = None,
+        test: bool = False
+    ) -> Path:
     """
     Start a caracal reduction run using the caracal options and working directory.
     Args:
@@ -214,6 +219,7 @@ def start_caracal(caracal_options: CaracalOptions, working_dir: Path, ms_summary
         working_dir (Path): Directory to work in.
         ms_summary (dict | None): Summary of the measurement set, if available.
                                   Required if caracal_options['auto_determine_obsconf'] is True.
+        test (bool): for testing mode, if True, will not execute the command, but only log it.
     Returns:
         Path: Path where the run was executed
     """
@@ -236,6 +242,10 @@ def start_caracal(caracal_options: CaracalOptions, working_dir: Path, ms_summary
         file.write("\n")
         file.write(f"caracal -ct singularity -c {caracal_config_file}")
 
+    if test:
+        logger.info(f"Test mode enabled, not executing caracal command. Would run:\n{working_dir / 'go_caracal.sh'}")
+        return working_dir
+    
     logger.info("Starting caracal")
     # caracal always runs in the working dir
     os.system(f"bash {working_dir / 'go_caracal.sh'}")
