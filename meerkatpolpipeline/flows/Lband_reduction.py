@@ -24,7 +24,7 @@ from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import msoverview_summary
 from meerkatpolpipeline.sclient import run_singularity_command
-from meerkatpolpipeline.utils import check_create_symlink, find_calibrated_ms
+from meerkatpolpipeline.utils import find_calibrated_ms
 
 # from meerkatpolpipeline.logging import logger
 
@@ -147,7 +147,7 @@ def process_science_fields(
         field_intents_csv = crosscal_base_dir / "field_intents.csv"
 
         # get MS summary, optionally with scan intents if user wants auto determined calibrators
-        task_msoverview_summary = task(msoverview_summary, name="msoverview_summary")
+        task_msoverview_summary = task(msoverview_summary, name="msoverview_preprocessed")
         ms_summary = task_msoverview_summary(
             binds=[str(preprocessed_ms.parent)],
             container=lofar_container,
@@ -168,9 +168,16 @@ def process_science_fields(
         ############ 2. option 1: caracal cross-calibration step ############
         if crosscal_options['which'] == 'caracal':
             logger.info("Caracal cross-calibration step is enabled, starting caracal cross-calibration.")
-            crosscal_dir = _caracal.do_caracal_crosscal(crosscal_options, preprocessed_ms, crosscal_base_dir, ms_summary)
+            crosscal_dir = _caracal.do_caracal_crosscal(
+                                                    crosscal_options,
+                                                    preprocessed_ms,
+                                                    crosscal_base_dir,
+                                                    ms_summary,
+                                                    lofar_container
+            )
 
-        ############ 2. option 2: caracal cross-calibration step ############
+
+        ############ 2. option 2: casa cross-calibration step ############
         elif crosscal_options['which'] == 'casacrosscal':
             logger.info("Casa crosscal step is enabled, starting casa cross-calibration.")
             crosscal_dir = casacrosscal.do_casa_crosscal(crosscal_options, preprocessed_ms, crosscal_base_dir, ms_summary)
@@ -194,6 +201,13 @@ def process_science_fields(
                 f"No calibrated measurement set found in {crosscal_base_dir}. Please enable either caracal or casacrosscal step in the strategy file."
             )
         crosscal_dir = calibrated_ms.parent
+
+
+
+
+
+
+    print("TODO check that caracal/casa run was succesful, and return the -cal.ms path location")
 
     ########## step 3: check polarisation calibrator ##########
     if "check_calibrator" in enabled_operations:
