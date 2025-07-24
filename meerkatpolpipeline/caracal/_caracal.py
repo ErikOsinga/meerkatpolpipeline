@@ -44,6 +44,8 @@ class CaracalOptions(BaseOptions):
     """Flux calibrator, should be unpolarised"""
     obsconf_refant: str = "m024"
     """reference antenna"""
+    test: bool = False
+    """create the caracal command but dont run it, for testing purposes only"""
 
 class CaracalConfigFile(BaseOptions):
     """A class to hold values for the caracal polcal.yaml file, see the template caracal file
@@ -210,7 +212,6 @@ def start_caracal(
         caracal_options: CaracalOptions,
         working_dir: Path,
         ms_summary: dict | None = None,
-        test: bool = False
     ) -> Path:
     """
     Start a caracal reduction run using the caracal options and working directory.
@@ -242,7 +243,7 @@ def start_caracal(
         file.write("\n")
         file.write(f"caracal -ct singularity -c {caracal_config_file}")
 
-    if test:
+    if caracal_options['test']:
         logger.info(f"Test mode enabled, not executing caracal command. Would run:\n{working_dir / 'go_caracal.sh'}")
         return working_dir
     

@@ -173,7 +173,7 @@ def process_science_fields(
         logger.info(f"{ms_summary=}")
 
         # start caracal
-        _caracal.start_caracal(caracal_options, working_dir=caracal_workdir, ms_summary=ms_summary, test=True)
+        _caracal.start_caracal(caracal_options, working_dir=caracal_workdir, ms_summary=ms_summary)
     else:
         logger.info("Caracal step is disabled, skipping caracal cross-calibration.")
 
