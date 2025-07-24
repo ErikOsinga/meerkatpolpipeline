@@ -146,6 +146,15 @@ def determine_calibrators(caracal_options: CrossCalOptions, ms_summary: dict) ->
         logger.info(f"{caracal_options['obsconf_gcal']=}")
         logger.info(f"{caracal_options['obsconf_xcal']=}")
 
+        if caracal_options['obsconf_fcal'] is None:
+            raise ValueError("obsconf_fcal must be set if 'auto_determine_obsconf' is False")
+        if caracal_options['obsconf_bpcal'] is None:
+            raise ValueError("obsconf_bpcal must be set if 'auto_determine_obsconf' is False")
+        if caracal_options['obsconf_gcal'] is None:
+            raise ValueError("obsconf_gcal must be set if 'auto_determine_obsconf' is False")
+        if caracal_options['obsconf_xcal'] is None:
+            raise ValueError("obsconf_xcal must be set if 'auto_determine_obsconf' is False")
+
     return caracal_options
 
 def write_crosscal_csv(

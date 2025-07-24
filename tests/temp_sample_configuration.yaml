@@ -31,8 +31,8 @@ defaults:
     clip_chan_end: 3885
     clip_assumed_nchan: 4096
 
-  # caracal
-  caracal:
+  # e.g. caracal
+  crosscal:
     prefix: caracalpipelinerun
     backend: singularity
     caracal_files: '/data2/osinga/meerkatBfields/caracal_files/'
