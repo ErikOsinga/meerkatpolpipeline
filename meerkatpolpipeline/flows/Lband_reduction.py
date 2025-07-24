@@ -52,6 +52,15 @@ def process_science_fields(
     lofar_container = Path(strategy['lofar_container'])
     casa_container = Path(strategy['casa_container'])
 
+    # check for additional bind directory
+    if 'casa_additional_bind' in strategy.keys():
+        casa_additional_bind = strategy['casa_additional_bind']
+        if isinstance(casa_additional_bind, str):
+            casa_additional_bind = [casa_additional_bind]
+        casa_additional_bind = [Path(path) for path in casa_additional_bind]
+    else:
+        casa_additional_bind = []
+
     ########## step 1: download & clip channels ##########
     if "download_preprocess" in enabled_operations:
         # create subdirectory 'download'
@@ -108,7 +117,7 @@ def process_science_fields(
             clip_chan_start=download_options['clip_chan_start'],
             clip_chan_end=download_options['clip_chan_end'],
             casa_container=casa_container,
-            bind_dirs = [ms_path.parent, preprocessed_ms.parent]
+            bind_dirs = [ms_path.parent, preprocessed_ms.parent] + casa_additional_bind
         )
 
         logger.info("Download and preprocessing step completed.")

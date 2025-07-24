@@ -1,5 +1,6 @@
 version: 0.1
 
+## required headers
 # string matching target field name
 targetfield: "A754"
 # container with lofar software
@@ -7,8 +8,18 @@ lofar_container: /net/achterrijn/data1/sweijen/software/containers/lofar_sksp_ri
 # container with casa
 casa_container: /net/rijn9/data2/osinga/meerkatBfields/software/containers/flint-containers_aegean.sif
 
+
+
+## optional headers
+# in case users have configured their own casa installation 'measurespath'.
+# see https://casadocs.readthedocs.io/en/stable/notebooks/external-data.html
+# make this point to the directory where the casa files are stored.
+casa_additional_bind: /net/rijn9/data2/osinga/meerkatBfields/software/casafiles
+
+
 # some default parameters that are unlikely to change
 defaults:
+
   # download measurement set, untar, clip channels
   download_preprocess:
     tries: inf
@@ -29,6 +40,7 @@ defaults:
     auto_determine_obsconf: true
     caracal_template_strategy: /home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/bologna/all_scripts/2_caracal/polcal-strategy_Lband.yml
 
+################################################
 # parameters that are likely to change per target
 download_preprocess:
   enable: true

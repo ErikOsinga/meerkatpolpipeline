@@ -23,6 +23,10 @@ KNOWN_HEADERS = (
      "lofar_container",
      "casa_container",
      )
+# Optional headers are not required, but if present must be in the correct format
+OPTIONAL_HEADERS = (
+    "casa_additional_bind",
+)
 # Known options are optional, but if present must be in the correct format
 KNOWN_OPERATIONS = (
     "download_preprocess",
@@ -133,11 +137,11 @@ def verify_configuration(input_strategy: Strategy, raise_on_error: bool = True) 
     unknown_headers = [
         header
         for header in input_strategy.keys()
-        if header not in KNOWN_HEADERS and header not in KNOWN_OPERATIONS
+        if header not in KNOWN_HEADERS and header not in KNOWN_OPERATIONS and header not in OPTIONAL_HEADERS
     ]
 
     if unknown_headers:
-        errors.append(f"{unknown_headers=} found. Supported headers: {KNOWN_HEADERS}")
+        errors.append(f"{unknown_headers=} found. Supported headers: {KNOWN_HEADERS} or {OPTIONAL_HEADERS}. Known operations: {KNOWN_OPERATIONS}")
 
     for operation in KNOWN_OPERATIONS:
         if operation in input_strategy.keys():
@@ -263,7 +267,7 @@ def copy_and_timestamp_strategy_file(output_dir: Path, input_yaml: Path) -> Path
 def log_enabled_operations(strategy: Strategy) -> list:
     operations = []
     for key in strategy.keys():
-        if key not in KNOWN_HEADERS:
+        if key not in KNOWN_HEADERS and key not in OPTIONAL_HEADERS:
             if strategy[key]['enable']:
                 operations.append(key)
 
