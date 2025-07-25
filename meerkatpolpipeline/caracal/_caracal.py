@@ -258,7 +258,7 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
             "bpcal": [caracal_options['obsconf_bpcal']],
             "gcal": [caracal_options['obsconf_gcal']],
             "xcal": [caracal_options['obsconf_xcal']],
-            "refant": [caracal_options['obsconf_refant']],
+            "refant": caracal_options['obsconf_refant'],
         },
     }
     # # put them in the class holder for a caracal config file
