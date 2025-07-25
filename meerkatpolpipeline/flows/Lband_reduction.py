@@ -71,7 +71,7 @@ def process_science_fields(
         download_workdir.mkdir(exist_ok=True) # runs can be repeated
 
         #### 1.1 download and extract
-        task_start_download = task(download_and_extract, name="download_and_extract")
+        task_start_download = task(download_and_extract, name="download_and_preprocess")
         ms_path = task_start_download(download_options, working_dir=download_workdir)
 
         # get MS summary
