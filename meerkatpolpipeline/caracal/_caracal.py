@@ -338,7 +338,7 @@ def do_caracal_crosscal(
 
     else: # the actual caracal step
         caracal_workdir = crosscal_base_dir / "caracal"
-
+        caracal_workdir.mkdir(exist_ok=True) # runs can be repeated
 
         if crosscal_options['msdir'] is None:
             logger.info(f"Caracal msdir is not set. Will run caracal in {crosscal_base_dir / 'caracal'}")

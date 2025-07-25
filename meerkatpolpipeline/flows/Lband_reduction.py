@@ -168,19 +168,22 @@ def process_science_fields(
         ############ 2. option 1: caracal cross-calibration step ############
         if crosscal_options['which'] == 'caracal':
             logger.info("Caracal cross-calibration step is enabled, starting caracal cross-calibration.")
-            crosscal_dir = _caracal.do_caracal_crosscal(
-                                                    crosscal_options,
-                                                    preprocessed_ms,
-                                                    crosscal_base_dir,
-                                                    ms_summary,
-                                                    lofar_container
+
+            task_caracal_crosscal = task(_caracal.do_caracal_crosscal, name="caracal_crosscal")
+            crosscal_dir = task_caracal_crosscal(
+                crosscal_options,
+                preprocessed_ms,
+                crosscal_base_dir,
+                ms_summary,
+                lofar_container # only required if user overwrites input MS.
             )
 
 
         ############ 2. option 2: casa cross-calibration step ############
         elif crosscal_options['which'] == 'casacrosscal':
             logger.info("Casa crosscal step is enabled, starting casa cross-calibration.")
-            crosscal_dir = casacrosscal.do_casa_crosscal(crosscal_options, preprocessed_ms, crosscal_base_dir, ms_summary)
+            task_casa_crosscal = task(casacrosscal.do_casa_crosscal, name="casa_crosscal")
+            crosscal_dir = task_casa_crosscal(crosscal_options, preprocessed_ms, crosscal_base_dir, ms_summary)
 
         ############ 2. option 3: oopsie, user has made a mistake ############
         else:
@@ -201,7 +204,6 @@ def process_science_fields(
                 f"No calibrated measurement set found in {crosscal_base_dir}. Please enable either caracal or casacrosscal step in the strategy file."
             )
         crosscal_dir = calibrated_ms.parent
-
 
 
 

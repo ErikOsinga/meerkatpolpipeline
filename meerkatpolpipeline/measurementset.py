@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from meerkatpolpipeline.caracal import field_intents
 from meerkatpolpipeline.utils import execute_command
 
 
@@ -108,7 +109,7 @@ def msoverview_summary(
 
     return mssummary
 
-def load_field_intents(csv_path: Path) -> dict[int, tuple[str, str]]:
+def load_field_intents_csv(csv_path: Path) -> dict[int, tuple[str, str]]:
     """
     Load field intents from a CSV with headers:
       field_id, field_name, intent_string
@@ -143,29 +144,11 @@ def get_field_intents(
         dict: keys are fieldnames strings; values are (field_id: int, intent: string) tuples.
     """
 
-    # workaround to get location of field_intents.py which we cant import
-    from meerkatpolpipeline.caracal import utils_caracal
-    intents_script_dir = Path(utils_caracal.__file__).parent
-    intents_script = intents_script_dir/ "get_field_intents.py"
+    # get mapping from casacore
+    mapping = field_intents.map_fields_to_intents(ms)
+    # write to csv
+    field_intents.write_to_csv(mapping, output_to_file)
+    # read the mapping from csv to return a dict
+    field_intents_dict = load_field_intents_csv(output_to_file)
 
-    binds += [intents_script_dir]
-
-    # build and run the command
-    bind_str = ",".join([str(b) for b in binds])
-    cmd = [
-        "singularity", "exec",
-        "-B", bind_str,
-        container,
-        "python",
-        intents_script,
-        ms,
-        "--outfile_csv",
-        output_to_file,
-    ]
-
-    execute_command(cmd)
-    
-    # read the mapping from csv
-    field_intents = load_field_intents(output_to_file)
-
-    return field_intents
+    return field_intents_dict

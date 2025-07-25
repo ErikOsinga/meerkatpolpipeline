@@ -143,6 +143,27 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+def write_to_csv(
+    mapping: list[tuple[int, str, str]],
+    outfile_csv: Path
+) -> None:
+    """
+    Write the field intent mapping to a CSV file.
+
+    Parameters
+    ----------
+    mapping : List[Tuple[int, str, str]]
+        List of tuples containing field_id, field_name, and intent.
+    outfile : Path
+        Path to the output CSV file.
+    """
+    with open(outfile_csv, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["field_id", "field_name", "intent_string"])
+        for fid, name, intent in mapping:
+            writer.writerow([fid, name, intent])
+        # print(f"Written CSV to {outfile_csv}")
+    return outfile_csv
 
 def main():
     args = parse_args()
@@ -151,12 +172,8 @@ def main():
     mapping = map_fields_to_intents(msfile)
 
     if args.outfile_csv:
-        with open(args.outfile_csv, "w", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(["field_id", "field_name", "intent_string"])
-            for fid, name, intent in mapping:
-                writer.writerow([fid, name, intent])
-        print(f"Written CSV to {args.outfile_csv}")
+        write_to_csv(mapping, args.outfile_csv)
+
     else:
         for fid, name, intent in mapping:
             print(f"fid={fid}, field_name={name}, intent={intent}")

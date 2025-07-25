@@ -4,9 +4,9 @@ version: 0.1
 # string matching target field name
 targetfield: "A754"
 # container with lofar software
-lofar_container: /net/achterrijn/data1/sweijen/software/containers/lofar_sksp_rijnX.sif
+lofar_container: /home/osingae/OneDrive/postdoc/software/containers/lofar_sksp.sif
 # container with casa
-casa_container: /net/rijn9/data2/osinga/meerkatBfields/software/containers/flint-containers_aegean.sif
+casa_container: /home/osingae/OneDrive/postdoc/testing/eris22/stimela_casa_1.7.1.sif
 
 
 
@@ -14,7 +14,7 @@ casa_container: /net/rijn9/data2/osinga/meerkatBfields/software/containers/flint
 # in case users have configured their own casa installation 'measurespath'.
 # see https://casadocs.readthedocs.io/en/stable/notebooks/external-data.html
 # make this point to the directory where the casa files are stored.
-casa_additional_bind: /net/rijn9/data2/osinga/meerkatBfields/software/casafiles
+# casa_additional_bind: /net/rijn9/data2/osinga/meerkatBfields/software/casafiles
 
 
 # some default parameters that are unlikely to change
@@ -27,9 +27,12 @@ defaults:
     # check whether outside 163-3885 have been clipped 
     # or still 4096 chans. 
     # If the latter, clip
-    clip_chan_start: 163
-    clip_chan_end: 3885
-    clip_assumed_nchan: 4096
+    # clip_chan_start: 163
+    # clip_chan_end: 3885
+    # clip_assumed_nchan: 4096
+    clip_assumed_nchan: 64
+    clip_chan_start: 0
+    clip_chan_end: 63
 
   # e.g. caracal
   crosscal:
@@ -47,10 +50,16 @@ download_preprocess:
   link: https://archive-gw-1.kat.ac.za/1728976094-dataexport/1728976094_sdp_l0.ms.tar.gz?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJrYXQtYXJjaGl2ZS5rYXQuYWMuemEiLCJhdWQiOiJhcmNoaXZlLWd3LTEua2F0LmFjLnphIiwiaWF0IjoxNzI5Njg0NzUwLCJwcmVmaXgiOlsiMTcyODk3NjA5NCJdLCJleHAiOjE3MzQ4Njg3NTAsInN1YiI6ImVyaWsub3NpbmdhQHV0b3JvbnRvLmNhIiwic2NvcGVzIjpbInJlYWQiXX0.o6TGTtC3k3hInLqh0FU30ysLXA9z71oj068RXVN_pE5P22byDH95SmgP-bXCnb70Vmf1mS1nwVxClZbf9ix67A
   # will be saved in --working_dir / download /
   # output name is what to call the file thats downloaded 
-  output_name: coma_mosaic3_uncalibrated.ms.tar.gz
+  
+  # symlink to trick pipeline into not preprocessing
+  output_name: /home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/small_test_ms/Abell754_parang_corrected-2023-03-25-3C286.ms
   # ms_name is what to call the (extracted) ms.
-  ms_name: coma_mosaic3_uncalibrated.ms
-  # if downloading the MS directly, previous two can be the same value
+
+  # symlink to trick pipeline into not preprocessing
+  ms_name: /home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/small_test_ms/Abell754_parang_corrected-2023-03-25-3C286.ms
+  # and then a small example ms at _preprocessed.ms grabbed from 3c286
+
+  # if downloading the MS directly, output_name == ms_name is allowed
   
   # NOTE:
   # unless 'msdir' and 'dataid' are given in the caracal step below
@@ -58,14 +67,24 @@ download_preprocess:
   # location of the MS, so it can be used in caracal.
 
 crosscal:
-  enable: false
+  enable: true
   # either caracal or casa
   which: caracal
   # OPTIONAL: location of ms, and where caracal will write, make sure its fairly empty for clarity.
-  msdir: /data2/osinga/meerkatBfields/Abell754/caracal_reduction/
+  # msdir: /data2/osinga/meerkatBfields/Abell754/caracal_reduction/
   # OPTIONAL: name of ms,  ".ms" will be appended
-  dataid: "Abell754_default_uncalibrated-2023-03-25"
+  # dataid: "Abell754_default_uncalibrated-2023-03-25"
   # if those are not given, will create them as --workdir/ms_name from the download_preprocess step
+  test: true
+  # for testing with the small MS will need to give some bogus fieldnames
+  # because the MS only contains one field, so auto_determine_obsconf doesnt work
+  auto_determine_obsconf: false
+  obsconf_target: target
+  obsconf_gcal: gcal
+  obsconf_xcal: xcal
+  obsconf_bpcal: bpcal
+  obsconf_fcal: fcal
+
 
 check_calibrator:
   enable: false

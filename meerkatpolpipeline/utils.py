@@ -64,7 +64,7 @@ def check_create_symlink(symlink: Path, original_path: Path) -> Path:
     """
     logger = get_run_logger()
     if not symlink.exists():
-        logger.info(f"Creating symlink at {symlink}")
+        logger.info(f"Creating symlink at {symlink} pointing to {original_path}")
         symlink.symlink_to(original_path)
     else:
         logger.info(f"Symlink {symlink} already exists. Skipping symlink creation.")
