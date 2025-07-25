@@ -5,7 +5,6 @@ import os
 import shutil
 from pathlib import Path
 
-import yaml
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.measurementset import msoverview_summary
@@ -15,6 +14,7 @@ from meerkatpolpipeline.utils.utils import (
     check_create_symlink,
     find_calibrated_ms,
 )
+from meerkatpolpipeline.utils.yaml import yaml
 
 
 class CrossCalOptions(BaseOptions):
@@ -221,9 +221,9 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
     logger = get_run_logger()
 
     with open(output_yaml, 'w') as out_file:
-        # sort_keys=False should perserve the template file ordering
-        print(f"{caracal_options=}")
-        yaml.safe_dump(caracal_options, out_file, sort_keys=False)
+        # sort_keys=False should perserve the template file ordering        
+        yaml.dump(caracal_options, out_file, sort_keys=False)
+        # cant save dump with Path objects, even if we add representer
 
     output_dir = output_yaml.parent
 
@@ -240,19 +240,28 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
 
     # map the input user options to the caracal names
     caracal_config_options = {
-       "prefix": caracal_options['prefix'],
-       "msdir": caracal_options['msdir'],
-       "input": caracal_options['caracal_files'],
-       "dataid": caracal_options['dataid'],
-       "target": caracal_options['targetfield'],
-       "fcal": caracal_options['obsconf_fcal'],
-       "bpcal": caracal_options['obsconf_bpcal'],
-       "gcal": caracal_options['obsconf_gcal'],
-       "xcal": caracal_options['obsconf_xcal'],
-       "refant": caracal_options['obsconf_refant'],
+        "general": {
+           "prefix": caracal_options['prefix'],
+           "msdir": caracal_options['msdir'],
+           "input": caracal_options['caracal_files'],
+        },
+        "getdata": {
+            "dataid": caracal_options['dataid'],
+
+        },
+        "obsconf": {
+            "target": caracal_options['targetfield'],
+            "fcal": caracal_options['obsconf_fcal'],
+            "bpcal": caracal_options['obsconf_bpcal'],
+            "gcal": caracal_options['obsconf_gcal'],
+            "xcal": caracal_options['obsconf_xcal'],
+            "refant": caracal_options['obsconf_refant'],
+        },
     }
-    # put them in the class holder for a caracal config file
-    caracal_config_file_options = CaracalConfigFile(**caracal_config_options)
+    # # put them in the class holder for a caracal config file
+    # caracal_config_file_options = CaracalConfigFile(**caracal_config_options)
+    ## TODO: update class holder or write function to check validity of arguments
+    caracal_config_file_options = caracal_config_options
 
     # load the template yaml
     caracal_template = caracal_options["caracal_template_strategy"]
