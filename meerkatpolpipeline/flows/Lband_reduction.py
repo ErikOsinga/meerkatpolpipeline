@@ -1,5 +1,5 @@
 """A prefect based pipeline that:
-- will perform meerKAT L-band data processing
+- will perform meerKAT data processing
 - given an input strategy file
 """
 
@@ -36,7 +36,7 @@ def check_caracal_run():
     print("TODO: verify that caracal completed succesfully, and return the -cal.ms path location")
 
 
-@flow(name="MeerKAT L-band pipeline", log_prints=True)
+@flow(name="MeerKAT pipeline", log_prints=True)
 def process_science_fields(
     strategy: Strategy,
     working_dir: Path
