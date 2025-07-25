@@ -47,7 +47,7 @@ def msoverview_summary(
     cmd = [
         "singularity", "exec",
         "-B", bind_str,
-        container,
+        str(container), # cant handle posixpath
         "msoverview", f"in={ms}"
     ]
 
