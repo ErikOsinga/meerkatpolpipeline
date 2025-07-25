@@ -282,7 +282,7 @@ def setup_run(
     # )
 
     process_science_fields.with_options(
-        name=f"MeerKAT L-band pipeline - {target}"
+        name=f"MeerKAT pipeline - {target}"
         # , task_runner=dask_task_runner
     )(
         strategy=strategy,
