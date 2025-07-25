@@ -273,6 +273,7 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
     # update the template yaml with the user options
     final_caracal_options = _update_caracal_template_with_options(caracal_template_yaml, caracal_config_file_options)
 
+    # save the yaml file with timestamp
     output_yaml_path = working_dir/ "caracal_polcal.latest.yaml"
     final_caracal_yaml_path = write_and_timestamp_caracal_strategy(output_yaml_path, final_caracal_options)
 
