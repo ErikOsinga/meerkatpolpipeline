@@ -50,7 +50,7 @@ prefect server start
 ```
 which will start a server accessible at http://localhost:4200/
 
-The meerkat pol pipeline should automatically find the running server and report it's results to the prefect server. Check out the results at http://localhost:4200/runs
+The meerkat pol pipeline should automatically find the running server and report its results to the prefect server. Check out the results at http://localhost:4200/runs
 
 ### Remote prefect server 
 
