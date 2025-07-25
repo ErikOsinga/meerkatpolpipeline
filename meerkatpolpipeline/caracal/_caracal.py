@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import csv
-import os
 import shutil
 from pathlib import Path
 
@@ -11,7 +10,8 @@ from meerkatpolpipeline.measurementset import msoverview_summary
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import (
     add_timestamp_to_path,
-    check_create_symlink,
+    # check_create_symlink,
+    execute_command,
     find_calibrated_ms,
 )
 from meerkatpolpipeline.utils.yaml import yaml
@@ -318,14 +318,11 @@ def start_caracal(
         # caracal always runs in the current working dir
         file.write(f"cd {working_dir}\n")
         file.write(f"caracal -ct singularity -c {caracal_config_file}")
-
-    if caracal_options['test']:
-        logger.info(f"Test mode enabled, not executing caracal command. Would run:\n{working_dir / 'go_caracal.sh'}")
-        return working_dir
-    
+   
     logger.info("Starting caracal")
-    # caracal always runs in the working dir
-    os.system(f"bash {working_dir / 'go_caracal.sh'}")
+    # grab logs by doing execute_command
+    cmd = f"bash {working_dir / 'go_caracal.sh'}"
+    execute_command(cmd, test=caracal_options['test'])
 
     return working_dir
 
