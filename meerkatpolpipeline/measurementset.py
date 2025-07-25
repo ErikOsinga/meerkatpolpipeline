@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from meerkatpolpipeline.caracal import field_intents
-from meerkatpolpipeline.utils import execute_command
+from meerkatpolpipeline.utils.utils import execute_command
 
 
 def msoverview_summary(

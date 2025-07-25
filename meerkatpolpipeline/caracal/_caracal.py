@@ -10,7 +10,7 @@ from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.measurementset import msoverview_summary
 from meerkatpolpipeline.options import BaseOptions
-from meerkatpolpipeline.utils import (
+from meerkatpolpipeline.utils.utils import (
     add_timestamp_to_path,
     check_create_symlink,
     find_calibrated_ms,
@@ -204,9 +204,9 @@ def write_crosscal_csv(
 def _update_caracal_template_with_options(caracal_template: dict, caracal_config_file_options: CaracalConfigFile) -> dict:
     """Update the caracal template dict with the user-supplied caracal config options"""
         
-    updated_caracal_template = caracal_template.update(dict(caracal_config_file_options))
+    caracal_template.update(dict(caracal_config_file_options))
 
-    return updated_caracal_template
+    return caracal_template
 
 def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dict) -> Path:
     """Write the updated yaml dict to a timestamped file 
@@ -222,6 +222,7 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
 
     with open(output_yaml, 'w') as out_file:
         # sort_keys=False should perserve the template file ordering
+        print(f"{caracal_options=}")
         yaml.safe_dump(caracal_options, out_file, sort_keys=False)
 
     output_dir = output_yaml.parent
@@ -261,6 +262,8 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
 
     # update the template yaml with the user options
     final_caracal_options = _update_caracal_template_with_options(caracal_template_yaml, caracal_config_file_options)
+
+    print(f"Final caracal options: {final_caracal_options}")
 
     output_yaml_path = working_dir/ "caracal_polcal.latest.yaml"
     final_caracal_yaml_path = write_and_timestamp_caracal_strategy(output_yaml_path, final_caracal_options)

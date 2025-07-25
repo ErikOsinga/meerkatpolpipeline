@@ -13,7 +13,7 @@ from meerkatpolpipeline.caracal._caracal import CrossCalOptions
 from meerkatpolpipeline.check_calibrator.check_calibrator import CheckCalibratorOptions
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
-from meerkatpolpipeline.utils import add_timestamp_to_path
+from meerkatpolpipeline.utils.utils import add_timestamp_to_path
 
 # Known headers must **always** be present in the strategy file
 KNOWN_HEADERS = (

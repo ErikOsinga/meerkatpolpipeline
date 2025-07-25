@@ -5,7 +5,7 @@ from pathlib import Path
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.options import BaseOptions
-from meerkatpolpipeline.utils import execute_command
+from meerkatpolpipeline.utils.utils import execute_command
 
 # from meerkatpolpipeline.logging import logger
 

@@ -24,7 +24,7 @@ from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import msoverview_summary
 from meerkatpolpipeline.sclient import run_singularity_command
-from meerkatpolpipeline.utils import find_calibrated_ms
+from meerkatpolpipeline.utils.utils import find_calibrated_ms
 
 # from meerkatpolpipeline.logging import logger
 
