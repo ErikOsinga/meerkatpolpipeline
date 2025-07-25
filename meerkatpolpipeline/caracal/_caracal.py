@@ -308,13 +308,15 @@ def start_caracal(
 
     with open(working_dir / "go_caracal.sh", "w") as file:
         # TODO: let users supply conda env command?
-        # conda activavte caracalfork
+        # conda activate caracalfork
         file.write("source /net/lofar4/data2/osinga/software/miniconda/installation/bin/activate caracalfork\n")
 
         # Makes sure cache is not saved in homedir (no space)
         file.write(f"export APPTAINER_CACHEDIR={working_dir}/temporary-apptainer-cache")
         file.write("\n")
         file.write("\n")
+        # caracal always runs in the current working dir
+        file.write(f"cd {working_dir}\n")
         file.write(f"caracal -ct singularity -c {caracal_config_file}")
 
     if caracal_options['test']:
