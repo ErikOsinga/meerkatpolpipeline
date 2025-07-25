@@ -8,19 +8,23 @@ from __future__ import annotations
 
 from pathlib import PurePath
 
-import yaml as _yaml
+from ruamel.yaml import YAML
 
 
 def _path_representer(dumper, data):
-    # represent Path() objects as their string form
-    return dumper.represent_str(str(data))
+    """
+    Represent any PurePath (PosixPath, WindowsPath, etc) as a plain YAML string.
+    """
+    # use the standard YAML str tag
+    return dumper.represent_scalar('tag:yaml.org,2002:str', str(data))
 
-# register once, globally, on import
-_yaml.add_multi_representer(PurePath, _path_representer)
+# create a single YAML() instance that can be used throughout the project
+# typ="rt" gives you RoundTripLoader & RoundTripDumper under the hood
+yaml = YAML(typ="rt")
 
-# now expose the real yaml API under the name `yaml`
-yaml = _yaml
+# register for all Path‑like classes
+yaml.representer.add_multi_representer(PurePath, _path_representer)
 
-print(f"hi from the utils script, {yaml}")
-
+# now expose the full API
 __all__ = ["yaml"]
+

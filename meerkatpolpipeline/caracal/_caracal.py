@@ -221,8 +221,8 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
     logger = get_run_logger()
 
     with open(output_yaml, 'w') as out_file:
-        # sort_keys=False should perserve the template file ordering        
-        yaml.dump(caracal_options, out_file, sort_keys=False)
+        # ruamel.yaml should preserve the order of the keys
+        yaml.dump(caracal_options, out_file)
         # cant save dump with Path objects, even if we add representer
 
     output_dir = output_yaml.parent
@@ -267,12 +267,11 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
     caracal_template = caracal_options["caracal_template_strategy"]
 
     with open(caracal_template) as in_file:
-        caracal_template_yaml = yaml.safe_load(in_file) # dict
+        caracal_template_yaml = yaml.load(in_file) # dict
+        print(f"Loaded caracal template yaml: {caracal_template_yaml}")
 
     # update the template yaml with the user options
     final_caracal_options = _update_caracal_template_with_options(caracal_template_yaml, caracal_config_file_options)
-
-    print(f"Final caracal options: {final_caracal_options}")
 
     output_yaml_path = working_dir/ "caracal_polcal.latest.yaml"
     final_caracal_yaml_path = write_and_timestamp_caracal_strategy(output_yaml_path, final_caracal_options)
