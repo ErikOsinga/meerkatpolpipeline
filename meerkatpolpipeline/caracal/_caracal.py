@@ -246,16 +246,19 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
            "input": caracal_options['caracal_files'],
         },
         "getdata": {
-            "dataid": caracal_options['dataid'],
+            # caracal requires a list
+            "dataid": [caracal_options['dataid']],
 
         },
         "obsconf": {
-            "target": caracal_options['targetfield'],
-            "fcal": caracal_options['obsconf_fcal'],
-            "bpcal": caracal_options['obsconf_bpcal'],
-            "gcal": caracal_options['obsconf_gcal'],
-            "xcal": caracal_options['obsconf_xcal'],
-            "refant": caracal_options['obsconf_refant'],
+            # caracal requires lists
+            "target": [caracal_options['targetfield']],
+            # TODO: extend to multiple calibrators have it always be a list
+            "fcal": [caracal_options['obsconf_fcal']],
+            "bpcal": [caracal_options['obsconf_bpcal']],
+            "gcal": [caracal_options['obsconf_gcal']],
+            "xcal": [caracal_options['obsconf_xcal']],
+            "refant": [caracal_options['obsconf_refant']],
         },
     }
     # # put them in the class holder for a caracal config file
@@ -268,7 +271,6 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
 
     with open(caracal_template) as in_file:
         caracal_template_yaml = yaml.load(in_file) # dict
-        print(f"Loaded caracal template yaml: {caracal_template_yaml}")
 
     # update the template yaml with the user options
     final_caracal_options = _update_caracal_template_with_options(caracal_template_yaml, caracal_config_file_options)
