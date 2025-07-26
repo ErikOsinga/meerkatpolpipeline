@@ -301,7 +301,7 @@ def get_parser() -> ArgumentParser:
         "--working-dir", type=str, default="./", help="Path to main working directory. Default ./"
     )
     parser.add_argument(
-        "--append_to_flowname", type=str, default="", help="String to attach to the flow name. Default ''"
+        "--append-to-flowname", type=str, default="", help="String to attach to the flow name. Default ''"
     )
 
     return parser
