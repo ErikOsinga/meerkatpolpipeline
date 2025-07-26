@@ -264,7 +264,8 @@ def process_science_fields(
     
 def setup_run(
     strategy_path: Path,
-    working_dir: Path
+    working_dir: Path,
+    append_to_flowname: str = ""
 ) -> None:
     
     # load strategy and copy timestamp to working dir
@@ -282,7 +283,7 @@ def setup_run(
     # )
 
     process_science_fields.with_options(
-        name=f"MeerKAT pipeline - {target}"
+        name=f"MeerKAT pipeline - {target} {append_to_flowname}"
         # , task_runner=dask_task_runner
     )(
         strategy=strategy,
@@ -299,7 +300,10 @@ def get_parser() -> ArgumentParser:
     parser.add_argument(
         "--working-dir", type=str, default="./", help="Path to main working directory. Default ./"
     )
-    
+    parser.add_argument(
+        "--append_to_flowname", type=str, default="", help="String to attach to the flow name. Default ''"
+    )
+
     return parser
 
 
@@ -311,7 +315,8 @@ def cli() -> None:
 
     setup_run(
         strategy_path=Path(args.cli_config_file),
-        working_dir=Path(args.working_dir)
+        working_dir=Path(args.working_dir),
+        append_to_flowname=args.append_to_flowname
     )
 
 
