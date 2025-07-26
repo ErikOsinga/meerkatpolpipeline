@@ -1,10 +1,10 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
 
 from prefect.logging import get_run_logger
 
@@ -19,7 +19,7 @@ def add_timestamp_to_path(
 
     Args:
         input_path (Union[Path, str]): Path that should have a timestamp added
-        timestamp: (Optional[datetime], optional): The date-time to add. If None the current time is used. Defaults to None.
+        timestamp: (datetime): The date-time to add. If None the current time is used. Defaults to None.
     Returns:
         Path: Updated path with a timestamp in the file name
     """
@@ -33,61 +33,47 @@ def add_timestamp_to_path(
     return output_path
 
 def execute_command(
-    cmd: Union[str, list[str]],
+    cmd: str | list[str],
     test: bool = False
-) -> Optional[subprocess.CompletedProcess]:
+) -> subprocess.CompletedProcess:
     """
-    Wrapper around subprocess.run with error handling.
-    Supports both string commands (shell mode) and list commands.
-
-    :param cmd: either a single string (will use shell=True)
-                or a list of args (shell=False)
-    :param test: if True, only logs the command without running it
-    :returns: CompletedProcess if run; None if test mode
+    Run a command (always as a list) with error handling.
+    :param cmd: either a single string or a list of args
+    :param test: if True, logs only and does not execute
     """
     logger = get_run_logger()
 
-    # If it's a string, we’ll run under a shell
+    # Normalize to list
     if isinstance(cmd, str):
-        logger.info("Executing shell command: %s", cmd)
+        cmd_list = shlex.split(cmd)
+        logger.info("Parsed command string into list: %s", cmd_list)
     else:
-        # join for logging, but keep list for actual run
-        logger.info("Executing command list: %s", " ".join(cmd))
+        cmd_list = cmd
+        logger.info("Executing command list: %s", cmd_list)
 
     if test:
-        logger.info("Test mode enabled; skipping execution.")
+        logger.info("Test mode enabled; skipping command execution.")
         return None
 
-    # If we're calling bash, verify the script exists first
-    # (handles both string and list forms)
-    to_check = None
-    if isinstance(cmd, str):
-        parts = cmd.split()
-        if parts and parts[0] == "bash" and len(parts) >= 2:
-            to_check = parts[1]
-    else:
-        if cmd and cmd[0] == "bash" and len(cmd) >= 2:
-            to_check = cmd[1]
-
-    if to_check:
-        script_path = Path(to_check)
+    # If the first element is "bash", check the script exists
+    if cmd_list and cmd_list[0] == "bash" and len(cmd_list) > 1:
+        script_path = Path(cmd_list[1])
         if not script_path.exists():
             raise FileNotFoundError(
-                f"Script not found at {script_path!r}; "
-                "please verify the path."
+                f"Script not found at {script_path!r}; please verify the path."
             )
 
-    # Dispatch to subprocess.run
     try:
         result = subprocess.run(
-            cmd,
-            shell=isinstance(cmd, str),
+            cmd_list,
             check=True,
             capture_output=True,
             text=True
         )
     except subprocess.CalledProcessError as e:
         logger.error("Command failed (exit %d): %s", e.returncode, e.stderr)
+        logger.info(e.stderr) #  or e.stdout or ""
+        logger.info(e.returncode)
         raise
 
     return result
