@@ -104,7 +104,7 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
     }
 
     # /check_calibrator/IQUimages/polcal-image-00*.fits"
-    prefix = wsclean_output_dir / "polcal" 
+    prefix = str(wsclean_output_dir / "polcal" )
 
     options = WSCleanOptions(**hardcoded_options)
 
