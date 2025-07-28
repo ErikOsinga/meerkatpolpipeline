@@ -29,6 +29,7 @@ def split_polcal(
         casa_container: Path,
         output_ms: Path | None = None,
         bind_dirs: list[Path] | None = None,
+        chanbin: int = 16,
     ) -> Path:
     """
     Split the polarisation calibrator with default 16x channel averaging.
@@ -37,6 +38,10 @@ def split_polcal(
         output_ms = cal_ms_path.with_name(cal_ms_path.stem + "-polcal.ms")
 
     logger = get_run_logger()
+
+    if output_ms.exists():
+        logger.info(f"Output MS {output_ms} already exists, skipping split.")
+        return output_ms
 
     logger.info(f"Splitting polarisation calibrator {polcal_field} from {cal_ms_path} to {output_ms}")
 
@@ -47,6 +52,8 @@ def split_polcal(
         datacolumn="corrected",
         field=polcal_field,
         spw="",
+        chanaverage=True,
+        chanbin=chanbin, # e.g. 16x averaging
         keepflags=True,
         usewtspectrum=False,
         hanning=False,
