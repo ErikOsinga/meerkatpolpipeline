@@ -13,7 +13,7 @@ from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.caracal import _caracal
 from meerkatpolpipeline.casacrosscal import casacrosscal
-from meerkatpolpipeline.check_calibrator import check_calibrator
+from meerkatpolpipeline.check_calibrator.check_calibrator import check_calibrator
 from meerkatpolpipeline.configuration import (
     Strategy,
     get_options_from_strategy,
@@ -168,6 +168,7 @@ def process_science_fields(
         ############ 2. option 1: caracal cross-calibration step ############
         if crosscal_options['which'] == 'caracal':
             logger.info("Caracal cross-calibration step is enabled, starting caracal cross-calibration.")
+            crosscal_dir = crosscal_base_dir / 'caracal'
 
             # set up tasks
             task_cleanup_caracal = task(_caracal.cleanup_caracal_run, name="cleanup_caracal_run")
@@ -231,6 +232,7 @@ def process_science_fields(
         ############ 2. option 2: casa cross-calibration step ############
         elif crosscal_options['which'] == 'casacrosscal':
             logger.info("Casa crosscal step is enabled, starting casa cross-calibration.")
+            print("TODO")
             task_casa_crosscal = task(casacrosscal.do_casa_crosscal, name="casa_crosscal")
             crosscal_dir = task_casa_crosscal(crosscal_options, preprocessed_ms, crosscal_base_dir, ms_summary)
 
@@ -244,21 +246,29 @@ def process_science_fields(
         crosscal_dir = None
         
 
-    # check if we should proceed with caracal-cal.ms or casacrosscal-cal.ms based on user options
+    # check if we are proceeding with a caracal-cal.ms or a casacrosscal-cal.ms based on user options
     if crosscal_dir is None:
-        logger.warning(f"No cross-calibration step was performed, checking for calibrated MS in {crosscal_base_dir}")
-        calibrated_ms = find_calibrated_ms(crosscal_base_dir, preprocessed_ms)
-        if calibrated_ms is None:
+        logger.warning(f"No cross-calibration step was performed, checking for calibrated MS in {crosscal_base_dir} subdirectories")
+        
+        calibrated_cal_ms = find_calibrated_ms(
+            crosscal_base_dir.parent,
+            preprocessed_ms,
+            suffix="-cal.ms"
+        )
+        calibrated_target_ms = find_calibrated_ms(
+            crosscal_base_dir.parent,
+            preprocessed_ms,
+            suffix=f"-{strategy['targetfield']}-corr.ms"
+        )
+    
+    
+        if calibrated_cal_ms is None or calibrated_target_ms is None:
             raise ValueError(
-                f"No calibrated measurement set found in {crosscal_base_dir}. Please enable either caracal or casacrosscal step in the strategy file."
+                f"No calibrated target/cal measurement set found in {crosscal_base_dir}. Please enable either caracal or casacrosscal step in the strategy file."
             )
-        crosscal_dir = calibrated_ms.parent
 
-
-
-
-
-    print("TODO check that caracal/casa run was succesful, and return the -cal.ms path location")
+        # set crosscal dir wherever the calibrated MS was found
+        crosscal_dir = calibrated_target_ms.parent
 
     ########## step 3: check polarisation calibrator ##########
     if "check_calibrator" in enabled_operations:
@@ -272,7 +282,9 @@ def process_science_fields(
             check_calibrator_options['crosscal_ms'] = crosscal_dir / (preprocessed_ms.stem + "-cal.ms")
 
         # split calibrator, make images, and validation plots
-        check_calibrator(check_calibrator_options, working_dir=check_calibrator_workdir)
+        task_check_calibrator = task(check_calibrator, name="check_calibrator")
+        task_check_calibrator(check_calibrator_options, working_dir=check_calibrator_workdir)
+        
     else:
         logger.warning("Check calibrator step is disabled, skipping checking of polarisation calibrator.")
 

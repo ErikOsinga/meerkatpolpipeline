@@ -65,6 +65,9 @@ def check_calibrator(check_calibrator_options: CheckCalibratorOptions, working_d
     """Check the polcal calibrator field."""
     logger = get_run_logger()
 
+    print("TODO: check calibrator")
+
+    return 
 
     split_polcal(
         cal_ms_path=check_calibrator_options['crosscal_ms'],

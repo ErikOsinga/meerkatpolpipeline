@@ -319,6 +319,10 @@ def cleanup_caracal_run(
     """
     logger = get_run_logger()
 
+    if caracal_rundir == output_dir:
+        logger.info(f"caracal_rundir {caracal_rundir} is the same as output_dir {output_dir}. Nothing to move.")
+        return calibrated_cal_ms, calibrated_target_ms
+
     # move the caracal run directory to the output directory
     if not output_dir.exists():
         logger.info(f"Creating output directory {output_dir}")
