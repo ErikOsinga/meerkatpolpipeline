@@ -44,12 +44,11 @@ def split_polcal(
         output_ms = cal_ms_path.with_name(cal_ms_path.stem + "-polcal.ms")
 
     logger = get_run_logger()
+    logger.info(f"Splitting polarisation calibrator {polcal_field} from {cal_ms_path} to {output_ms}")
 
     if output_ms.exists():
         logger.info(f"Output MS {output_ms} already exists, skipping split.")
         return output_ms
-
-    logger.info(f"Splitting polarisation calibrator {polcal_field} from {cal_ms_path} to {output_ms}")
 
     casa_command(
         task="mstransform",
@@ -146,12 +145,11 @@ def check_calibrator(
         casa_container=casa_container,
         bind_dirs=bind_dirs,
     )
-    
 
     go_wsclean_smallcubes(
         polcal_ms,
         working_dir,
-
+        lofar_container= lofar_container,
     )
 
     # validate_calibrator_field()
