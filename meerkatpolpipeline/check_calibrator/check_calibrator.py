@@ -82,6 +82,7 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
     wsclean_output_dir.mkdir(exist_ok=True)
 
     hardcoded_options = {
+        'data_column': 'DATA', # since we split the MS
         'no_update_model_required': True,
         'minuv_l': 10.0,
         'size': 1000,
