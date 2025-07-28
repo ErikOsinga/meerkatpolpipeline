@@ -108,7 +108,7 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
 
     wsclean_command = create_wsclean_command(options, ms, prefix)
 
-    run_wsclean_command(wsclean_command,
+    run_wsclean_command(wsclean_command=wsclean_command,
                         container=lofar_container,
                         bind_dirs=[ms.parent,wsclean_output_dir]
     )
