@@ -295,6 +295,7 @@ def process_science_fields(
             check_calibrator_options,
             working_dir=check_calibrator_workdir,
             casa_container=casa_container,
+            lofar_container=lofar_container,
             bind_dirs = [
                 check_calibrator_options['crosscal_ms'].parent, # input MS location
                 check_calibrator_workdir # output MS location

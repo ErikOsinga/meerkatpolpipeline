@@ -10,7 +10,8 @@ from pydantic import BaseModel, ConfigDict
 T = TypeVar("T", bound=BaseModel)
 
 class BaseOptions(BaseModel):
-    """A base class that Options style flint classes can
+    """Taken from flint
+    A base class that Options style that classes can
     inherit from. This is derived from ``pydantic.BaseModel``,
     and can be used for validation of supplied values.
 
