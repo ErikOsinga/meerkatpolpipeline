@@ -22,7 +22,7 @@ from meerkatpolpipeline.configuration import (
 )
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
-from meerkatpolpipeline.measurementset import msoverview_summary
+from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.utils.utils import find_calibrated_ms
 
@@ -139,12 +139,14 @@ def process_science_fields(
     crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
     crosscal_base_dir.mkdir(exist_ok=True) # runs can be repeated
 
+    # will be written either by caracal step, or CASA (TODO)
+    field_intents_csv = crosscal_base_dir / "field_intents.csv"
+
     if "crosscal" in enabled_operations:
         logger.info("Cross-calibration step is enabled, starting cross-calibration.")
 
         crosscal_options = get_options_from_strategy(strategy, operation="crosscal")
 
-        field_intents_csv = crosscal_base_dir / "field_intents.csv"
 
         # get MS summary, optionally with scan intents if user wants auto determined calibrators
         task_msoverview_summary = task(msoverview_summary, name="msoverview_preprocessed")
@@ -276,15 +278,26 @@ def process_science_fields(
         check_calibrator_workdir.mkdir(exist_ok=True)
 
         check_calibrator_options = get_options_from_strategy(strategy, operation="check_calibrator")
+
+        # get polcal field from field intents
+        field_intents_dict = load_field_intents_csv(field_intents_csv)
+        _, polcal_field = _caracal.obtain_by_intent(field_intents_dict, "polcal")
         
         # check for user overwrite
         if check_calibrator_options['crosscal_ms'] is None:
-            check_calibrator_options['crosscal_ms'] = crosscal_dir / (preprocessed_ms.stem + "-cal.ms")
+            check_calibrator_options['crosscal_ms'] = calibrated_cal_ms
+        if check_calibrator_options['polcal_field'] is None:
+            check_calibrator_options['polcal_field'] = polcal_field
 
         # split calibrator, make images, and validation plots
         task_check_calibrator = task(check_calibrator, name="check_calibrator")
-        task_check_calibrator(check_calibrator_options, working_dir=check_calibrator_workdir)
-        
+        task_check_calibrator(
+            check_calibrator_options,
+            working_dir=check_calibrator_workdir,
+            casa_container=casa_container,
+            bind_dirs = [check_calibrator_options['crosscal_ms'].parent] + casa_additional_bind
+        )
+
     else:
         logger.warning("Check calibrator step is disabled, skipping checking of polarisation calibrator.")
 

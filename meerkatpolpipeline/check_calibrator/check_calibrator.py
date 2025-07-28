@@ -15,17 +15,19 @@ class CheckCalibratorOptions(BaseOptions):
     
     enable: bool
     """enable this step?"""
+    targetfield: str | None = None
+    """name of targetfield. IGNORED. This option is propagated to every step even though its not useful in this step."""    
     crosscal_ms: Path | None = None
     """Path to cross-calibrated MS that contains the calibrators. If None, will be determined automatically"""
-    targetfield: str | None = None
-    """name of targetfield. This option is propagated to every step even though its not useful in this step."""
+    polcal_field: str | None = None
+    """String containing the name of the polarisation calibrator field. If None, will be determined automatically"""
 
     
 def split_polcal(
         cal_ms_path: Path,
         polcal_field: str,
+        casa_container: Path,
         output_ms: Path | None = None,
-        casa_container: Path | None = None,
         bind_dirs: list[Path] | None = None,
     ) -> Path:
     """
@@ -61,23 +63,36 @@ def go_wsclean_smallcubes():
 def validate_calibrator_field():
     pass
 
-def check_calibrator(check_calibrator_options: CheckCalibratorOptions, working_dir: Path) -> Path:
-    """Check the polcal calibrator field."""
+def check_calibrator(
+        check_calibrator_options: dict | CheckCalibratorOptions,
+        working_dir: Path,
+        casa_container: Path ,
+        bind_dirs: list[Path],
+    ) -> Path:
+    """Check the polcal calibrator field.
+    
+    args:
+        check_calibrator_options (dict | CheckCalibratorOptions): Dictionary storing CheckCalibratorOptions for the check_calibrator step.
+        working_dir (Path): The working directory for the check_calibrator step
+        casa_container (Path | None): Path to the container with the casa installation.
+        bind_dirs (list[Path] | None): List of directories to bind to the container.
+    
+    Returns:
+        Path: The path to the polcal measurement set after splitting.
+    """
     logger = get_run_logger()
-
-    print("TODO: check calibrator")
-
-    return 
 
     split_polcal(
         cal_ms_path=check_calibrator_options['crosscal_ms'],
-        polcal_field=check_calibrator_options.targetfield or "polcal",
+        polcal_field=check_calibrator_options['polcal_field'],
         output_ms=working_dir / "polcal.ms",
+        casa_container=casa_container,
+        bind_dirs=bind_dirs,
     )
     
 
-    go_wsclean_smallcubes()
+    # go_wsclean_smallcubes()
 
-    validate_calibrator_field()
+    # validate_calibrator_field()
 
     return
