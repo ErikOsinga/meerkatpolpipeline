@@ -177,13 +177,12 @@ def create_wsclean_command(
         if isinstance(val, bool):
             if val:
                 cmd_parts.append(flag)
+        elif name == "size":
+            # always output two dimensions
+            dims = (val, val) if isinstance(val, int) else val
+            cmd_parts.extend([flag] + [str(d) for d in dims])
         elif isinstance(val, (list, tuple)):
-            if name == "size":
-                # size may be a single int or a tuple of two ints
-                sizes = val if isinstance(val, tuple) else (val,)
-                cmd_parts.extend([flag] + [str(v) for v in sizes])
-            else:
-                cmd_parts.extend([flag, ",".join(str(v) for v in val)])
+            cmd_parts.extend([flag, ",".join(str(v) for v in val)])
         else:
             cmd_parts.extend([flag, str(val)])
 
