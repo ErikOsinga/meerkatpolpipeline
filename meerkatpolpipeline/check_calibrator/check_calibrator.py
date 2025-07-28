@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
-from typing import Any
 
 from prefect.logging import get_run_logger
 
@@ -81,7 +79,8 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
     logger.info(f"Creating wsclean output directory at {wsclean_output_dir}")
     wsclean_output_dir.mkdir(exist_ok=True)
 
-    hardcoded_options = {
+    # hardcoded options for Stokes I
+    hardcoded_options_stokesI = {
         'data_column': 'DATA', # since we split the MS
         'no_update_model_required': True,
         'minuv_l': 10.0,
@@ -106,15 +105,37 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
     # /check_calibrator/IQUimages/polcal-image-00*.fits"
     prefix = str(wsclean_output_dir / "polcal" )
 
-    options = WSCleanOptions(**hardcoded_options)
+    options_stokesI = WSCleanOptions(**hardcoded_options_stokesI)
 
-    wsclean_command = create_wsclean_command(options, ms, prefix)
+    logger.info("Running WSClean for Stokes I imaging")
 
-    run_wsclean_command(wsclean_command=wsclean_command,
+    # create and run WSclean for stokes I
+    wsclean_command_stokesI = create_wsclean_command(options_stokesI, ms, prefix)
+    run_wsclean_command(wsclean_command=wsclean_command_stokesI,
                         container=lofar_container,
                         bind_dirs=[ms.parent,wsclean_output_dir]
     )
 
+
+    logger.info("Running WSClean for Stokes QU imaging")
+    hardcoded_options_stokesQU = {
+        'pol': 'qu',
+        'fit_rm': True,
+        'join_polarizations': True,
+        'squared_channel_joining': True,
+        'mgain': 0.8,
+    }
+    
+    options_stokesQU = options_stokesI.with_options(**hardcoded_options_stokesQU)
+    
+    # create and run WSclean for stokes QU
+    wsclean_command_stokesQU = create_wsclean_command(options_stokesQU, ms, prefix)
+    run_wsclean_command(wsclean_command=wsclean_command_stokesQU,
+                        container=lofar_container,
+                        bind_dirs=[ms.parent,wsclean_output_dir]
+    )
+
+    # check if images were created and return two image sets
 
 def validate_calibrator_field():
     pass

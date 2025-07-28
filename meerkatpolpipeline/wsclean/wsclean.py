@@ -138,6 +138,9 @@ class WSCleanOptions(BaseOptions):
     """If True turn off the reordering of the MS at the beginning of wsclean"""
     no_mf_weighting: bool = False
     """Opposite of -mf-weighting; can be used to turn off MF weighting in -join-channels mode. Suggested for channel science"""
+    fit_rm: bool = False
+    """Fit a rotation measure to the data during deconvlution. Available since WSClean 3.7"""
+
 
 
 class WSCleanCommand(BaseOptions):
