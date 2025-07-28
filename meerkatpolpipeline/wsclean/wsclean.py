@@ -224,3 +224,89 @@ def run_wsclean_command(wsclean_command: WSCleanCommand, **kwargs) -> str:
     logger.info(f"WSclean command {wsclean_command.cmd}")
 
     return wsclean_command.cmd
+
+def get_wsclean_output(
+        wsclean_command: WSCleanCommand,
+        pol: str = 'i',
+        validate: bool =  True
+    ) -> ImageSet:
+    """Parse a wsclean command, extract the prefix, and gather output files into an ImageSet.
+    
+    Assumes WSClean commands are constructed with the `-name` argument with absolute paths
+
+    args:
+        wsclean_command (WSCleanCommand): The command that was run
+        pol (str): The polarisation to extract. Defaults to 'i' for Stokes I.
+
+    """
+    cmd = wsclean_command.cmd
+    parts = cmd.split()
+    try:
+        idx = parts.index("-name")
+        prefix = parts[idx + 1]
+    except ValueError:
+        raise ValueError("wsclean command missing '-name' argument for prefix")
+
+    # Validate polarization
+    pol = pol.lower()
+    if pol not in ("i", "q", "u"):
+        raise ValueError("pol must be 'i', 'q', or 'u'")
+
+    # Helper to glob all matches
+    def glob_all(pattern: str) -> list[Path]:
+        return sorted(glob(pattern))
+
+    # Find files for a given product and polarization
+    def find_pol_files(kind: str) -> list[Path]:
+        if pol in ("q", "u"):
+            pattern = f"{prefix}*-{pol.upper()}-{kind}*.fits"
+            return sorted(glob(pattern))
+        # Stokes I: exclude Q/U
+        all_files = glob_all(f"{prefix}*-{kind}*.fits")
+        return [p for p in all_files if "-Q-" not in p and "-U-" not in p]
+
+    images = find_pol_files("image")
+    dirty = find_pol_files("dirty")
+    model = find_pol_files("model")
+    residual = find_pol_files("residual")
+    psf_files = glob_all(f"{prefix}*-psf*.fits") or []
+    psf = psf_files or None
+
+    # Source list file (e.g., txt or model list)
+    sl = glob_all(f"{prefix}*source*txt")
+    source_list = sl[0] if sl else None
+
+    imset = ImageSet(
+        prefix=prefix,
+        image=images,
+        psf=psf,
+        dirty=dirty,
+        model=model,
+        residual=residual,
+        source_list=source_list,
+    )
+
+    if validate:
+        validate_imset(imset, wsclean_command.options.channels_out)
+
+    return imset
+
+def validate_imset(imset: ImageSet, nchan: int) -> None:
+    """
+    Validate that for each product (image, dirty, model, residual),
+    there are nchan + 1 files (including MFS).
+    """
+    expected = nchan + 1
+    products = {
+        "image": imset.image,
+        "dirty": imset.dirty,
+        "model": imset.model,
+        "residual": imset.residual,
+    }
+    for kind, files in products.items():
+        count = len(files) if files is not None else 0
+        if count != expected:
+            raise ValueError(
+                f"Expected {expected} '{kind}' files, but found {count}."
+            )
+    return

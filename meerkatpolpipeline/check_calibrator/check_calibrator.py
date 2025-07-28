@@ -10,6 +10,7 @@ from meerkatpolpipeline.wsclean.wsclean import (
     ImageSet,
     WSCleanOptions,
     create_wsclean_command,
+    get_wsclean_output,
     run_wsclean_command,
 )
 
@@ -67,7 +68,7 @@ def split_polcal(
     return output_ms
 
 
-def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) -> ImageSet:
+def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) -> tuple[ImageSet,ImageSet,ImageSet]:
     """
     Quick round of imaging the calibrator in IQU
     """
@@ -116,6 +117,9 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
                         bind_dirs=[ms.parent,wsclean_output_dir]
     )
 
+    # check if images were created and an image set
+    imageset_stokesI = get_wsclean_output(wsclean_command_stokesI, pol='i', validate=True)
+
 
     logger.info("Running WSClean for Stokes QU imaging")
     hardcoded_options_stokesQU = {
@@ -136,6 +140,11 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
     )
 
     # check if images were created and return two image sets
+    imageset_stokesQ = get_wsclean_output(wsclean_command_stokesQU, pol='q', validate=True)
+    imageset_stokesU = get_wsclean_output(wsclean_command_stokesQU, pol='u', validate=True)
+    
+    return imageset_stokesI, imageset_stokesQ, imageset_stokesU
+
 
 def validate_calibrator_field():
     pass
