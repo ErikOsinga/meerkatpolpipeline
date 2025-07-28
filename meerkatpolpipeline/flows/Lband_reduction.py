@@ -169,14 +169,63 @@ def process_science_fields(
         if crosscal_options['which'] == 'caracal':
             logger.info("Caracal cross-calibration step is enabled, starting caracal cross-calibration.")
 
+            # set up tasks
+            task_cleanup_caracal = task(_caracal.cleanup_caracal_run, name="cleanup_caracal_run")
             task_caracal_crosscal = task(_caracal.do_caracal_crosscal, name="caracal_crosscal")
-            crosscal_dir = task_caracal_crosscal(
-                crosscal_options,
+
+            # Check if caracal was already done but maybe files were not moved from /download to /caracal
+            calibrated_cal_ms = find_calibrated_ms(
+                crosscal_base_dir.parent,
                 preprocessed_ms,
-                crosscal_base_dir,
-                ms_summary,
-                lofar_container # only required if user overwrites input MS.
+                look_in_subdirs=[Path('download')],
+                suffix="-cal.ms"
             )
+            calibrated_target_ms = find_calibrated_ms(
+                crosscal_base_dir.parent,
+                preprocessed_ms,
+                look_in_subdirs=[Path('download')],
+                suffix=f"-{strategy['targetfield']}-corr.ms"
+            )
+            if calibrated_cal_ms is not None and calibrated_target_ms is not None:
+                # if both are found, we assume the caracal run was already done
+                logger.info(f"Found already calibrated target MS at {calibrated_target_ms}. Moving to /crosscal/caracal/ directory.")
+                
+                # move calibrated MS & caracal output from "$workdir/download/" to "$workdir/crosscal/caracal/" 
+                calibrated_cal_ms, calibrated_target_ms = task_cleanup_caracal(
+                    caracal_rundir=calibrated_target_ms.parent,
+                    preprocessed_ms_name=preprocessed_ms.stem,
+                    calibrated_cal_ms=calibrated_cal_ms,
+                    calibrated_target_ms=calibrated_target_ms,
+                    output_dir = (crosscal_base_dir / 'caracal')
+                )
+
+
+            else:
+                # Do the actual caracal run.
+
+                # note: this task also tests whether the calibrated MS exists in the crosscal_base_dir/caracal_crosscal directory
+                calibrated_cal_ms, calibrated_target_ms = task_caracal_crosscal(
+                    crosscal_options,
+                    preprocessed_ms,
+                    crosscal_base_dir,
+                    ms_summary,
+                    lofar_container # only required if user overwrites input MS.
+                )
+
+                if calibrated_cal_ms is None or calibrated_target_ms is None:
+                    raise ValueError(
+                        "Caracal cross-calibration did not return valid calibrated MS paths. Please check the caracal logs."
+                    )
+            
+                logger.info(f"Caracal cross-calibration completed. Calibrated MS can be found at {calibrated_target_ms} and {calibrated_cal_ms}.")
+                # move calibrated MS & caracal output from "$workdir/download/" to "$workdir/crosscal/caracal/" 
+                calibrated_cal_ms, calibrated_target_ms = task_cleanup_caracal(
+                    caracal_rundir=calibrated_target_ms.parent,
+                    preprocessed_ms_name=preprocessed_ms.stem,
+                    calibrated_cal_ms=calibrated_cal_ms,
+                    calibrated_target_ms=calibrated_target_ms,
+                    output_dir = (crosscal_base_dir / 'caracal')
+                )
 
 
         ############ 2. option 2: casa cross-calibration step ############

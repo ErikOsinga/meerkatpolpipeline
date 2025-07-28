@@ -93,7 +93,8 @@ def check_create_symlink(symlink: Path, original_path: Path) -> Path:
 def find_calibrated_ms(
         crosscal_base_dir: Path,
         preprocessed_ms: Path,
-        look_in_subdirs: list = ["caracal", "casacrosscal"]
+        look_in_subdirs: list = ["caracal", "casacrosscal"],
+        suffix: str = "-cal.ms"
     ) -> Path | None:
     """
     If both crosscal steps are disabled, check for the existence of a calibrated
@@ -104,12 +105,18 @@ def find_calibrated_ms(
         preprocessed_ms (Path): Path to the preprocessed measurement set.
         look_in_subdirs (list): List of subdirectories to look for the calibrated measurement set.
                                  Defaults to ["caracal", "casacrosscal"].
+        suffix (str): Suffix to append to the preprocessed measurement set name when searching.
+                       : "-cal.ms" is the default for the caracal split MS with the (corrected) calibrators
+                       : "-{target}-corr.ms" is the default for the caracal split MS with the corrected target 
     Returns:
         Path | None: Path to the calibrated measurement set if found, otherwise None.
     """
+    # check if suffix ends with .ms otherwise append .ms
+    if not suffix.endswith(".ms"):
+        suffix += ".ms"
 
     for subdir in look_in_subdirs:
-        ms_path = crosscal_base_dir / subdir / (preprocessed_ms.stem + "-cal.ms")
+        ms_path = crosscal_base_dir / subdir / (preprocessed_ms.stem + suffix)
         if ms_path.exists():
             return ms_path
     return None
