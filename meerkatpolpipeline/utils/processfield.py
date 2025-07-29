@@ -562,6 +562,7 @@ def process_stokesQU(
         lambdasq_fit, evpa_fit = models['evpa'](freqs_Q)
     else:
         lambdasq_fit, evpa_fit = None, None
+        rm_iono_rad_m2 = None
 
     evpa_residuals = plot_evpa_vs_lambdasq(
         lambdasq_obs,
@@ -571,37 +572,44 @@ def process_stokesQU(
         plotdir
     )
 
-    # 4) Infer ionospheric RM from EVPA residuals
-    # analytical least squares fit
-    rm_iono_deg_m2 = np.sum(lambdasq_obs * evpa_residuals) / np.sum(lambdasq_obs**2)
-    # convert to rad/m^2:
-    rm_iono_rad_m2 = np.deg2rad(rm_iono_deg_m2)
-    logger.info(f"Inferred ionospheric RM from EVPA residuals = {rm_iono_rad_m2:.3f} rad/m^2")
+    if models is not None and plotmodel:
+        # 4) Infer ionospheric RM from EVPA residuals
+        
+        # analytical least squares fit. Be careful that lambdasq_obs.shape = (nfreq,) and evpa_residuals is [nfreq, nregions]
+        rm_iono_deg_m2 = np.sum(lambdasq_obs[:, None] * evpa_residuals, axis=1) / np.sum(lambdasq_obs**2) # shape (nregions,)
+        # convert to rad/m^2:
+        rm_iono_rad_m2 = np.deg2rad(rm_iono_deg_m2)
 
-    if rm_iono_rad_m2 > 0:
-        logger.warning("For South-Africa we expect a negative ionospheric RM contribution. Something has gone wrong?")
+        # assume first source is the only one where it makes sense to compare to models
+        rm_iono_deg_m2 = rm_iono_deg_m2[0]
+        rm_iono_rad_m2 = rm_iono_rad_m2[0]
+
+        logger.info(f"Inferred ionospheric RM from EVPA residuals = {rm_iono_rad_m2:.3f} rad/m^2")
+
+        if rm_iono_rad_m2 > 0:
+            logger.warning("For South-Africa we expect a negative ionospheric RM contribution. Something has gone wrong?")
 
 
-    # 5) Build a 'corrected' EVPA curve
-    # i.e. PA_obs - RM_iono*lambda^2 should be equal to the model
-    evpa_obs_corrected = evpa_obs - (rm_iono_deg_m2*lambdasq_obs)[:, None] # make sure its same shape
-    print(f"{lambdasq_obs=}")
-    print(f"{evpa_obs=}")
-    print(f"{evpa_fit=}")
-    print(f"{evpa_residuals=}")
+        # 5) Build a 'corrected' EVPA curve
+        # i.e. PA_obs - RM_iono*lambda^2 should be equal to the model
+        evpa_obs_corrected = evpa_obs - (rm_iono_deg_m2*lambdasq_obs)[:, None] # make sure its same shape
+        # print(f"{lambdasq_obs=}")
+        # print(f"{evpa_obs=}")
+        # print(f"{evpa_fit=}")
+        # print(f"{evpa_residuals=}")
 
-    print(f"{rm_iono_deg_m2=}")
-    print(f"{(rm_iono_deg_m2*lambdasq_obs)[:, None]=}")
-    print(f"{evpa_obs_corrected=}")
-    
-    plot_evpa_vs_lambdasq(
-        lambdasq_obs,
-        evpa_obs_corrected,
-        lambdasq_fit,
-        evpa_fit,
-        plotdir,
-        fig_suffix=f"_corrected_{rm_iono_rad_m2:.1f}_radm2"
-    )
+        # print(f"{rm_iono_deg_m2=}")
+        # print(f"{(rm_iono_deg_m2*lambdasq_obs)[:, None]=}")
+        # print(f"{evpa_obs_corrected=}")
+        
+        plot_evpa_vs_lambdasq(
+            lambdasq_obs,
+            evpa_obs_corrected,
+            lambdasq_fit,
+            evpa_fit,
+            plotdir,
+            fig_suffix=f"_corrected_{rm_iono_rad_m2:.1f}_radm2"
+        )
 
     return rm_iono_rad_m2
 
