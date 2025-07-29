@@ -569,6 +569,7 @@ def process_stokesQU(
         evpa_obs,
         lambdasq_fit,
         evpa_fit,
+        src,
         plotdir
     )
 
@@ -607,6 +608,7 @@ def process_stokesQU(
             evpa_obs_corrected,
             lambdasq_fit,
             evpa_fit,
+            src,
             plotdir,
             fig_suffix=f"_corrected_{rm_iono_rad_m2:.1f}_radm2"
         )
