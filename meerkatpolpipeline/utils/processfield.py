@@ -580,7 +580,7 @@ def process_stokesQU(
 
     # 5) Build a 'corrected' EVPA curve
     # i.e. PA_obs - RM_iono*lambda^2 should be equal to the model
-    evpa_obs_corrected = evpa_obs - rm_iono_deg_m2*lambdasq_obs
+    evpa_obs_corrected = evpa_obs - (rm_iono_deg_m2*lambdasq_obs)[:, None] # make sure its same shape
     plot_evpa_vs_lambdasq(
         lambdasq_obs,
         evpa_obs_corrected,
