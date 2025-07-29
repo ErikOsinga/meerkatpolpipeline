@@ -504,12 +504,12 @@ def process_stokesQU(
     plotdir: Path | None = None,
     unc: float | None = None,
     flagchan: list[int] | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> float:
     """
     Process Stokes Q and U images to extract polarisation properties.
 
     Returns:
-           TODO
+           rm_iono_rad_m2: float or None -- inferred RM that explains offset between data and model.
     """
     if not plotdir.exists():
         logger.info(f"Creating {plotdir}")
@@ -537,7 +537,7 @@ def process_stokesQU(
 
     # 2) plot polarisation fraction
     lambdasq_obs, polint_obs, polfrac_obs  = compute_polint_polfrac(Ivals, Qvals, Uvals, freqs_Q)
-    if models is not None:
+    if models is not None and plotmodel:
         # compute the model
         lambdasq_fit, polfrac_fit = models['polfrac'](freqs_Q)
     else:
@@ -553,7 +553,7 @@ def process_stokesQU(
 
     # 3) plot polarisation angle (EVPA)
     lambdasq_obs, evpa_obs = compute_polarisation_angle_spectrum(Qvals, Uvals, freqs_Q)
-    if models is not None:
+    if models is not None and plotmodel:
         # compute the model
         lambdasq_fit, evpa_fit = models['evpa'](freqs_Q)
     else:
@@ -589,6 +589,8 @@ def process_stokesQU(
         plotdir,
         fig_suffix="_corrected"
     )
+
+    return rm_iono_rad_m2
 
 
 def processfield(
@@ -666,7 +668,7 @@ def processfield(
             logger.error(msg)
             raise ValueError(msg)
         
-        process_stokesQU(
+        rm_iono_rad_m2 = process_stokesQU(
             imageset_stokesQ=imageset_stokesQ,
             imageset_stokesU=imageset_stokesU,
             stokesI_fluxdens=stokesI_fluxdens,
@@ -679,6 +681,8 @@ def processfield(
             plotmodel=plotmodel,
             plotdir=plotdir,
         )
+
+        rm_iono_rad_m2
 
 
 def get_parser() -> ArgumentParser:

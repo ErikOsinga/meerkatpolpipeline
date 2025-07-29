@@ -11,6 +11,7 @@ from meerkatpolpipeline.utils.processfield import (
     determine_calibrator,
     determine_model,
     process_stokesI,
+    process_stokesQU,
 )
 from meerkatpolpipeline.wsclean.wsclean import (
     ImageSet,
@@ -216,7 +217,20 @@ def validate_calibrator_field(
     )
 
     logger.info("Processing Stokes QU images.")
-    logger.info("TODO")
+
+    process_stokesQU(
+        imageset_stokesQ=imageset_stokesQ,
+        imageset_stokesU=imageset_stokesU,
+        stokesI_fluxdens=stokesI,
+        region_file=region_file,
+        models=models,
+        logger=logger,
+        unc=None,
+        integrated=True,
+        flagchan=None, # TODO
+        plotmodel=True,
+        plotdir= working_dir / "plots",
+    )
 
 
     return stokesI, stokesIpeak, frequencies
