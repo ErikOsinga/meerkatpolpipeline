@@ -78,7 +78,7 @@ def determine_model(src: str) -> tuple[Callable,Callable,Callable]:
         # EVPA_model = lambda freq: np.ones(len(freq))*np.nan # undefined
         # P_model = lambda freq: np.zeros(len(freq)) # zero polfrac
     else:
-        raise ValueError(f"Unknown source '{src}'; must be 3c286 or 3c138")
+        raise ValueError(f"Unknown source '{src}'; must be 3c286 or 3c138 if -plotmodel is enabled")
     
     return I_model, EVPA_model, polfrac_model
 
@@ -120,7 +120,7 @@ def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.
         peak_flux = np.nanmax(masked_data)
 
         # Convert units from Jy/beam to Jy/pix
-        masked_data = convert_units(masked_data, hdul)
+        masked_data = convert_units(masked_data, filename)
 
         # Calculate total flux in Jy
         total_flux = np.sum(masked_data)
@@ -131,12 +131,83 @@ def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.
     return np.array(total_fluxes), np.array(peak_fluxes), freq
 
 
+def plot_total_intensity_spectrum(
+    frequencieslist: np.ndarray,
+    intensitieslist: np.ndarray,
+    fit: bool = False,
+    unc: np.ndarray | float | None = None,
+    show: bool = True,
+    label: str = 'data',
+    marker: str = 'o',
+    ylabel: str | None = None,
+    plotdir: Path | None = None,
+    verbose: bool = False,
+) -> None:
+    """Plot total intensity spectrum.
+    
+    # frequencieslist = (nchannels,)
+    # intensitieslist = (nchannels,nregions)
+    """
+    for i in range(np.shape(intensitieslist)[1]):
+        intensities = intensitieslist[:, i]
+        # make sure values make sense
+        mask = (intensities > 0) & (frequencieslist > 0)
+        if (len(mask) - np.sum(mask)) > 0:
+            if verbose:
+                print(f"    Region {i}: Masking {len(mask) - np.sum(mask)} channels")
+        frequencies = frequencieslist[mask]
+        intensities = intensities[mask]
+
+        if unc is not None:
+            if not isinstance(unc, float):
+                uc = unc[:, i]  # fractional RMS added
+                uc = uc[mask]
+            else:
+                uc = unc  # uniform input user RMS
+
+            plt.errorbar(frequencies, intensities, yerr=uc, ls='none', c=f'C{i}')
+
+        plt.scatter(frequencies, intensities, label=label, c=f'C{i}', marker=marker)
+        if fit and len(intensities) > 3:  # need at least 3 channels to fit
+            # Perform log-log fitting: log(S) = alpha * log(nu)
+            log_frequencies = np.log10(frequencies)
+            log_intensities = np.log10(intensities)
+            # Fit a line to the log-log data
+            alpha, intercept = np.polyfit(log_frequencies, log_intensities, 1)
+            # Print the best-fit alpha
+            if verbose:
+                print(f"    Region {i}: Best-fit alpha: {alpha:.2f}")
+            # Generate best-fit model
+            fit_intensities = 10 ** (alpha * log_frequencies + intercept)
+            # Plot the best-fit model
+            plt.plot(
+                frequencies,
+                fit_intensities,
+                label=f'Fit (alpha={alpha:.2f})',
+                color=f'C{i}'
+            )
+
+    plt.loglog()
+    plt.xlim(0.9 * np.nanmin(frequencieslist), 1.1 * np.nanmax(frequencieslist))
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel(ylabel)
+    plt.title('Total Intensity Spectrum (Stokes I)')
+    plt.legend()
+    if plotdir is not None:
+        plt.savefig(plotdir / "stokesI_spectrum.png")
+    if show:
+        plt.show()
+    plt.close()
+    return
+
 def process_stokesI(
     imageset_stokesI: ImageSet,
     region_file: Path,
     models: dict | None,
     logger: Callable,
     plotmodel: bool = True,
+    plotdir: Path | None = None,
+    unc: float | None = None,
     integrated: bool = True,
     flagchan: list[int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -171,14 +242,13 @@ def process_stokesI(
     if integrated: 
         # Want to plot total flux generally
         logger.info("Plotting integrated flux density")
-        # assume single region (i.e. first region in the file should be the calibrator)
-        stokesIplot = stokesI[:, 0]
+        stokesIplot = stokesI
         ylabel = "Total flux density [Jy]"
     else:
         # if user wants to plot peak flux
         logger.warning("Plotting peak flux density. WARNING, ONLY CONSISTENT IF BEAM SIZE IS THE SAME ACROSS ALL CHANNELS. OR IF THE SOURCE IS UNRESOLVED")
 
-        stokesIplot = stokesIpeak[:, 0]
+        stokesIplot = stokesIpeak
         ylabel = 'Peak Intensity  [Jy/beam]'
     
     if flagchan is not None:
@@ -192,9 +262,19 @@ def process_stokesI(
     if plotmodel:
         plt.plot(frequencies, models['i'](frequencies), label=f"{models['src']} model", color='black', linestyle='--')
 
-    plt.xlabel('Frequency [MHz]')
-    plt.ylabel(ylabel)
-
+    plot_total_intensity_spectrum(
+        frequencieslist=frequencies,
+        intensitieslist=stokesIplot,
+        fit=True,
+        unc=unc,
+        show=False,
+        label='Stokes I',
+        marker='o',
+        ylabel=ylabel,
+        plotdir=plotdir,
+        verbose=True,
+    )
+    
 
 
 
@@ -207,8 +287,7 @@ def process_stokesQU(
     Process Stokes Q and U images to extract polarisation properties.
     """
 
-    frequencies, stokesI, stokesIpeak = calculate_fluxes(region_file, globstr, args.pbcor)
-
+    print("TODO")
 
 
 def processfield(
@@ -218,6 +297,8 @@ def processfield(
     read_spectra_list: list[str] | None = None,
     flagchan: list[int] | None = None,
     plotmodel: bool = True,
+    plotdir: Path | None = None,
+    unc: float | None = None,
     integrated: bool = True,
     logger: Callable | None = None
 ) -> None:
@@ -238,12 +319,14 @@ def processfield(
         # assume we are running in a Prefect flow
         logger = get_run_logger()
 
-    # determine calibrator from regionfile name
-    src = determine_calibrator(region_file)
-
-    # get the correct models for this calibrator
-    I_model, EVPA_model, polfrac_model = determine_model(src)
-    models = {'i': I_model, 'evpa': EVPA_model, 'polfrac': polfrac_model, 'src': src}
+    if plotmodel:
+        # determine calibrator from regionfile name
+        src = determine_calibrator(region_file)
+        # get the correct models for this calibrator
+        I_model, EVPA_model, polfrac_model = determine_model(src)
+        models = {'i': I_model, 'evpa': EVPA_model, 'polfrac': polfrac_model, 'src': src}
+    else:
+        models = None
 
     if read_spectra_list is not None:
         print("TODO")
@@ -261,9 +344,11 @@ def processfield(
         region_file=region_file,
         models=models,
         logger=logger,
+        unc=unc,
         integrated=integrated,
         flagchan=flagchan,
         plotmodel=plotmodel,
+        plotdir=plotdir,
     )
 
     if globstr_stokesQU is not None:
@@ -289,12 +374,15 @@ def processfield(
 def get_parser() -> ArgumentParser:
 
     descStr = """
-    Process a set of images + region file to produce spectra and compare to models.
+    Process a set of images + region file to produce spectra and (optionally) compare to models.
 
     Function is smart enough to handle WSClean inconsistent naming conventions having -Q- and -U- but not -I- 
     
-    Requires glob string for stokes I, in which case it will compare total intensity to model
-    and optionally glob string for stokes Q and U images (can be the same), in which case it will compare polarisation as well.
+    Requires glob string for stokes I to plot total intensity spectrum.
+    and optionally glob string for stokes Q and U images (can be the same), in which case it will plot polarisation intensities as well.
+
+    Can also generally plot a bunch of spectra from a region file. In that case -plotmodel should be False. If -plotmodel True is given
+    only KNOWN_CALIBRATORS are allowed as region file names, i.e. 3c286.reg, 3c138.reg, j0408-6545.reg
     """
 
     parser = ArgumentParser(description="")
@@ -304,10 +392,11 @@ def get_parser() -> ArgumentParser:
     parser.add_argument("region_file", help="(Path) Region file (aperture) for flux extraction e.g. './3c286.reg'", type=Path)
 
     # optional arguments
-    parser.add_argument("globstr_stokesQU", help="(str) Glob string for polint images. If given will do polint comparison. e.g. './3c286-00*-image.fits'", type=str)
+    parser.add_argument("-globstr_stokesQU", help="(str) Glob string for polint images. If given will do polint comparison. e.g. './3c286-00*-image.fits'", default=None, type=str)
     parser.add_argument('-unc',    help='(float) Estimate for 1sigma uncertainty in Jy', default=None, type=float)
     parser.add_argument('-savespectra',    help='(Path) Filename for saving the output spectra', default=None, type=Path)
     parser.add_argument('-plotmodel',    help='(str2bool) Whether to plot the model. Default True', default=True, type=str2bool)
+    parser.add_argument('-plotdir',    help='(Path) where to save the plots. Default None', default=None, type=Path)
     parser.add_argument('-pbcor',    help='(str2bool) Whether to (try to) use .pbcor.fits instead', default=False, type=str2bool)
     parser.add_argument('-integrated',    help='(str2bool) Whether plot integrated flux density (True) or peak flux (False). Default True.',default=True, type=str2bool)
     parser.add_argument('-flagchan', type=parse_comma_separated, help="Comma-separated list channel numbers to flag (start from 0) (e.g. '0,5,6') ",default=None)
@@ -337,6 +426,8 @@ def cli() -> None:
         read_spectra_list=args.read_spectra_list,
         flagchan=args.flagchan,
         plotmodel=args.plotmodel,
+        plotdir=args.plotdir,
+        unc=args.unc,
         integrated=args.integrated,
         logger=logger
     )
