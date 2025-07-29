@@ -359,6 +359,7 @@ def plot_polfrac_vs_lambdasq(
     polfrac_obs: np.ndarray,
     lambdasq_fit: np.ndarray | None = None,
     polfrac_fit: np.ndarray | None = None,
+    src: str = "",
     plotdir: Path | None = None,
     show: bool = False
 ) -> None:
@@ -381,7 +382,7 @@ def plot_polfrac_vs_lambdasq(
     for i in range(nregions):
         ax_top.plot(lambdasq_obs, polfrac_obs[:, i], "o-", label=f"Observed region {i+1}")
     if has_model:
-        ax_top.plot(lambdasq_fit, polfrac_fit, label="Model", color="k", ls="--")
+        ax_top.plot(lambdasq_fit, polfrac_fit, label=f"{src} Model", color="k", ls="--")
 
     ax_top.set_ylabel("Polarisation fraction")
     ax_top.set_title("Polarisation Fraction vs Lambda$^2$")
@@ -432,6 +433,7 @@ def plot_evpa_vs_lambdasq(
     evpa_obs: np.ndarray,
     lambdasq_fit: np.ndarray | None = None,
     evpa_fit: np.ndarray | None = None,
+    src: str = "",
     plotdir: Path | None = None,
     fig_suffix: str = "",
     show: bool = False
@@ -457,7 +459,7 @@ def plot_evpa_vs_lambdasq(
     for i in range(nregions):
         ax_top.plot(lambdasq_obs, evpa_obs[:, i], 'o-', label=f"Observed region {i+1}")
     if has_model:
-        ax_top.plot(lambdasq_fit, evpa_fit, label="EVPA model", color='k', ls='--')
+        ax_top.plot(lambdasq_fit, evpa_fit, label=f"{src} EVPA model", color='k', ls='--')
 
     ax_top.set_ylabel("EVPA (deg)")
     if "corrected" in fig_suffix:
@@ -540,14 +542,16 @@ def process_stokesQU(
     if models is not None and plotmodel:
         # compute the model
         lambdasq_fit, polfrac_fit = models['polfrac'](freqs_Q)
+        src = models['src']
     else:
-        lambdasq_fit, polfrac_fit = None, None
+        lambdasq_fit, polfrac_fit, src = None, None, None
 
     plot_polfrac_vs_lambdasq(
         lambdasq_obs,
         polfrac_obs,
         lambdasq_fit,
         polfrac_fit,
+        src,
         plotdir
     )
 
@@ -581,6 +585,9 @@ def process_stokesQU(
     # 5) Build a 'corrected' EVPA curve
     # i.e. PA_obs - RM_iono*lambda^2 should be equal to the model
     evpa_obs_corrected = evpa_obs - (rm_iono_deg_m2*lambdasq_obs)[:, None] # make sure its same shape
+    print(f"{evpa_obs=}")
+    print(f"{evpa_obs_corrected=}")
+    print(f"{(rm_iono_deg_m2*lambdasq_obs)[:, None]=}")
     plot_evpa_vs_lambdasq(
         lambdasq_obs,
         evpa_obs_corrected,
