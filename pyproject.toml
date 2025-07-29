@@ -23,6 +23,7 @@ dependencies = [
     "spython",
     "ephem",
     "python-casacore",
+    "regions",
 ]
 
 classifiers = [
