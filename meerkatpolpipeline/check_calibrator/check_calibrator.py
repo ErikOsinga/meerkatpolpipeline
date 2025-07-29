@@ -77,8 +77,9 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
 
     # mkdir for wsclean output
     wsclean_output_dir = working_dir / "IQUimages"
-    logger.info(f"Creating wsclean output directory at {wsclean_output_dir}")
-    wsclean_output_dir.mkdir(exist_ok=True)
+    if not wsclean_output_dir.exists():
+        logger.info(f"Creating wsclean output directory at {wsclean_output_dir}")
+        wsclean_output_dir.mkdir()
 
     # hardcoded options for Stokes I
     hardcoded_options_stokesI = {
@@ -103,25 +104,29 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
         'scale': '1.0arcsec',
     }
 
-    # /check_calibrator/IQUimages/polcal-image-00*.fits"
+    # prefix is $workdir/check_calibrator/IQUimages/polcal...(e.g. -image-00*.fits")
     prefix = str(wsclean_output_dir / "polcal" )
 
+    # create WSclean command for stokes I
     options_stokesI = WSCleanOptions(**hardcoded_options_stokesI)
-
-    logger.info("Running WSClean for Stokes I imaging")
-
-    # create and run WSclean for stokes I
     wsclean_command_stokesI = create_wsclean_command(options_stokesI, ms, prefix)
-    run_wsclean_command(wsclean_command=wsclean_command_stokesI,
-                        container=lofar_container,
-                        bind_dirs=[ms.parent,wsclean_output_dir]
-    )
+    # check if the output files already exist (user has ran it before?)
+    imageset_stokesI = get_wsclean_output(wsclean_command_stokesI, pol='i', validate=False)
+    
+    if len(imageset_stokesI.image) == 0:
+        logger.info("Running WSClean for Stokes I imaging")
+        run_wsclean_command(wsclean_command=wsclean_command_stokesI,
+                            container=lofar_container,
+                            bind_dirs=[ms.parent,wsclean_output_dir]
+        )
+        # check if images were created and return an image set
+        imageset_stokesI = get_wsclean_output(wsclean_command_stokesI, pol='i', validate=True)
 
-    # check if images were created and an image set
-    imageset_stokesI = get_wsclean_output(wsclean_command_stokesI, pol='i', validate=True)
+    else:
+        logger.info("WSClean output for Stokes I already exists, skipping WSClean run.")
 
 
-    logger.info("Running WSClean for Stokes QU imaging")
+    # Add options for linear pol
     hardcoded_options_stokesQU = {
         'pol': 'qu',
         'fit_rm': True,
@@ -132,16 +137,24 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
     
     options_stokesQU = options_stokesI.with_options(**hardcoded_options_stokesQU)
     
-    # create and run WSclean for stokes QU
+    # create WSclean command for stokes QU
     wsclean_command_stokesQU = create_wsclean_command(options_stokesQU, ms, prefix)
-    run_wsclean_command(wsclean_command=wsclean_command_stokesQU,
-                        container=lofar_container,
-                        bind_dirs=[ms.parent,wsclean_output_dir]
-    )
+    # check if the output files already exist (user has ran it before?)
+    imageset_stokesQ = get_wsclean_output(wsclean_command_stokesQU, pol='q', validate=False)
+    imageset_stokesU = get_wsclean_output(wsclean_command_stokesQU, pol='u', validate=False)
+    if len(imageset_stokesQ.image) == 0 and len(imageset_stokesU.image) == 0:
+        logger.info("Running WSClean for Stokes QU imaging")
+    
+        run_wsclean_command(wsclean_command=wsclean_command_stokesQU,
+                            container=lofar_container,
+                            bind_dirs=[ms.parent,wsclean_output_dir]
+        )
 
-    # check if images were created and return two image sets
-    imageset_stokesQ = get_wsclean_output(wsclean_command_stokesQU, pol='q', validate=True)
-    imageset_stokesU = get_wsclean_output(wsclean_command_stokesQU, pol='u', validate=True)
+        # check if images were created and return two image sets
+        imageset_stokesQ = get_wsclean_output(wsclean_command_stokesQU, pol='q', validate=True)
+        imageset_stokesU = get_wsclean_output(wsclean_command_stokesQU, pol='u', validate=True)
+    else:
+        logger.info("WSClean output for Stokes QU already exists, skipping WSClean run.")
     
     return imageset_stokesI, imageset_stokesQ, imageset_stokesU
 

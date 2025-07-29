@@ -269,8 +269,7 @@ def get_wsclean_output(
     dirty = find_pol_files("dirty")
     model = find_pol_files("model")
     residual = find_pol_files("residual")
-    psf_files = glob_all(f"{prefix}*-psf*.fits") or []
-    psf = psf_files or None
+    psf = find_pol_files("psf")
 
     # Source list file (e.g., txt or model list)
     sl = glob_all(f"{prefix}*source*txt")
