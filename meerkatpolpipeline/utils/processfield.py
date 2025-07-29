@@ -586,8 +586,13 @@ def process_stokesQU(
     # i.e. PA_obs - RM_iono*lambda^2 should be equal to the model
     evpa_obs_corrected = evpa_obs - (rm_iono_deg_m2*lambdasq_obs)[:, None] # make sure its same shape
     print(f"{evpa_obs=}")
-    print(f"{evpa_obs_corrected=}")
+    print(f"{evpa_fit=}")
+    print(f"{evpa_residuals=}")
+
+    print(f"{rm_iono_deg_m2=}")
     print(f"{(rm_iono_deg_m2*lambdasq_obs)[:, None]=}")
+    print(f"{evpa_obs_corrected=}")
+    
     plot_evpa_vs_lambdasq(
         lambdasq_obs,
         evpa_obs_corrected,
