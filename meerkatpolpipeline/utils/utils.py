@@ -1,12 +1,80 @@
 
 from __future__ import annotations
 
+import argparse
 import shlex
 import subprocess
+import warnings
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+import astropy.units as u
+from astropy.io import fits
+from astropy.wcs import WCS, FITSFixedWarning
 from prefect.logging import get_run_logger
+
+# Suppress FITSFixedWarning from astropy when opening FITS files
+warnings.filterwarnings('ignore', category=FITSFixedWarning)
+
+
+def str2bool(v: str) -> bool:
+    """Convert a string representation of truth to a boolean value."""
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean type expected.')
+
+def parse_comma_separated(value: str) -> list[str]:
+    return value.split(',')
+
+def read_fits_data_and_frequency(filename: Path) -> tuple[np.ndarray, np.ndarray, WCS]:
+    """Read a FITS file, return the image data, frequency from CRVAL3 in Hz and wcs"""
+    with fits.open(filename) as hdul:
+        data = hdul[0].data
+        header = hdul[0].header
+        wcs = WCS(header)
+        frequency = header['CRVAL3']  # Frequency in Hz from CRVAL3
+        assert 'FREQ' in header['CTYPE3'], f"CRVAL3 should be frequency axis, instead found {header['CTYPE3']}"
+
+    # remove freq and stokes axis
+    if len(data.shape) == 4:
+        data = data[0,0]
+
+    return data, frequency, wcs
+
+
+def convert_units(data: np.ndarray, fitsimage: Path | fits.HDUList) -> np.ndarray:
+    """
+    Convert the units of 'data' array which is assumed to be Jy/beam 
+    to Jy/pix using the beam information given in the header of 'fitsimage'.
+    """
+    if isinstance(fitsimage, str) or isinstance(fitsimage, Path):
+        with fits.open(fitsimage) as hdul:
+            header = hdul[0].header 
+    else:
+        hdul = fitsimage
+        header = hdul[0].header 
+
+    if header['BUNIT'].upper() == 'JY/BEAM':
+        bmaj = header['BMIN'] * u.deg
+        bmin = header['BMAJ'] * u.deg
+        # pix_size = abs(header['CDELT2']) * u.deg  # assume square pix size
+
+        beammaj = bmaj / (2. * (2. * np.log(2.)) ** 0.5)  # Convert to sigma
+        beammin = bmin / (2. * (2. * np.log(2.)) ** 0.5)  # Convert to sigma
+        pix_area = abs(header['CDELT1'] * header['CDELT2']) * u.deg ** 2
+        beam_area = 2. * np.pi * 1.0 * beammaj * beammin  # beam area in steradians
+        beam2pix = beam_area / pix_area  # beam area in pixels
+    else:
+        raise ValueError(f"UNITS ARE NOT Jy/beam. PLEASE CHECK HEADER. Found {header['BUNIT']}")
+    
+    data = data / beam2pix  # convert to Jy/pix
+    return data
 
 
 def add_timestamp_to_path(

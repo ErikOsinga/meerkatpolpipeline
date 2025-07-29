@@ -191,7 +191,7 @@ def check_calibrator(
         bind_dirs=bind_dirs,
     )
 
-    go_wsclean_smallcubes(
+    imageset_stokesI, imageset_stokesQ, imageset_stokesU = go_wsclean_smallcubes(
         polcal_ms,
         working_dir,
         lofar_container= lofar_container,

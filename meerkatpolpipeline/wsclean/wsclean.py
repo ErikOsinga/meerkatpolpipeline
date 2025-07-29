@@ -225,33 +225,29 @@ def run_wsclean_command(wsclean_command: WSCleanCommand, **kwargs) -> str:
 
     return wsclean_command.cmd
 
-def get_wsclean_output(
-        wsclean_command: WSCleanCommand,
-        pol: str = 'i',
-        validate: bool =  True
+
+def get_imset_from_prefix(
+        prefix: str | Path,
+        pol: str = "i",
+        validate: bool = True,
+        chanout: int | None = None
     ) -> ImageSet:
-    """Parse a wsclean command, extract the prefix, and gather output files into an ImageSet.
-    
-    Assumes WSClean commands are constructed with the `-name` argument with absolute paths
+    """
+    Get an ImageSet from a given prefix, i.e. wsclean '-name' argument or globstring pattern.
 
     args:
-        wsclean_command (WSCleanCommand): The command that was run
+        prefix (str | Path): The prefix or glob string to match files against.
         pol (str): The polarisation to extract. Defaults to 'i' for Stokes I.
+        validate (bool): Check whether all 'chanout' images are present? Defaults to True.
+        chanout (int | None): Number of channels out, used for validation. If None, validate must be False
+    
+    returns:
+        ImageSet: An ImageSet object containing the matched files.
+    raises:
+        ValueError: If the prefix is invalid or if the polarisation is not supported.
 
     """
-    cmd = wsclean_command.cmd
-    parts = cmd.split()
-    try:
-        idx = parts.index("-name")
-        prefix = parts[idx + 1]
-    except ValueError:
-        raise ValueError("wsclean command missing '-name' argument for prefix")
-
-    # Validate polarization
-    pol = pol.lower()
-    if pol not in ("i", "q", "u"):
-        raise ValueError("pol must be 'i', 'q', or 'u'")
-
+    
     # Helper to glob all matches
     def glob_all(pattern: str) -> list[Path]:
         return sorted(glob(pattern))
@@ -286,7 +282,43 @@ def get_wsclean_output(
     )
 
     if validate:
-        validate_imset(imset, wsclean_command.options.channels_out)
+        if chanout is None:
+            raise ValueError("chanout must be specified if validate is True")
+        validate_imset(imset, chanout)
+
+    return imset
+
+def get_wsclean_output(
+        wsclean_command: WSCleanCommand,
+        pol: str = 'i',
+        validate: bool =  True
+    ) -> ImageSet:
+    """Parse a wsclean command, extract the prefix, and gather output files into an ImageSet.
+    
+    Assumes WSClean commands are constructed with the `-name` argument with absolute paths
+
+    args:
+        wsclean_command (WSCleanCommand): The command that was run
+        pol (str): The polarisation to extract. Defaults to 'i' for Stokes I.
+
+    """
+    cmd = wsclean_command.cmd
+    parts = cmd.split()
+    try:
+        idx = parts.index("-name")
+        prefix = parts[idx + 1]
+    except ValueError:
+        raise ValueError("wsclean command missing '-name' argument for prefix")
+
+
+    # Validate polarization
+    pol = pol.lower()
+    if pol not in ("i", "q", "u"):
+        raise ValueError("pol must be 'i', 'q', or 'u'")
+
+    chanout = wsclean_command.options.channels_out
+
+    imset = get_imset_from_prefix(prefix, pol, validate, chanout)
 
     return imset
 
