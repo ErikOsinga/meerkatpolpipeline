@@ -226,7 +226,6 @@ def validate_calibrator_field(
         models=models,
         logger=logger,
         unc=None,
-        integrated=True,
         flagchan=None, # TODO
         plotmodel=True,
         plotdir= working_dir / "plots",
