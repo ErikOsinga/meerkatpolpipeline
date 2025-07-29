@@ -267,6 +267,9 @@ def process_stokesI(
     if plotmodel:
         plt.plot(frequencies, models['i'](frequencies), label=f"{models['src']} model", color='black', linestyle='--')
 
+    if not plotdir.exists():
+        plotdir.mkdir()
+
     plot_total_intensity_spectrum(
         frequencieslist=frequencies,
         intensitieslist=stokesIplot,
@@ -286,12 +289,23 @@ def process_stokesI(
 def process_stokesQU(
     imageset_stokesQ: ImageSet,
     imageset_stokesU: ImageSet,
-):
+    region_file: Path,
+    models: dict | None,
+    logger: Callable,
+    plotmodel: bool = True,
+    plotdir: Path | None = None,
+    unc: float | None = None,
+    integrated: bool = True,
+    flagchan: list[int] | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Process Stokes Q and U images to extract polarisation properties.
     """
 
     print("TODO")
+
+    if not plotdir.exists():
+        plotdir.mkdir()
 
 
 def processfield(
