@@ -6,6 +6,11 @@ from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.casa import casa_command
 from meerkatpolpipeline.options import BaseOptions
+from meerkatpolpipeline.utils.processfield import (
+    determine_calibrator,
+    determine_model,
+    process_stokesI,
+)
 from meerkatpolpipeline.wsclean.wsclean import (
     ImageSet,
     WSCleanOptions,
@@ -159,8 +164,57 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
     return imageset_stokesI, imageset_stokesQ, imageset_stokesU
 
 
-def validate_calibrator_field():
-    pass
+def regionfile_from_calibrator(src: str) -> Path:
+    """
+    Determine the region file for the calibrator source.
+    """
+    import meerkatpolpipeline
+    if src == "J1331+3030":
+        
+
+    return Path(f"/path/to/regionfile_for_{src}.reg")
+
+def validate_calibrator_field(
+        imageset_stokesI: ImageSet,
+        imageset_stokesQ: ImageSet,
+        imageset_stokesU: ImageSet,
+        polcal_field: str,
+        working_dir: Path,
+    ) -> None:
+    """
+    Extract the spectra from the calibrator field images to check how well it matches the expectations.
+    """
+    logger = get_run_logger()
+
+    # determine calibrator from regionfile name
+    src = determine_calibrator(region_file)
+    # get the correct models for this calibrator
+    I_model, EVPA_model, polfrac_model = determine_model(src)
+    models = {'i': I_model, 'evpa': EVPA_model, 'polfrac': polfrac_model, 'src': src}
+
+    logger.info(f"Processing Stokes I images.")
+    process_stokesI(
+        imageset_stokesI=imageset_stokesI,
+        region_file=region_file,
+        models=models,
+        logger=logger,
+        unc=unc,
+        integrated=integrated,
+        flagchan=flagchan,
+        plotmodel=plotmodel,
+        plotdir=plotdir,
+    )
+
+    processfield(
+        imageset_stokesI=imageset_stokesI,
+        imageset_stokesQ=imageset_stokesQ,
+        imageset_stokesU=imageset_stokesU,
+        polcal_field=polcal_field,
+        working_dir=working_dir,
+    )
+
+
+
 
 def check_calibrator(
         check_calibrator_options: dict | CheckCalibratorOptions,
@@ -197,6 +251,12 @@ def check_calibrator(
         lofar_container= lofar_container,
     )
 
-    # validate_calibrator_field()
+    validate_calibrator_field(
+        imageset_stokesI=imageset_stokesI,
+        imageset_stokesQ=imageset_stokesQ,
+        imageset_stokesU=imageset_stokesU,
+        polcal_field=check_calibrator_options['polcal_field'],
+        working_dir=working_dir,
+    )
 
     return
