@@ -96,7 +96,7 @@ def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.
             - freq: Frequency in Hz from the FITS file.
 
     """
-    data, freq, wcs, hdul = read_fits_data_and_frequency(filename)
+    data, freq, wcs = read_fits_data_and_frequency(filename)
     
     # Load the DS9 region file
     regions = Regions.read(region_file)
@@ -194,7 +194,7 @@ def process_stokesI(
 
     plt.xlabel('Frequency [MHz]')
     plt.ylabel(ylabel)
-    
+
 
 
 
