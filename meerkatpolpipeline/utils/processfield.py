@@ -519,7 +519,7 @@ def process_stokesQU(
     Qvals, _, freqs_Q = get_fluxes(imageset_stokesQ, region_file)
     Uvals, _, freqs_U = get_fluxes(imageset_stokesU, region_file)
 
-    assert freqs_Q == freqs_U, "Frequencies for Stokes Q and U must match"
+    assert (freqs_Q == freqs_U).all(), "Frequencies for Stokes Q and U must match"
 
     # I flux density should be input by user, and match Q and U exactly.
     # can be calculated with process_stokesI()
