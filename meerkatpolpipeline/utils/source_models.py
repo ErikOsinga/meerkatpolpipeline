@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import astropy.units as u
+import astropy.units as u  # noqa: F401 TODO: add unit handling
 import numpy as np
 from astropy.constants import c
 
@@ -146,5 +146,5 @@ def polfrac_model_3c138(freq):
 
     # convert to polarised intensity (Jy)
     # P_int = stokesI_model_3c138(freq) * polfrac # not returned atm
-    
+
     return lambdasq, polfrac

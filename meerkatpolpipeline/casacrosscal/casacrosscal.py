@@ -5,9 +5,7 @@ from pathlib import Path
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.caracal._caracal import CrossCalOptions
-from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import (
-    add_timestamp_to_path,
     check_create_symlink,
     find_calibrated_ms,
 )

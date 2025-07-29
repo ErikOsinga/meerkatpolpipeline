@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.casa import casa_command
@@ -169,10 +170,16 @@ def regionfile_from_calibrator(src: str) -> Path:
     Determine the region file for the calibrator source.
     """
     import meerkatpolpipeline
+    path_to_files = Path(meerkatpolpipeline.__file__).parent / "files" 
     if src == "J1331+3030":
-        
+        regionfile = path_to_files / "3c286.reg"
+    elif src == "J0521+1638":
+        regionfile = path_to_files / "3c138.reg"
+    
+    assert regionfile.exists(), f"Region file for {src} not found at {regionfile}"
+    
+    return regionfile
 
-    return Path(f"/path/to/regionfile_for_{src}.reg")
 
 def validate_calibrator_field(
         imageset_stokesI: ImageSet,
@@ -180,40 +187,39 @@ def validate_calibrator_field(
         imageset_stokesU: ImageSet,
         polcal_field: str,
         working_dir: Path,
-    ) -> None:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Extract the spectra from the calibrator field images to check how well it matches the expectations.
     """
     logger = get_run_logger()
 
-    # determine calibrator from regionfile name
+    # determine regionfile from calibrator JXXXX+XX name
+    region_file = regionfile_from_calibrator(polcal_field)
+
+    # determine calibrator 3C name from regionfile name
     src = determine_calibrator(region_file)
     # get the correct models for this calibrator
     I_model, EVPA_model, polfrac_model = determine_model(src)
     models = {'i': I_model, 'evpa': EVPA_model, 'polfrac': polfrac_model, 'src': src}
 
-    logger.info(f"Processing Stokes I images.")
-    process_stokesI(
+    logger.info("Processing Stokes I images.")
+    stokesI, stokesIpeak, frequencies = process_stokesI(
         imageset_stokesI=imageset_stokesI,
         region_file=region_file,
         models=models,
         logger=logger,
-        unc=unc,
-        integrated=integrated,
-        flagchan=flagchan,
-        plotmodel=plotmodel,
-        plotdir=plotdir,
+        unc=None,
+        integrated=True,
+        flagchan=None,
+        plotmodel=True,
+        plotdir= working_dir / "plots",
     )
 
-    processfield(
-        imageset_stokesI=imageset_stokesI,
-        imageset_stokesQ=imageset_stokesQ,
-        imageset_stokesU=imageset_stokesU,
-        polcal_field=polcal_field,
-        working_dir=working_dir,
-    )
+    logger.info("Processing Stokes QU images.")
+    logger.info("TODO")
 
 
+    return stokesI, stokesIpeak, frequencies
 
 
 def check_calibrator(
@@ -258,5 +264,7 @@ def check_calibrator(
         polcal_field=check_calibrator_options['polcal_field'],
         working_dir=working_dir,
     )
+
+    logger.info(f"Calibrator checks completed. Please see the plots in {working_dir / 'plots'} for results.")
 
     return

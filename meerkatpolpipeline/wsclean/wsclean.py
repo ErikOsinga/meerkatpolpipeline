@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from glob import glob
 from pathlib import Path
-from typing import Any
 
 from prefect.logging import get_run_logger
 

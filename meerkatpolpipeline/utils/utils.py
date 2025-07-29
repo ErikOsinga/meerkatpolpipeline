@@ -8,8 +8,8 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import astropy.units as u
+import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS, FITSFixedWarning
 from prefect.logging import get_run_logger

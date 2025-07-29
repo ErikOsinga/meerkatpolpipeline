@@ -213,6 +213,11 @@ def process_stokesI(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Process Stokes I images to extract flux density and compare with model.
+
+    Returns:
+           stokesI, stokesIpeak, frequencies
+           (np.array, np.ndarray, np.ndarray):
+    shapes (nfreq, n_regions), (nfreq, n_regions), (nfreq,)
     """
 
     # total flux density
@@ -275,8 +280,7 @@ def process_stokesI(
         verbose=True,
     )
     
-
-
+    return stokesI, stokesIpeak, frequencies
 
 
 def process_stokesQU(
@@ -385,7 +389,7 @@ def get_parser() -> ArgumentParser:
     only KNOWN_CALIBRATORS are allowed as region file names, i.e. 3c286.reg, 3c138.reg, j0408-6545.reg
     """
 
-    parser = ArgumentParser(description="")
+    parser = ArgumentParser(description=descStr)
 
     # required arguments
     parser.add_argument("globstr_stokesI", help="(str) Glob string for total intensity images e.g. './3c286-00*-image.fits'", type=str)
