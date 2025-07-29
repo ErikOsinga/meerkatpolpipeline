@@ -5,6 +5,7 @@ from typing import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.constants import c
 from configargparse import ArgumentParser
 from prefect.logging import get_run_logger
 from regions import Regions
@@ -193,12 +194,45 @@ def plot_total_intensity_spectrum(
     plt.ylabel(ylabel)
     plt.title('Total Intensity Spectrum (Stokes I)')
     plt.legend()
+    plt.tight_layout()
     if plotdir is not None:
         plt.savefig(plotdir / "stokesI_spectrum.png")
     if show:
         plt.show()
     plt.close()
     return
+
+
+def get_fluxes(imageset: ImageSet, region_file: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Calculate flux densities and peak fluxes for a set of Stokes I/Q/U images.
+    """
+    # total flux density
+    totalflux = []
+    # peak flux
+    peakflux = []
+    # freqs
+    frequencies = []
+
+    # calculate fluxes for each image in the imageset
+    for filename in imageset.image: # should be sorted by default
+        # skip MFS image
+        if "MFS" in filename.name:
+            continue
+
+        fluxes, peaks, freq = calculate_flux_and_peak_flux(filename, region_file)
+
+        totalflux.append(fluxes)
+        peakflux.append(peaks)
+        frequencies.append(freq)
+
+    # convert to numpy arrays
+    totalflux = np.array(totalflux) # shape (nfreq, n_regions)
+    peakflux = np.array(peakflux) # shape (nfreq, n_regions)
+    frequencies = np.array(frequencies) # shape (nfreq,)
+
+    return totalflux, peakflux, frequencies
+
 
 def process_stokesI(
     imageset_stokesI: ImageSet,
@@ -220,29 +254,7 @@ def process_stokesI(
     shapes (nfreq, n_regions), (nfreq, n_regions), (nfreq,)
     """
 
-    # total flux density
-    stokesI = []
-    # peak flux
-    stokesIpeak = []
-    # freqs
-    frequencies = []
-
-    # calculate fluxes for each image in the imageset
-    for i_filename in imageset_stokesI.image: # should be sorted by default
-        # skip MFS image
-        if "MFS" in i_filename.name:
-            continue
-
-        i_fluxes, i_peaks, freq_i = calculate_flux_and_peak_flux(i_filename, region_file)
-
-        stokesI.append(i_fluxes)
-        stokesIpeak.append(i_peaks)
-        frequencies.append(freq_i)
-
-    # convert to numpy arrays
-    stokesI = np.array(stokesI) # shape (nfreq, n_regions)
-    stokesIpeak = np.array(stokesIpeak) # shape (nfreq, n_regions)
-    frequencies = np.array(frequencies) # shape (nfreq,)
+    stokesI, stokesIpeak, frequencies = get_fluxes(imageset_stokesI, region_file)
 
     if integrated: 
         # Want to plot total flux generally
@@ -286,26 +298,297 @@ def process_stokesI(
     return stokesI, stokesIpeak, frequencies
 
 
+def plot_stokesQU_spectra(
+    frequencies: np.ndarray,
+    Qvals: np.ndarray,
+    Uvals: np.ndarray,
+    unc: float | None = None,
+    plotdir: Path | None = None,
+    show: bool = False,
+) -> None:
+    """
+    Plot the Stokes Q and U spectra 
+
+    Assuming Qvals and Uvals are of shape (nfreq, nregions),
+    """
+
+    plt.figure()
+
+    for i in range(np.shape(Qvals)[1]):
+        plt.plot(frequencies, Qvals[:, i], label='Stokes Q', marker='o')
+        plt.plot(frequencies, Uvals[:, i], label='Stokes U', marker='o')
+
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Flux density [Jy]')
+    plt.title('Stokes Q and U Spectra')
+    plt.legend()
+    plt.tight_layout()
+    if show:
+        plt.show()
+    if plotdir is not None:
+        plt.savefig(plotdir / "stokesQU_spectra.png")
+    plt.close()
+    return
+
+
+def compute_polint_polfrac(
+    i_values: np.ndarray,
+    q_values: np.ndarray,
+    u_values: np.ndarray,
+    frequencies: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the polarisation fraction as a function of lambda^2 from I, Q and U values.
+    
+    assumes frequencies in Hz and i_values and q_values in the same unit as u_values.
+
+    returns
+        lambda_squared       -- np.ndarray -- wavelength^2 value per frequency
+        polarised_intensity  -- np.ndarray -- polint  value per frequency/wavelength^2
+        pol_fractions        -- np.ndarray -- polfrac value per frequency/wavelength^2
+    
+    """
+    polarised_intensity = np.sqrt(q_values**2 + u_values**2)
+    pol_fractions = polarised_intensity / i_values
+    lambda_squared = (c.value / frequencies)**2
+    
+    return lambda_squared, polarised_intensity, pol_fractions
+
+
+def plot_polfrac_vs_lambdasq(
+    lambdasq_obs: np.ndarray,
+    polfrac_obs: np.ndarray,
+    lambdasq_fit: np.ndarray | None = None,
+    polfrac_fit: np.ndarray | None = None,
+    plotdir: Path | None = None,
+    show: bool = False
+) -> None:
+    """
+    Plot polarisation fraction vs lambdasq
+
+    Assuming polfrac_obs is of shape (nfreq, nregions),
+    """
+    nregions = polfrac_obs.shape[1]
+    has_model = lambdasq_fit is not None and polfrac_fit is not None
+
+    # Create figure and axes
+    if has_model:
+        fig, (ax_top, ax_bottom) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(8, 6))
+    else:
+        fig, ax_top = plt.subplots(figsize=(8, 4))
+        ax_bottom = None
+
+    # Top panel: observed data and model (if available)
+    for i in range(nregions):
+        ax_top.plot(lambdasq_obs, polfrac_obs[:, i], "o-", label=f"Observed region {i+1}")
+    if has_model:
+        ax_top.plot(lambdasq_fit, polfrac_fit, label="Model", color="k", ls="--")
+
+    ax_top.set_ylabel("Polarisation fraction")
+    ax_top.set_title("Polarisation Fraction vs Lambda$^2$")
+    ax_top.legend()
+
+    # Bottom panel: residuals (data - model)
+    if has_model and ax_bottom is not None:
+        residuals = polfrac_obs - polfrac_fit[:, None]
+        for i in range(nregions):
+            ax_bottom.plot(lambdasq_obs, residuals[:, i], "o-", label=f"Residual region {i+1}")
+        ax_bottom.set_xlabel("Lambda$^2$ (m$^2$)")
+        ax_bottom.set_ylabel("Residual (data - model)")
+        ax_bottom.axhline(0, color="gray", lw=1, ls=":")
+        ax_bottom.legend()
+    else:
+        ax_top.set_xlabel("Lambda$^2$ (m$^2$)")
+
+    plt.tight_layout()
+
+    if show:
+        plt.show()
+    if plotdir is not None:
+        filename = "polfrac_vs_lambdasq.png" if not has_model else "polfrac_vs_lambdasq_with_residuals.png"
+        fig.savefig(plotdir / filename)
+
+    plt.close(fig)
+    return
+
+
+def compute_polarisation_angle_spectrum(
+    q_values: np.ndarray,
+    u_values:np.ndarray,
+    frequencies: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the polarisation angle as a function of lambda^2 from Q and U values.
+    
+    assumes frequencies in Hz and q_values in the same unit as u_values.
+    
+    """
+    angles = 0.5 * np.arctan2(u_values, q_values) # polarisation angle in rad
+    angles = np.degrees(angles) # in deg
+    lambda_squared = (c.value / frequencies)**2
+    return lambda_squared, angles
+
+
+def plot_evpa_vs_lambdasq(
+    lambdasq_obs: np.ndarray,
+    evpa_obs: np.ndarray,
+    lambdasq_fit: np.ndarray | None = None,
+    evpa_fit: np.ndarray | None = None,
+    plotdir: Path | None = None,
+    fig_suffix: str = "",
+    show: bool = False
+) -> np.ndarray | None:
+    """
+    Plot EVPA vs lambda^2
+
+    Assuming evpa_obs is of shape (nfreq, nregions).
+    If a model is provided, a two-panel plot is created with residuals (data - model) below.
+    and the residuals are returned. Note that for South-Africa we expect negative RM explaining the residuals.
+    """
+    nregions = evpa_obs.shape[1]
+    has_model = lambdasq_fit is not None and evpa_fit is not None
+
+    # Create figure and axes
+    if has_model:
+        fig, (ax_top, ax_bottom) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(8, 6))
+    else:
+        fig, ax_top = plt.subplots(figsize=(8, 4))
+        ax_bottom = None
+
+    # Top panel: observed EVPA (and model if available)
+    for i in range(nregions):
+        ax_top.plot(lambdasq_obs, evpa_obs[:, i], 'o-', label=f"Observed region {i+1}")
+    if has_model:
+        ax_top.plot(lambdasq_fit, evpa_fit, label="EVPA model", color='k', ls='--')
+
+    ax_top.set_ylabel("EVPA (deg)")
+    if "corrected" in fig_suffix:
+        ax_top.set_title("Polarisation Angle Spectrum (corrected for data-derived ionosphere)")
+    else:
+        ax_top.set_title("Polarisation Angle Spectrum")
+    ax_top.legend()
+
+    # Bottom panel: residuals (data - model)
+    if has_model and ax_bottom is not None:
+        residuals = evpa_obs - evpa_fit[:, None]
+        for i in range(nregions):
+            ax_bottom.plot(lambdasq_obs, residuals[:, i], 'o-', label=f"Residual region {i+1}")
+        ax_bottom.axhline(0, color='gray', ls=':')
+        ax_bottom.set_xlabel("Lambda$^2$ (m$^2$)")
+        ax_bottom.set_ylabel("Residual (data - model)")
+        ax_bottom.legend()
+    else:
+        ax_top.set_xlabel("Lambda$^2$ (m$^2$)")
+        residuals = None
+
+    plt.tight_layout()
+
+    if show:
+        plt.show()
+    if plotdir is not None:
+        filename = "evpa_vs_lambdasq" if not has_model else "evpa_vs_lambdasq_with_residuals"
+        filename += fig_suffix
+        filename += ".png"
+        fig.savefig(plotdir / filename)
+
+    plt.close(fig)
+    return residuals
+
+
 def process_stokesQU(
     imageset_stokesQ: ImageSet,
     imageset_stokesU: ImageSet,
+    stokesI_fluxdens: np.ndarray,
     region_file: Path,
     models: dict | None,
     logger: Callable,
     plotmodel: bool = True,
     plotdir: Path | None = None,
     unc: float | None = None,
-    integrated: bool = True,
     flagchan: list[int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Process Stokes Q and U images to extract polarisation properties.
+
+    Returns:
+           TODO
     """
-
-    print("TODO")
-
     if not plotdir.exists():
+        logger.info(f"Creating {plotdir}")
         plotdir.mkdir()
+
+    # measure Q and U, integrated flux only
+    Qvals, _, freqs_Q = get_fluxes(imageset_stokesQ, region_file)
+    Uvals, _, freqs_U = get_fluxes(imageset_stokesU, region_file)
+
+    assert freqs_Q == freqs_U, "Frequencies for Stokes Q and U must match"
+
+    # I flux density should be input by user, and match Q and U exactly.
+    # can be calculated with process_stokesI()
+    Ivals = stokesI_fluxdens
+
+    # 1) plot raw Q/U spectra
+    plot_stokesQU_spectra(
+        frequencies=freqs_Q,
+        Qvals=Qvals,
+        Uvals=Uvals,
+        unc=unc,
+        plotdir=plotdir,
+        show=False
+    )
+
+    # 2) plot polarisation fraction
+    lambdasq_obs, polint_obs, polfrac_obs  = compute_polint_polfrac(Ivals, Qvals, Uvals, freqs_Q)
+    if models is not None:
+        # compute the model
+        lambdasq_fit, polfrac_fit = models['polfrac'](freqs_Q)
+    else:
+        lambdasq_fit, polfrac_fit = None, None
+
+    plot_polfrac_vs_lambdasq(
+        lambdasq_obs,
+        polfrac_obs,
+        lambdasq_fit,
+        polfrac_fit,
+        plotdir
+    )
+
+    # 3) plot polarisation angle (EVPA)
+    lambdasq_obs, evpa_obs = compute_polarisation_angle_spectrum(Qvals, Uvals, freqs_Q)
+    if models is not None:
+        # compute the model
+        lambdasq_fit, evpa_fit = models['evpa'](freqs_Q)
+    else:
+        lambdasq_fit, evpa_fit = None, None
+
+    evpa_residuals = plot_evpa_vs_lambdasq(
+        lambdasq_obs,
+        evpa_obs,
+        lambdasq_fit,
+        evpa_fit,
+        plotdir
+    )
+
+    # 4) Infer ionospheric RM from EVPA residuals
+    # analytical least squares fit
+    rm_iono_deg_m2 = np.sum(lambdasq_obs * evpa_residuals) / np.sum(lambdasq_obs**2)
+    # convert to rad/m^2:
+    rm_iono_rad_m2 = np.deg2rad(rm_iono_deg_m2)
+    logger.info(f"Inferred ionospheric RM from EVPA residuals = {rm_iono_rad_m2:.3f} rad/m^2")
+
+    if rm_iono_rad_m2 > 0:
+        logger.warning("For South-Africa we expect a negative ionospheric RM contribution. Something has gone wrong?")
+
+
+    # 5) Build a 'corrected' EVPA curve
+    # i.e. PA_obs - RM_iono*lambda^2 should be equal to the model
+    evpa_obs_corrected = evpa_obs - rm_iono_deg_m2*lambdasq_obs
+    plot_evpa_vs_lambdasq(
+        lambdasq_obs,
+        evpa_obs_corrected,
+        lambdasq_fit,
+        evpa_fit,
+        plotdir,
+        fig_suffix="_corrected"
+    )
 
 
 def processfield(
@@ -357,7 +640,7 @@ def processfield(
         raise ValueError(msg)
 
     logger.info(f"Processing Stokes I images in {globstr_stokesI}")
-    process_stokesI(
+    stokesI_fluxdens, stokesIpeak, frequencies = process_stokesI(
         imageset_stokesI=imageset_stokesI,
         region_file=region_file,
         models=models,
@@ -385,7 +668,16 @@ def processfield(
         
         process_stokesQU(
             imageset_stokesQ=imageset_stokesQ,
-            imageset_stokesU=imageset_stokesU
+            imageset_stokesU=imageset_stokesU,
+            stokesI_fluxdens=stokesI_fluxdens,
+            region_file=region_file,
+            models=models,
+            logger=logger,
+            unc=unc,
+            integrated=integrated,
+            flagchan=flagchan,
+            plotmodel=plotmodel,
+            plotdir=plotdir,
         )
 
 
