@@ -576,7 +576,7 @@ def process_stokesQU(
         # 4) Infer ionospheric RM from EVPA residuals
         
         # analytical least squares fit. Be careful that lambdasq_obs.shape = (nfreq,) and evpa_residuals is [nfreq, nregions]
-        rm_iono_deg_m2 = np.sum(lambdasq_obs[:, None] * evpa_residuals, axis=1) / np.sum(lambdasq_obs**2) # shape (nregions,)
+        rm_iono_deg_m2 = np.sum(lambdasq_obs[:, None] * evpa_residuals, axis=0) / np.sum(lambdasq_obs**2) # shape (nregions,)
         # convert to rad/m^2:
         rm_iono_rad_m2 = np.deg2rad(rm_iono_deg_m2)
 
