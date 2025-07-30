@@ -280,6 +280,7 @@ def process_stokesI(
         plt.plot(frequencies, models['i'](frequencies), label=f"{models['src']} model", color='black', linestyle='--')
 
     if not plotdir.exists():
+        logger.info(f"    Creating {plotdir}")
         plotdir.mkdir()
 
     plot_total_intensity_spectrum(
@@ -514,7 +515,7 @@ def process_stokesQU(
            rm_iono_rad_m2: float or None -- inferred RM that explains offset between data and model.
     """
     if not plotdir.exists():
-        logger.info(f"Creating {plotdir}")
+        logger.info(f"    Creating {plotdir}")
         plotdir.mkdir()
 
     # measure Q and U, integrated flux only
@@ -585,10 +586,10 @@ def process_stokesQU(
         rm_iono_deg_m2 = rm_iono_deg_m2[0]
         rm_iono_rad_m2 = rm_iono_rad_m2[0]
 
-        logger.info(f"Inferred ionospheric RM from EVPA residuals = {rm_iono_rad_m2:.3f} rad/m^2")
+        logger.info(f"    Inferred ionospheric RM from EVPA residuals = {rm_iono_rad_m2:.3f} rad/m^2")
 
         if rm_iono_rad_m2 > 0:
-            logger.warning("For South-Africa we expect a negative ionospheric RM contribution. Something has gone wrong?")
+            logger.warning("    For South-Africa we expect a negative ionospheric RM contribution. Something has gone wrong?")
 
 
         # 5) Build a 'corrected' EVPA curve
