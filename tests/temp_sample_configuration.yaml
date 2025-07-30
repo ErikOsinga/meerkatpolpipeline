@@ -43,6 +43,19 @@ defaults:
     auto_determine_obsconf: true
     caracal_template_strategy: /home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline/templates/caracal-polcal-strategy-Lband.yml
 
+  # selfcal with facetselfcal
+  selfcal:
+    # do more channel clipping
+    clip_chan_start: 80
+    clip_chan_end: 3576
+    # here we assume clipping on top of what download_preprocess did
+    clip_assumed_nchan: 3723
+    # location of facetselfcal.py
+    facetselfcal_directory: /net/rijn9/data2/osinga/meerkatBfields/software/lofar_facet_selfcal
+    
+
+
+
 ################################################
 # parameters that are likely to change per target
 download_preprocess:
@@ -89,3 +102,9 @@ crosscal:
 check_calibrator:
   enable: false
   # crosscal_ms: will be determined automatically if not given
+
+
+selfcal:
+  # selfcal with facetselfcal
+  enable: false
+

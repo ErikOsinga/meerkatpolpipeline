@@ -13,6 +13,7 @@ from meerkatpolpipeline.caracal._caracal import CrossCalOptions
 from meerkatpolpipeline.check_calibrator.check_calibrator import CheckCalibratorOptions
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
+from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions
 from meerkatpolpipeline.utils.utils import add_timestamp_to_path
 
 # Known headers must **always** be present in the strategy file
@@ -32,7 +33,7 @@ KNOWN_OPERATIONS = (
     "download_preprocess",
     "crosscal",
     "check_calibrator",
-    "facetselfcal",
+    "selfcal",
     "firstpass_cubes",
     "compare_to_nvss",
     "grid_freq_axis",
@@ -48,7 +49,8 @@ FORMAT_VERSION = 0.1
 STRATEGY_OPTIONS_MAPPING = {
     "download_preprocess": DownloadOptions,
     "crosscal": CrossCalOptions,
-    "check_calibrator": CheckCalibratorOptions
+    "check_calibrator": CheckCalibratorOptions,
+    "selfcal": SelfCalOptions,
     # TODO
 }
 
