@@ -154,7 +154,7 @@ def create_facetselfcal_command(
     """
     logger = get_run_logger()
     opt_dict = vars(options)
-    cmd_parts: list[str] = ["facetselfcal.py"]
+    cmd_parts: list[str] = ["python", "facetselfcal.py"]
 
     # Build flags from options
     for name, val in opt_dict.items():
