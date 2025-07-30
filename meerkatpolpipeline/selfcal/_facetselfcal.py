@@ -147,6 +147,7 @@ class FacetselfcalCommand(BaseOptions):
 def create_facetselfcal_command(
         options: FacetselfcalOptions,
         ms: Path,
+        facetselfcal_directory: Path,
         prefix: str | None = None
     ) -> FacetselfcalCommand:
     """
@@ -154,7 +155,7 @@ def create_facetselfcal_command(
     """
     logger = get_run_logger()
     opt_dict = vars(options)
-    cmd_parts: list[str] = ["python", "facetselfcal.py"]
+    cmd_parts: list[str] = ["python", f"{str(facetselfcal_directory)}/facetselfcal.py"]
 
     # Build flags from options
     for name, val in opt_dict.items():
