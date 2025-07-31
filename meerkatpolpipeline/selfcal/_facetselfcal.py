@@ -263,7 +263,8 @@ def get_options_facetselfcal_preprocess(selfcal_options: SelfCalOptions):
         "msinnchan": selfcal_options['clip_chan_end'] - selfcal_options['clip_chan_start'],
         "stopafterpreapply": True,
         "useaoflagger": True,
-        "aoflagger_strategy": "default_StokesQUV.lua" # do we need to give full path?
+        "aoflagger_strategy": "default_StokesQUV.lua", # do we need to give full path?
+        "imsize" : 8192 # not used, but required by facetselfcal...
     }
 
     facetselfcal_options = FacetselfcalOptions(**opt_dict)
