@@ -87,7 +87,7 @@ class FacetselfcalOptions(BaseOptions):
     parallelgridding: int | None = None
     """Parallel-gridding for WSClean (see WSClean documentation). The default is 0 which means it is set automatically"""
 
-    beamcor: str = 'no'
+    beamcor: str = 'auto' # facetselfcal will complain if its not at auto
     """Correct the visibilities for beam in the phase center. Possible values are 'no' 'yes' 'auto'. This is a LOFAR specific option. (default is auto, auto means the LOFASR beam is taken out in the curent phase center, tolerance for that is 10 arcsec). """
 
     start: int | None = None
