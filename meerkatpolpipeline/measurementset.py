@@ -24,7 +24,7 @@ def check_ms_timesteps(mslist: list[Path], ntimes_cutoff: int = 20) -> np.ndarra
     """
     times_below_cutoff = np.zeros_like(mslist, dtype='bool')
     for i, ms in enumerate(mslist):
-        t = table(ms, ack=False)
+        t = table(str(ms), ack=False)
         times = np.unique(t.getcol('TIME'))
 
         if len(times) <= ntimes_cutoff:

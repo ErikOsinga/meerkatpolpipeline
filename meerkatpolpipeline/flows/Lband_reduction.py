@@ -333,7 +333,7 @@ def process_science_fields(
         #### 4.2: DI self calibration
         task_facetselfcal_DIcal = task(_facetselfcal.do_facetselfcal_DI, name="facetselfcal_DI")
         DIcal_workdir = selfcal_workdir / "DIcal"
-        selfcal_workdir.mkdir(exist_ok=True)
+        DIcal_workdir.mkdir(exist_ok=True)
         task_facetselfcal_DIcal(selfcal_options, all_preprocessed_mses, DIcal_workdir, lofar_container)
 
 
