@@ -245,7 +245,7 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
 
     return Path(stamped_caracal_strategy)
 
-def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -> Path:
+def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path, meerkat_band: str) -> Path:
     """Take the base template for a caracal strategy and update MS path, calibrators etc"""
 
     # map the input user options to the caracal names
@@ -269,6 +269,11 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path) -
             "gcal": [caracal_options['obsconf_gcal']],
             "xcal": [caracal_options['obsconf_xcal']],
             "refant": caracal_options['obsconf_refant'],
+        },
+        "crosscal":  {
+            "set_model": {
+                'meerkat_band': meerkat_band # only 'L' or 'UHF' allowed.
+            }
         },
     }
     # # put them in the class holder for a caracal config file
@@ -460,7 +465,7 @@ def start_caracal(
     caracal_options = determine_calibrators(caracal_options, ms_summary)
     
     # write the caracal config file with user options
-    caracal_config_file = edit_caracal_template(caracal_options, working_dir)
+    caracal_config_file = edit_caracal_template(caracal_options, working_dir, ms_summary['meerkat_band'])
 
     with open(working_dir / "go_caracal.sh", "w") as file:
         # TODO: let users supply conda env command?

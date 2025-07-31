@@ -59,7 +59,12 @@ crosscal:
   label_cal: 1kgb
   set_model:
     enable: true
-    meerkat_skymodel: true
+    meerkat_skymodel: false
+    # set crystalball_skymodel to true for UHF band
+    # TODO: do we want to do this for L-band as well?
+    meerkat_crystalball_skymodel: true
+    # VERY IMPORTANT, DEFAULTS TO L-band
+    meerkat_band: 'L'
   primary:
     reuse_existing_gains: false
     order: KGBAKGBK

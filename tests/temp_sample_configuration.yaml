@@ -41,7 +41,7 @@ defaults:
     caracal_files: '/data2/osinga/meerkatBfields/caracal_files/'
     # auto determine calibrators ?
     auto_determine_obsconf: true
-    caracal_template_strategy: /home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline/templates/caracal-polcal-strategy-Lband.yml
+    caracal_template_strategy: /home/osingae/OneDrive/postdoc/projects/MEERKAT_similarity_Bfields/meerkatpolpipeline/templates/caracal-polcal-strategy.yml
 
   # selfcal with facetselfcal
   selfcal:

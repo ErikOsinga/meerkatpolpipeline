@@ -13,6 +13,18 @@ from meerkatpolpipeline.caracal import field_intents
 from meerkatpolpipeline.utils.utils import execute_command
 
 
+def determine_meerkat_band_from_ch0(Ch0MHz: float):
+    """
+    Based on the first channel frequency in the MS, return the MeerKAT band
+
+    either 'L' or 'UHF'
+    """
+    if Ch0MHz < 855:
+        return 'UHF'
+    elif Ch0MHz < 1713:
+        return 'L'
+    raise ValueError(f"{Ch0MHz} not automatically mapped to a MeerKAT band.")
+
 def msoverview_summary(
         binds: list[Path],
         container: Path,
@@ -40,6 +52,7 @@ def msoverview_summary(
           - 'TotBW(kHz)' (float)
           - 'CtrFreq(MHz)' (float)
           - 'fields' (List[str])
+          - 'meerkat_band' (str), either "L" or "UHF" depending on the frequency range in the MS
           - 'field_intents' (dict[int, tuple[str, str]]) if get_intents is True
     """
     # build and run the command
@@ -94,6 +107,8 @@ def msoverview_summary(
             break
 
     mssummary['fields'] = fields
+
+    mssummary['meerkat_band'] = determine_meerkat_band_from_ch0(mssummary['Ch0MHz'])
 
     if get_intents:
         # get field intents
