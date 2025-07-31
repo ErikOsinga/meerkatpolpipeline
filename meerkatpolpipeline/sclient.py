@@ -57,6 +57,7 @@ def run_singularity_command(
     stream_callback_func: Callable | None = None,
     ignore_logging_output: bool = False,
     max_retries: int = 2,
+    options: list | None = None,
 ) -> None:
     """Executes a command within the context of a nominated singularity
     container
@@ -99,6 +100,9 @@ def run_singularity_command(
 
         logger.info(f"Constructed singularity bindings: {bind}")
 
+    if options:
+        logger.info(f"Constructed options: {options}")
+
     try:
         output = sclient.execute(
             image=image.resolve(strict=True).as_posix(),
@@ -108,6 +112,7 @@ def run_singularity_command(
             quiet=False,
             stream=True,
             stream_type="both",
+            options=options,
         )
 
         for line in output:
@@ -117,7 +122,7 @@ def run_singularity_command(
                 stream_callback_func(line)
 
         # Sleep for a few moments. If the command created files (often they do), give the lustre a moment
-        # to properly register them. You dirty sea dog.
+        # to properly register them.
         sleep(2.0)
     except Exception as e:
         logger.info("A callback handler has raised an error. Attempting to rerun.")
@@ -160,6 +165,7 @@ def singularity_wrapper(
         bind_dirs: Path | Collection[Path] | None = None,
         stream_callback_func: Callable | None = None,
         ignore_logging_output: bool = False,
+        options: list | None = None,
         **kwargs,
     ) -> str:
         """Function that can be used as a decorator on an input function. This function
@@ -190,6 +196,7 @@ def singularity_wrapper(
             bind_dirs=bind_dirs,
             ignore_logging_output=ignore_logging_output,
             stream_callback_func=stream_callback_func,
+            options=options
         )
 
         return task_str

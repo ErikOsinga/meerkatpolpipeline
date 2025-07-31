@@ -307,6 +307,7 @@ def do_facetselfcal_preprocess(
             selfcal_options['facetselfcal_directory'],
             ms.parent,
         ],
+        options = ["--pwd", workdir] # execute command in selfcal workdir
     )
 
 
