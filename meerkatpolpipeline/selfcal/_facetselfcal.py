@@ -22,12 +22,10 @@ class SelfCalOptions(BaseOptions):
     """directory to lofar_facet_selfcal. Required"""
     targetfield: str | None = None
     """name of targetfield. Propagated to all steps."""
-    clip_assumed_nchan: int = 4096
-    """double-check whether this is the number of channels before any clipping"""
-    clip_chan_start: int = 163
-    """clip channels from MS before this number"""
-    clip_chan_end: int = 3885
-    """clip channels from MS after this number"""
+    selfcal_clip_chan_start: int = 20
+    """clip channels from MS before this number. Keep in mind that this is after cross-cal averaging"""
+    selfcal_clip_total_nchan: int = 894
+    """number of channels to use from the input MS (0 means till the end). Keep in mind that this is after cross-cal averaging"""
 
 class FacetselfcalOptions(BaseOptions):
     """A container to handle facetselfcal.py options. 
@@ -258,9 +256,8 @@ def get_options_facetselfcal_preprocess(selfcal_options: SelfCalOptions):
 
     opt_dict = {
         "noarchive": True,
-        "msinstartchan": selfcal_options['clip_chan_start'],
-        # note the difference between DP3.nchan and 'clip_chan_end'
-        "msinnchan": selfcal_options['clip_chan_end'] - selfcal_options['clip_chan_start'],
+        "msinstartchan": selfcal_options['selfcal_clip_chan_start'],
+        "msinnchan": selfcal_options['selfcal_clip_total_nchan'] ,
         "stopafterpreapply": True,
         "useaoflagger": True,
         "aoflagger_strategy": "default_StokesQUV.lua", # do we need to give full path?

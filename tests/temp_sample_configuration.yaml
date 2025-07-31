@@ -100,9 +100,13 @@ check_calibrator:
 selfcal:
   # selfcal with facetselfcal
   enable: false
-  # do more channel clipping. These numbers are for L-band
-  clip_chan_start: 80
-  clip_chan_end: 3656
-  # for UHF it's 220-3640
-  # here we assume clipping on top of what download_preprocess did
-  clip_assumed_nchan: 3723
+  
+  # do more channel clipping.
+  # based on Andrea's findings (without factor 4 averaging the numbers were)
+  # --msinstartchan=80 --msinnchan=3576 for L band
+  # for UHF: --msinstartchan=220  --msinnchan=3420
+
+  # note that the user must be aware of averaging done by caracal
+  # default template strategy averages a factor 4 in freq
+  selfcal_clip_chan_start: 20
+  selfcal_clip_total_nchan: 894
