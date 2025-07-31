@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from configargparse import ArgumentParser
@@ -24,6 +25,7 @@ from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
 from meerkatpolpipeline.sclient import run_singularity_command
+from meerkatpolpipeline.selfcal import _facetselfcal
 from meerkatpolpipeline.utils.utils import find_calibrated_ms
 
 # from meerkatpolpipeline.logging import logger
@@ -307,7 +309,33 @@ def process_science_fields(
 
 
     ########## step 4: facetselfcal ##########
-    # DI
+    if "selfcal" in enabled_operations:
+
+        selfcal_workdir = working_dir / "selfcal"
+        selfcal_workdir.mkdir(exist_ok=True)
+
+        # figure out where the calibrated target MS is and copy it to selfcal_workdir if needed
+        target_ms = selfcal_workdir / calibrated_target_ms.name
+        if not target_ms.exists():
+            logger.info(f"Copying calibrated target MS from {calibrated_target_ms} to {target_ms}.")
+            shutil.copytree(calibrated_target_ms, target_ms)
+
+
+        #### 4.1: preprocess MS: additional clipping and flagging
+
+
+        selfcal_options = get_options_from_strategy(strategy, operation="selfcal")
+
+        # start preprocessing
+        task_facetselfcal_preprocess = task(_facetselfcal.do_facetselfcal_preprocess, name="facetselfcal_preprocess")
+        preprocessed_ms = task_facetselfcal_preprocess(selfcal_options, target_ms, selfcal_workdir, lofar_container)
+
+
+        #### 4.2: DI self calibration
+
+
+
+
     # DD
     # Extract
     # then DI or DD on extracted field as well

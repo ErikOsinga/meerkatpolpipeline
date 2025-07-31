@@ -45,15 +45,8 @@ defaults:
 
   # selfcal with facetselfcal
   selfcal:
-    # do more channel clipping
-    clip_chan_start: 80
-    clip_chan_end: 3576
-    # here we assume clipping on top of what download_preprocess did
-    clip_assumed_nchan: 3723
     # location of facetselfcal.py
     facetselfcal_directory: /net/rijn9/data2/osinga/meerkatBfields/software/lofar_facet_selfcal
-    
-
 
 
 ################################################
@@ -107,4 +100,9 @@ check_calibrator:
 selfcal:
   # selfcal with facetselfcal
   enable: false
-
+  # do more channel clipping. These numbers are for L-band
+  clip_chan_start: 80
+  clip_chan_end: 3656
+  # for UHF it's 220-3640
+  # here we assume clipping on top of what download_preprocess did
+  clip_assumed_nchan: 3723

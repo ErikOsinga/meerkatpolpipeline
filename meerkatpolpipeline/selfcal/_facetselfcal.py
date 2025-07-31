@@ -247,3 +247,81 @@ def get_facetselfcal_output(
     imset = get_imset_from_prefix(prefix, pol, validate, chanout)
 
     return imset
+
+def get_options_facetselfcal_preprocess(selfcal_options: SelfCalOptions):
+    """
+    Hardcoded set of options for preprocessing a measurement set before facetselfcal
+        given some user input SelfcalOptions (for clipping channels)
+    """
+
+    opt_dict = {
+        "noarchive": True,
+        "msinstartchan": selfcal_options['clip_chan_start'],
+        # note the difference between DP3.nchan and 'clip_chan_end'
+        "msinnchan": selfcal_options['clip_chan_end'] - selfcal_options['clip_chan_start'],
+        "stopafterpreapply": True,
+        "useaoflagger": True,
+        "aoflagger_strategy": "default_StokesQUV.lua" # do we need to give full path?
+    }
+
+    facetselfcal_options = FacetselfcalOptions(**opt_dict)
+    return facetselfcal_options
+
+def do_facetselfcal_preprocess(
+        selfcal_options: SelfCalOptions,
+        ms: Path,
+        workdir: Path,
+        lofar_container: Path
+    ) -> Path:
+    """Run the facetselfcal preprocess step.
+
+    This does additional channel clipping and aoflagging with the default_StokesQUV.lua strategy
+
+    Returns:
+        Path: Path to the facetselfcal preprocessed MS
+
+    """
+    logger = get_run_logger()
+
+    logger.info("Starting facetselfcal preprocess step.")
+
+    # Check if preprocess was already done by a previous run.
+    print("TODO: Check if preprocess was already done by a previous run.")
+    print(f"TODO: check {selfcal_options['clip_assumed_nchan']=}")
+
+
+    # Otherwise, build and start preprocess command
+    facetselfcal_options = get_options_facetselfcal_preprocess(selfcal_options)
+
+    # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
+    facetselfcal_cmd = create_facetselfcal_command(facetselfcal_options, ms, selfcal_options['facetselfcal_directory'])
+
+    run_facetselfcal_command(
+        facetselfcal_cmd,
+        container=lofar_container,
+        bind_dirs=[
+            selfcal_options['facetselfcal_directory'],
+            ms.parent,
+        ],
+    )
+
+
+
+
+
+def do_facetselfcal_DI(
+        selfcal_options: SelfCalOptions,
+        ms: Path,
+        workdir: Path,
+        lofar_container: Path
+    ) -> Path:
+    """Run the facetselfcal Direction Independent (DI) self-calibration step.
+    
+
+    Returns:
+        Path: new Path to the facetselfcal calibrated MS
+
+    """
+    logger = get_run_logger()
+
+
