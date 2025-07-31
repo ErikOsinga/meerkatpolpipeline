@@ -200,6 +200,8 @@ def create_facetselfcal_command(
 def run_facetselfcal_command(facetselfcal_command: FacetselfcalCommand, **kwargs) -> str:
     """Run a facetselfcal command using singularity wrapper
 
+    Note that all arguments should be given as kwargs to not confuse singularity wrapper
+
     Args:
         facetselfcal_command: The result of a facetselfcal command construction, containing the command and options
         **kwargs: Additional keyword arguments that will be passed to the singularity_wrapper
@@ -296,8 +298,9 @@ def do_facetselfcal_preprocess(
     # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
     facetselfcal_cmd = create_facetselfcal_command(facetselfcal_options, ms, selfcal_options['facetselfcal_directory'])
 
+    # all arguments should be given as kwargs to not confuse singularity wrapper
     run_facetselfcal_command(
-        facetselfcal_cmd,
+        facetselfcal_command=facetselfcal_cmd,
         container=lofar_container,
         bind_dirs=[
             selfcal_options['facetselfcal_directory'],
