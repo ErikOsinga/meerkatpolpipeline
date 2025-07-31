@@ -321,8 +321,7 @@ def process_science_fields(
             shutil.copytree(calibrated_target_ms, target_ms)
 
 
-        #### 4.1: preprocess MS: additional clipping and flagging
-
+        #### 4.1: preprocess MS: additional clipping and flagging, splitting irregular time axis
 
         selfcal_options = get_options_from_strategy(strategy, operation="selfcal")
 

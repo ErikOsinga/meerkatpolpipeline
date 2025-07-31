@@ -287,7 +287,6 @@ def do_facetselfcal_preprocess(
 
     # Check if preprocess was already done by a previous run.
     print("TODO: Check if preprocess was already done by a previous run.")
-    print(f"TODO: check {selfcal_options['clip_assumed_nchan']=}")
 
 
     # Otherwise, build and start preprocess command
