@@ -248,6 +248,12 @@ def write_and_timestamp_caracal_strategy(output_yaml: Path, caracal_options: dic
 def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path, meerkat_band: str) -> Path:
     """Take the base template for a caracal strategy and update MS path, calibrators etc"""
 
+    # load the template yaml
+    caracal_template = caracal_options["caracal_template_strategy"]
+
+    with open(caracal_template) as in_file:
+        caracal_template_yaml = yaml.load(in_file) # dict
+
     # map the input user options to the caracal names
     caracal_config_options = {
         "general": {
@@ -270,22 +276,17 @@ def edit_caracal_template(caracal_options: CrossCalOptions, working_dir: Path, m
             "xcal": [caracal_options['obsconf_xcal']],
             "refant": caracal_options['obsconf_refant'],
         },
-        "crosscal":  {
-            "set_model": {
-                'meerkat_band': meerkat_band # only 'L' or 'UHF' allowed.
-            }
-        },
+        "crosscal":  caracal_template_yaml['crosscal']
     }
+
+    # make sure to update meerkat_band in the ['crosscal']['set_model'] options
+    # very important as the 'meerkat_band' parameter defaults to 'L'
+    caracal_config_options['crosscal']['set_model']['meerkat_band'] = meerkat_band
+
     # # put them in the class holder for a caracal config file
     # caracal_config_file_options = CaracalConfigFile(**caracal_config_options)
     ## TODO: update class holder or write function to check validity of arguments
     caracal_config_file_options = caracal_config_options
-
-    # load the template yaml
-    caracal_template = caracal_options["caracal_template_strategy"]
-
-    with open(caracal_template) as in_file:
-        caracal_template_yaml = yaml.load(in_file) # dict
 
     # update the template yaml with the user options
     final_caracal_options = _update_caracal_template_with_options(caracal_template_yaml, caracal_config_file_options)
