@@ -33,6 +33,8 @@ class CheckCalibratorOptions(BaseOptions):
     """Path to cross-calibrated MS that contains the calibrators. If None, will be determined automatically"""
     polcal_field: str | None = None
     """String containing the name of the polarisation calibrator field. If None, will be determined automatically"""
+    no_fit_rm: bool = False
+    """ disable the -fit-rm flag in wsclean, since its only available in the newest versions."""
 
     
 def split_polcal(
@@ -75,7 +77,11 @@ def split_polcal(
     return output_ms
 
 
-def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) -> tuple[ImageSet,ImageSet,ImageSet]:
+def go_wsclean_smallcubes(
+        ms: Path,
+        working_dir: Path,
+        check_calibrator_options: CheckCalibratorOptions,
+        lofar_container: Path) -> tuple[ImageSet,ImageSet,ImageSet]:
     """
     Quick round of imaging the calibrator in IQU
     """
@@ -136,7 +142,7 @@ def go_wsclean_smallcubes(ms: Path, working_dir: Path, lofar_container: Path) ->
     # Add options for linear pol
     hardcoded_options_stokesQU = {
         'pol': 'qu',
-        'fit_rm': True,
+        'fit_rm': True if not check_calibrator_options['no_fit_rm'] else False,
         'join_polarizations': True,
         'squared_channel_joining': True,
         'mgain': 0.8,
@@ -267,6 +273,7 @@ def check_calibrator(
     imageset_stokesI, imageset_stokesQ, imageset_stokesU = go_wsclean_smallcubes(
         polcal_ms,
         working_dir,
+        check_calibrator_options,
         lofar_container= lofar_container,
     )
 
