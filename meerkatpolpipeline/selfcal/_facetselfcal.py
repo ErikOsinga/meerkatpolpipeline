@@ -26,6 +26,11 @@ class SelfCalOptions(BaseOptions):
     """clip channels from MS before this number. Keep in mind that this is after cross-cal averaging"""
     selfcal_clip_total_nchan: int = 894
     """number of channels to use from the input MS (0 means till the end). Keep in mind that this is after cross-cal averaging"""
+    imsize: int = 8192
+    """number of pixels on one side, in square imaging. 'Radio images are square because radio imagers make square images.' - RvW """
+    pixelsize: float | None = None
+    """pixel size in arcseconds. If None, determined automatically."""
+    
 
 class FacetselfcalOptions(BaseOptions):
     """A container to handle facetselfcal.py options. 
@@ -290,7 +295,7 @@ def do_facetselfcal_preprocess(
     """
     logger = get_run_logger()
 
-    logger.info("Starting facetselfcal preprocess step.")
+    logger.info(f"Starting facetselfcal preprocess step in {workdir}")
 
     # Check if preprocess was already done by a previous run.
     preprocessed_msdir = workdir / "split_measurements"
@@ -317,6 +322,12 @@ def do_facetselfcal_preprocess(
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
 
+    all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
+    if len(all_preprocessed_mses) == 0:
+        raise ValueError(f"Found no preprocessed mses at the expected location: {preprocessed_msdir}. Something went wrong?")
+
+    logger.info(f"Measurement set has been split into {len(all_preprocessed_mses)}, can be found in {preprocessed_msdir}")
+
     # facetselfcal by default makes a copy of the MS, but it should also have produced
     # timesplit MSes in the 'split_measurements' subdirectory. 
     # so we can remove the copy of the MS
@@ -324,21 +335,58 @@ def do_facetselfcal_preprocess(
     logger.info(f"Removing facetselfcal ms.copy {facetselfcal_ms_copy}")
     facetselfcal_ms_copy.unlink()
 
-    all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
-
-    logger.info(f"Measurement set has been split into {len(all_preprocessed_mses)}, can be found in {preprocessed_msdir}")
-
     return all_preprocessed_mses
+
+
+def get_options_facetselfcal_DI(selfcal_options: SelfCalOptions):
+    """
+    Hardcoded set of options for DIcal with facetselfcal
+        given some user input SelfcalOptions 
+    
+        TODO: can extend user input SelfcalOptions with things like solint-list, soltype-list, channelsout etc.
+              to expose facetselfcal parameters to the user via the .yaml file
+              analogous to imsize, pixelsize
+    """
+
+    opt_dict = {
+        "imsize" : selfcal_options['imsize'],
+        "pixelsize": selfcal_options['pixelsize'],
+        "noarchive": True,
+        "forwidefield": True,
+        "solint_list": ['1min'],
+        "soltype_list": ['scalarphase'],
+        "nchan_list": [1],
+        "soltypecycles_list": [0],
+        "smoothnessconstraint_list": [100.],
+        "niter": 75000,
+        "channelsout": 12,
+        "uvminim": 10,
+        "fitspectralpol": 9,
+        "paralleldeconvolution": 1200,
+        "parallelgridding": 4,
+        "start": 0,
+        "stop": 3,
+        "multiscale": True,
+        "multiscale_start": 0
+    }
+
+    facetselfcal_options = FacetselfcalOptions(**opt_dict)
+    return facetselfcal_options
 
 
 def do_facetselfcal_DI(
         selfcal_options: SelfCalOptions,
-        ms: Path,
+        all_preprocessed_mses: list[Path] | Path,
         workdir: Path,
         lofar_container: Path
     ) -> Path:
     """Run the facetselfcal Direction Independent (DI) self-calibration step.
-    
+
+    Args:
+        selfcal_options       : dict(SelfCalOptions) : user input via yaml file
+        all_preprocessed_mses : list                 : output from do_facetselfcal_preprocess()
+        workdir               : Path                 : where to run facetselfcal_DI
+        lofar_container       : Path                 : lofar software
 
     Returns:
         Path: new Path to the facetselfcal calibrated MS
@@ -346,4 +394,41 @@ def do_facetselfcal_DI(
     """
     logger = get_run_logger()
 
+    logger.info(f"Starting facetselfcal DI step in {workdir}.")
 
+    # Check if DI step was already done by a previous run.
+    print("TODO: check if already done")
+    # preprocessed_msdir = workdir / "split_measurements"
+    # all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
+    # if len(all_preprocessed_mses) > 0:
+    #     logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
+    #     logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
+    #     return all_preprocessed_mses
+
+    # Otherwise, build and start DI command
+    facetselfcal_options = get_options_facetselfcal_DI(selfcal_options)
+
+    # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
+    facetselfcal_cmd = create_facetselfcal_command(
+        options=facetselfcal_options,
+        ms=all_preprocessed_mses,
+        facetselfcal_directory=selfcal_options['facetselfcal_directory']
+    )
+
+    if isinstance(all_preprocessed_mses, list):
+        msdir = all_preprocessed_mses[0].parent
+    else:
+        msdir = all_preprocessed_mses.parent
+
+    # all arguments should be given as kwargs to not confuse singularity wrapper
+    run_facetselfcal_command(
+        facetselfcal_command=facetselfcal_cmd,
+        container=lofar_container,
+        bind_dirs=[
+            selfcal_options['facetselfcal_directory'],
+            msdir,
+        ],
+        options = ["--pwd", str(workdir)] # execute command in selfcal workdir
+    )
+
+    print("TODO: collect results, check if ran succesfully.")
