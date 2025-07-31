@@ -161,7 +161,7 @@ def create_facetselfcal_command(
     for name, val in opt_dict.items():
         if val is None:
             continue
-        flag = f"-{name.replace('_', '-')}"
+        flag = f"--{name.replace('_', '-')}" # all facetselfcal arguments are '--argument'
         if isinstance(val, bool):
             if val:
                 cmd_parts.append(flag)
