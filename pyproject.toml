@@ -24,6 +24,7 @@ dependencies = [
     "ephem",
     "python-casacore",
     "regions",
+    "tables",
 ]
 
 classifiers = [

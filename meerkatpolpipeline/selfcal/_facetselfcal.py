@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 from prefect.logging import get_run_logger
 
-from meerkatpolpipeline.measurementset import check_ms_timesteps
+from meerkatpolpipeline.measurementset import applycal, check_ms_timesteps
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.sclient import singularity_wrapper
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, get_imset_from_prefix
@@ -396,7 +396,7 @@ def do_facetselfcal_DI(
         all_preprocessed_mses: list[Path] | Path,
         workdir: Path,
         lofar_container: Path
-    ) -> Path:
+    ) -> list[Path]:
     """Run the facetselfcal Direction Independent (DI) self-calibration step.
 
     Args:
@@ -406,7 +406,7 @@ def do_facetselfcal_DI(
         lofar_container       : Path                 : lofar software
 
     Returns:
-        Path: new Path to the facetselfcal calibrated MS
+        list[Path]: list of Paths to the facetselfcal calibrated MSes
 
     """
     logger = get_run_logger()
@@ -414,13 +414,11 @@ def do_facetselfcal_DI(
     logger.info(f"Starting facetselfcal DI step in {workdir}.")
 
     # Check if DI step was already done by a previous run.
-    print("TODO: check if already done")
-    # preprocessed_msdir = workdir / "split_measurements"
-    # all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
-    # if len(all_preprocessed_mses) > 0:
-    #     logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
-    #     logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
-    #     return all_preprocessed_mses
+    final_image = np.array(sorted(workdir.glob("*004-MFS-image.fits")))
+    if len(final_image) == 1:
+        logger.info(f"Found image {final_image}, assuming facetselfcal DI step already done.")
+        mses_after_DIcal = np.array(sorted(workdir.glob("*.ms.copy")))
+        return mses_after_DIcal
 
     # Otherwise, build and start DI command
     facetselfcal_options = get_options_facetselfcal_DI(selfcal_options)
@@ -448,9 +446,16 @@ def do_facetselfcal_DI(
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
 
-    print("TODO: collect results, check if ran succesfully.")
+    # check if image_003-MFS-image.fits has been made, where 00{i} should match the --stop parameter in get_options_facetselfcal_DI()
+    final_image = np.array(sorted(workdir.glob("*003-MFS-image.fits")))
+    if len(final_image) != 1:
+        raise ValueError(f"Went looking for image-003-MFS.fits. Expected one image but found {final_image}")
 
+    final_image = final_image[0]
+    # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
+    mses_after_DIcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
 
+    return mses_after_DIcal
 
 
 def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions):
@@ -485,7 +490,7 @@ def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions):
         "paralleldeconvolution": 1200,
         "parallelgridding": 4,
         "start": 0,
-        "stop": 3,
+        "stop": 4,
         "multiscale": True,
         "multiscale_start": 0
     }
@@ -551,7 +556,16 @@ def do_facetselfcal_DD(
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
 
-    print("TODO: collect results, check if ran succesfully.")
+    # check if image_004-MFS-image.fits has been made, where 00{i} should match the --stop parameter in get_options_facetselfcal_DD()
+    final_image = np.array(sorted(workdir.glob("*004-MFS-image.fits")))
+    if len(final_image) != 1:
+        raise ValueError(f"Went looking for image-004-MFS.fits. Expected one image but found {final_image}")
+
+    final_image = final_image[0]
+    # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
+    mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
+
+    return mses_after_DDcal
 
 
 def get_options_facetselfcal_extract(selfcal_options: SelfCalOptions):
@@ -573,7 +587,7 @@ def get_options_facetselfcal_extract(selfcal_options: SelfCalOptions):
         "facetdirections": selfcal_options['ddcal_facetdirections'],
         "remove_outside_center": True,
         "remove_outside_center_box": selfcal_options['remove_outside_center_box'],
-        "start": 4, # should match DDcal 'stop'
+        "start": 4, # should match DDcal 'stop', also if start != 0, grabs the .copy MSes from current dir.
         "stop": 4,
         "noarchive": True,
         "forwidefield": True,
@@ -597,6 +611,26 @@ def get_options_facetselfcal_extract(selfcal_options: SelfCalOptions):
     facetselfcal_options = FacetselfcalOptions(**opt_dict)
     return facetselfcal_options
 
+
+def apply_closest_direction(mses: list[Path]) -> list[Path]:
+    """
+    Apply the closest direction solution to a measurement set of an extracted field
+    """
+    logger = get_run_logger()
+
+    all_msout = []
+    for ms in mses:
+        # sols are of form merged_selfcalcyle005_chunk_10_dicorrected.ms.copy.h5
+        
+        sols = ms.with_name(f"merged_selfcalcyle005_{ms.name.replace('.subtracted','.h5')}")
+        assert sols.exists(), f"Tried to find solution {sols} but did not exist. Did DDcal complete succesfully?"
+        # msout will be of form chunk_*_dicorrected.ms.copy.subtracted.corrected
+        msout = ms.with_name(ms.name + ".corrected")
+        logger.info(f"Applying closest dir of sols {sols} to ms {ms}. Writing to {msout}")
+        applycal(ms, sols, msout = msout, find_closestdir=True)
+        all_msout.append(msout)
+
+    return all_msout
 
 def do_facetselfcal_extract(
         selfcal_options: SelfCalOptions,
@@ -655,4 +689,16 @@ def do_facetselfcal_extract(
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
 
-    print("TODO: collect results, check if ran succesfully.")
+    # grab the extracted MSes
+    mses_after_extraction = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy.subtracted")))
+    assert len(mses_after_extraction) != 0, f"Found {len(mses_after_extraction)} mses in {workdir}. However, expected at least one..."
+    logger.info(f"Found {len(mses_after_extraction)} extracted mses in {workdir}")
+
+    # apply the closest direction and write results to a new (set of) MS(es)
+    corrected_extracted_mses = apply_closest_direction(mses_after_extraction)
+    # Should be only few tens of GB at most all together. Very managable.
+
+    # Can image the central X degrees as the user likes. Or run additional selfcal: DI or DD.
+    # TODO: could implement that as a list of tasks.
+    return corrected_extracted_mses
+

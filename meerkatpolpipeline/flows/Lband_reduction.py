@@ -328,20 +328,38 @@ def process_science_fields(
         # start preprocessing
         task_facetselfcal_preprocess = task(_facetselfcal.do_facetselfcal_preprocess, name="facetselfcal_preprocess")
         all_preprocessed_mses = task_facetselfcal_preprocess(selfcal_options, target_ms, selfcal_workdir, lofar_container)
+        logger.info(f"Preprocessing step completed. MSes found at {all_preprocessed_mses}")
 
 
         #### 4.2: DI self calibration
-        task_facetselfcal_DIcal = task(_facetselfcal.do_facetselfcal_DI, name="facetselfcal_DI")
         DIcal_workdir = selfcal_workdir / "DIcal"
         DIcal_workdir.mkdir(exist_ok=True)
-        task_facetselfcal_DIcal(selfcal_options, all_preprocessed_mses, DIcal_workdir, lofar_container)
+        task_facetselfcal_DIcal = task(_facetselfcal.do_facetselfcal_DI, name="facetselfcal_DI")
+        mses_after_DIcal = task_facetselfcal_DIcal(selfcal_options, all_preprocessed_mses, DIcal_workdir, lofar_container)
+        logger.info(f"DIcal step completed. MSes found at {mses_after_DIcal}")
 
+        #### 4.3 DD self calibration
+        DDcal_workdir = selfcal_workdir / "DDcal"
+        DDcal_workdir.mkdir(exist_ok=True)
+        task_facetselfcal_DDcal = task(_facetselfcal.do_facetselfcal_DD, name="facetselfcal_DD")
+        mses_after_DDcal = task_facetselfcal_DDcal(selfcal_options, mses_after_DIcal, DDcal_workdir, lofar_container)
+        logger.info(f"DDcal step completed. MSes found at {mses_after_DDcal}")
 
+        #### 4.4 Extraction of target field
+        # done in same directory as DDcal
+        DDcal_workdir = selfcal_workdir / "DDcal"
+        DDcal_workdir.mkdir(exist_ok=True)
+        task_facetselfcal_extract = task(_facetselfcal.do_facetselfcal_extract, name="facetselfcal_extract")
+        # note that we use the same MSes as after DIcal, because facetselfcal with start !=0 will automatically use the .ms.copy files
+        # that should be there (see mses_after_DDcal)
+        corrected_extracted_mses = task_facetselfcal_extract(selfcal_options, mses_after_DIcal, DDcal_workdir, lofar_container)
+        logger.info(f"extract step completed. MSes found at {corrected_extracted_mses}")
 
+        logger.info("All selfcal steps fully completed.")
+    else:
+        print("TODO: find extracted MSes if selfcal step is disabled.")
+        # corrected_extracted_mses = find_extracted_mses()
 
-    # DD
-    # Extract
-    # then DI or DD on extracted field as well
 
     ########## step 5: IQUV cube image 12 channel ##########
     # do I image separate from QUV

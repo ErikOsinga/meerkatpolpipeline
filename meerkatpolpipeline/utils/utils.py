@@ -188,3 +188,17 @@ def find_calibrated_ms(
         if ms_path.exists():
             return ms_path
     return None
+
+
+def make_utf8(inp):
+    """
+    Convert input to utf8 instead of bytes
+    :param inp: string input
+    :return: input in utf-8 format
+    """
+
+    try:
+        inp = inp.decode('utf8')
+        return inp
+    except (UnicodeDecodeError, AttributeError):
+        return inp
