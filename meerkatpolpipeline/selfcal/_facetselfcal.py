@@ -151,7 +151,7 @@ class FacetselfcalCommand(BaseOptions):
 
 def create_facetselfcal_command(
         options: FacetselfcalOptions,
-        ms: list[Path] | Path,
+        ms: list[Path] | np.ndarray[Path] | Path,
         facetselfcal_directory: Path,
         prefix: str | None = None
     ) -> FacetselfcalCommand:
@@ -189,7 +189,7 @@ def create_facetselfcal_command(
     if isinstance(ms, Path):
         # Append the measurement set
         cmd_parts.append(str(ms))
-    elif isinstance(ms, list):
+    elif isinstance(ms, (list,np.ndarray)):
         # append the measurement sets
         cmd_parts.extend([str(ms_i) for ms_i in ms])
     else:
