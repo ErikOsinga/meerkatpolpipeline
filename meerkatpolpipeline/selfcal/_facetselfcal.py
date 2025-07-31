@@ -32,6 +32,8 @@ class SelfCalOptions(BaseOptions):
     """number of pixels on one side, in square imaging. 'Radio images are square because radio imagers make square images.' - RvW """
     pixelsize: float | None = None
     """pixel size in arcseconds. If None, determined automatically."""
+    ddcal_facetdirections: Path | None = None
+    """ASCII csv file containing facet directions for DDcal. File needs at least two columns with decimal degree RA and Dec. Default is None."""
     
 
 class FacetselfcalOptions(BaseOptions):
@@ -360,6 +362,8 @@ def get_options_facetselfcal_DI(selfcal_options: SelfCalOptions):
               analogous to imsize, pixelsize
     """
 
+    print("TODO: change options based on UHF or L-band")
+
     opt_dict = {
         "imsize" : selfcal_options['imsize'],
         "pixelsize": selfcal_options['pixelsize'],
@@ -444,3 +448,106 @@ def do_facetselfcal_DI(
     )
 
     print("TODO: collect results, check if ran succesfully.")
+
+
+
+
+def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions):
+    """
+    Hardcoded set of options for DDcal with facetselfcal
+        given some user input SelfcalOptions 
+    
+        TODO: can extend user input SelfcalOptions with things like solint-list, soltype-list, channelsout etc.
+              to expose facetselfcal parameters to the user via the .yaml file
+              analogous to imsize, pixelsize
+    """
+
+    print("TODO: change options based on UHF or L-band")
+
+    opt_dict = {
+        "imsize" : selfcal_options['imsize'],
+        "pixelsize": selfcal_options['pixelsize'],
+        "DDE": True,
+        "facetdirections": selfcal_options['ddcal_facetdirections'],
+        "noarchive": True,
+        "forwidefield": True,
+        "solint_list": ['1min', '30min'], # probably need to check min times again
+        "soltype_list": ['phaseonly', 'scalarcomplexgain'],
+        "nchan_list": [1,1],
+        "soltypecycles_list": [0, 1],
+        "smoothnessconstraint_list": [100., 100.],
+        "niter": 75000,
+        "channelsout": 12,
+        "uvminim": 10,
+        "fitspectralpol": 9,
+        "paralleldeconvolution": 1200,
+        "parallelgridding": 4,
+        "start": 0,
+        "stop": 3,
+        "multiscale": True,
+        "multiscale_start": 0
+    }
+
+    facetselfcal_options = FacetselfcalOptions(**opt_dict)
+    return facetselfcal_options
+
+
+def do_facetselfcal_DD(
+        selfcal_options: SelfCalOptions,
+        all_DIcal_mses: list[Path] | Path,
+        workdir: Path,
+        lofar_container: Path
+    ) -> Path:
+    """Run the facetselfcal Direction Dependent (DD) self-calibration step.
+
+    Args:
+        selfcal_options       : dict(SelfCalOptions) : user input via yaml file
+        all_DIcal_mses        : list                 : output from do_facetselfcal_DI()
+        workdir               : Path                 : where to run facetselfcal_DD
+        lofar_container       : Path                 : lofar software
+
+    Returns:
+        Path: new Path to the facetselfcal calibrated MS
+
+    """
+    logger = get_run_logger()
+
+    logger.info(f"Starting facetselfcal DD step in {workdir}.")
+
+    # Check if DD step was already done by a previous run.
+    print("TODO: check if already done")
+    # preprocessed_msdir = workdir / "split_measurements"
+    # all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
+    # if len(all_preprocessed_mses) > 0:
+    #     logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
+    #     logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
+    #     return all_preprocessed_mses
+
+    # Otherwise, build and start DD command
+    facetselfcal_options = get_options_facetselfcal_DD(selfcal_options)
+
+    # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
+    facetselfcal_cmd = create_facetselfcal_command(
+        options=facetselfcal_options,
+        ms=all_DIcal_mses,
+        facetselfcal_directory=selfcal_options['facetselfcal_directory']
+    )
+
+    if isinstance(all_DIcal_mses, (list,np.ndarray)):
+        msdir = all_DIcal_mses[0].parent
+    else:
+        msdir = all_DIcal_mses.parent
+
+    # all arguments should be given as kwargs to not confuse singularity wrapper
+    run_facetselfcal_command(
+        facetselfcal_command=facetselfcal_cmd,
+        container=lofar_container,
+        bind_dirs=[
+            selfcal_options['facetselfcal_directory'],
+            msdir,
+        ],
+        options = ["--pwd", str(workdir)] # execute command in selfcal workdir
+    )
+
+    print("TODO: collect results, check if ran succesfully.")
+
