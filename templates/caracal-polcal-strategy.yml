@@ -64,7 +64,7 @@ crosscal:
     # TODO: do we want to do this for L-band as well?
     meerkat_crystalball_skymodel: true
     # VERY IMPORTANT, DEFAULTS TO L-band
-    meerkat_band: 'L'
+    meerkat_band: 'will-be-determined-from-ms'
   primary:
     reuse_existing_gains: false
     order: KGBAKGBK
