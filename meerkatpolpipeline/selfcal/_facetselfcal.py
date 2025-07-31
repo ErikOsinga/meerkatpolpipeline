@@ -301,7 +301,7 @@ def do_facetselfcal_preprocess(
 
     # Check if preprocess was already done by a previous run.
     preprocessed_msdir = workdir / "split_measurements"
-    all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
+    all_preprocessed_mses = np.array(sorted(preprocessed_msdir.glob("*.ms")))
     if len(all_preprocessed_mses) > 0:
         logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
         logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
@@ -329,7 +329,7 @@ def do_facetselfcal_preprocess(
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
 
-    all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
+    all_preprocessed_mses = np.array(sorted(preprocessed_msdir.glob("*.ms")))
     if len(all_preprocessed_mses) == 0:
         raise ValueError(f"Found no preprocessed mses at the expected location: {preprocessed_msdir}. Something went wrong?")
 
