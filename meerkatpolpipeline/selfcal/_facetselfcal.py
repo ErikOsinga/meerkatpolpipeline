@@ -305,9 +305,9 @@ def do_facetselfcal_preprocess(
     if len(all_preprocessed_mses) > 0:
         logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
         logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
-
-        bad_ntimes = check_ms_timesteps(preprocessed_msdir, ntimes_cutoff=20)
-
+    
+        # check how many have at least 20 timesteps (required by facetselfcal)
+        bad_ntimes = check_ms_timesteps(all_preprocessed_mses, ntimes_cutoff=20)
         logger.info(f"Out of the {len(all_preprocessed_mses)} mses, {np.sum(bad_ntimes)} have less than {20} timesteps and not be used.")
 
         return all_preprocessed_mses[~bad_ntimes]
@@ -334,7 +334,9 @@ def do_facetselfcal_preprocess(
         raise ValueError(f"Found no preprocessed mses at the expected location: {preprocessed_msdir}. Something went wrong?")
 
     logger.info(f"Measurement set has been split into {len(all_preprocessed_mses)}, can be found in {preprocessed_msdir}")
-    bad_ntimes = check_ms_timesteps(preprocessed_msdir, ntimes_cutoff=20)
+    
+    # check how many have at least 20 timesteps (required by facetselfcal)
+    bad_ntimes = check_ms_timesteps(all_preprocessed_mses, ntimes_cutoff=20)
     logger.info(f"Out of the {len(all_preprocessed_mses)} mses, {np.sum(bad_ntimes)} have less than {20} timesteps and not be used.")
     all_preprocessed_mses = all_preprocessed_mses[~bad_ntimes]
 
