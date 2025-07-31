@@ -132,8 +132,8 @@ class FacetselfcalCommand(BaseOptions):
     """The constructed facetselfcal command that would be executed."""
     options: FacetselfcalOptions
     """The set of facetselfcal options used for imaging"""
-    ms: Path
-    """The measurement sets that have been included in the facetselfcal command. """
+    ms: list[Path] | Path
+    """The measurement set(s) that have been included in the facetselfcal command. """
     image_prefix_str: str | None = None
     """The prefix of the images that will be created"""
     cleanup: bool = True
@@ -144,12 +144,12 @@ class FacetselfcalCommand(BaseOptions):
 
 def create_facetselfcal_command(
         options: FacetselfcalOptions,
-        ms: Path,
+        ms: list[Path] | Path,
         facetselfcal_directory: Path,
         prefix: str | None = None
     ) -> FacetselfcalCommand:
     """
-    Construct a facetselfcal command from the given options and measurement set.
+    Construct a facetselfcal command from the given options and measurement set(s).
     """
     logger = get_run_logger()
     opt_dict = vars(options)
@@ -179,8 +179,14 @@ def create_facetselfcal_command(
     if prefix:
         cmd_parts.extend(["-name", prefix])
 
-    # Append the measurement set
-    cmd_parts.append(str(ms))
+    if isinstance(ms, Path):
+        # Append the measurement set
+        cmd_parts.append(str(ms))
+    elif isinstance(ms, list):
+        # append the measurement sets
+        cmd_parts.extend([str(ms_i) for ms_i in ms])
+    else:
+        raise ValueError(f"{ms} is of type {type(ms)}. Expected list or Path")
 
     # Join with line continuations for readability
     cmd_str = " \
@@ -278,7 +284,7 @@ def do_facetselfcal_preprocess(
     This does additional channel clipping and aoflagging with the default_StokesQUV.lua strategy
 
     Returns:
-        Path: Path to the facetselfcal preprocessed MS
+        Path: Path to the facetselfcal preprocessed MSes, with irregular timeaxis split.
 
     """
     logger = get_run_logger()
@@ -305,6 +311,15 @@ def do_facetselfcal_preprocess(
         ],
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
+
+    # facetselfcal by default makes a copy of the MS, but it should also have produced
+    # timesplit MSes in the 'split_measurements' subdirectory. 
+    # so we can remove the copy of the MS
+    facetselfcal_ms_copy = ms.with_name(ms.name.replace('.ms','.ms.copy'))
+    logger.info(f"Removing facetselfcal ms.copy {facetselfcal_ms_copy}")
+    facetselfcal_ms_copy.unlink()
+
+
 
 
 
