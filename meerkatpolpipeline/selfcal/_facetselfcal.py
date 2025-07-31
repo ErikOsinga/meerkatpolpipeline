@@ -278,13 +278,14 @@ def do_facetselfcal_preprocess(
         ms: Path,
         workdir: Path,
         lofar_container: Path
-    ) -> Path:
+    ) -> Path | list[Path]:
     """Run the facetselfcal preprocess step.
 
     This does additional channel clipping and aoflagging with the default_StokesQUV.lua strategy
+    and it splits the measurement set into X parts, because DP3 doesnt handle unequal time axes very well.
 
     Returns:
-        Path: Path to the facetselfcal preprocessed MSes, with irregular timeaxis split.
+        Path or list[Path] to the facetselfcal preprocessed MSes, with irregular timeaxis split.
 
     """
     logger = get_run_logger()
@@ -292,8 +293,12 @@ def do_facetselfcal_preprocess(
     logger.info("Starting facetselfcal preprocess step.")
 
     # Check if preprocess was already done by a previous run.
-    print("TODO: Check if preprocess was already done by a previous run.")
-
+    preprocessed_msdir = workdir / "split_measurements"
+    all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
+    if len(all_preprocessed_mses) > 0:
+        logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
+        logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
+        return all_preprocessed_mses
 
     # Otherwise, build and start preprocess command
     facetselfcal_options = get_options_facetselfcal_preprocess(selfcal_options)
@@ -319,10 +324,11 @@ def do_facetselfcal_preprocess(
     logger.info(f"Removing facetselfcal ms.copy {facetselfcal_ms_copy}")
     facetselfcal_ms_copy.unlink()
 
+    all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
 
+    logger.info(f"Measurement set has been split into {len(all_preprocessed_mses)}, can be found in {preprocessed_msdir}")
 
-
-
+    return all_preprocessed_mses
 
 
 def do_facetselfcal_DI(

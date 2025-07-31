@@ -327,7 +327,7 @@ def process_science_fields(
 
         # start preprocessing
         task_facetselfcal_preprocess = task(_facetselfcal.do_facetselfcal_preprocess, name="facetselfcal_preprocess")
-        preprocessed_ms = task_facetselfcal_preprocess(selfcal_options, target_ms, selfcal_workdir, lofar_container)
+        all_preprocessed_mses = task_facetselfcal_preprocess(selfcal_options, target_ms, selfcal_workdir, lofar_container)
 
 
         #### 4.2: DI self calibration
