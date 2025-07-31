@@ -427,7 +427,7 @@ def do_facetselfcal_DI(
         facetselfcal_directory=selfcal_options['facetselfcal_directory']
     )
 
-    if isinstance(all_preprocessed_mses, list):
+    if isinstance(all_preprocessed_mses, (list,np.ndarray)):
         msdir = all_preprocessed_mses[0].parent
     else:
         msdir = all_preprocessed_mses.parent
