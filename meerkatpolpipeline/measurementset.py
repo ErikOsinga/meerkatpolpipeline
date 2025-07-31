@@ -9,8 +9,30 @@ import re
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+from casacore.tables import table
+
 from meerkatpolpipeline.caracal import field_intents
 from meerkatpolpipeline.utils.utils import execute_command
+
+
+def check_ms_timesteps(mslist: list[Path], ntimes_cutoff: int = 20) -> np.ndarray[bool]:
+    """
+    Facetselfcal will complain if MSes have less than 20 timesteps, use this function to check.
+    
+    returns array with True/False per ms in mslist, True if less timesteps in MS than ntimes_cutoff
+    """
+    times_below_cutoff = np.zeros_like(mslist, dtype='bool')
+    for i, ms in enumerate(mslist):
+        t = table(ms, ack=False)
+        times = np.unique(t.getcol('TIME'))
+
+        if len(times) <= ntimes_cutoff:
+            times_below_cutoff[i] = True
+
+        t.close()
+    
+    return times_below_cutoff
 
 
 def determine_meerkat_band_from_ch0(Ch0MHz: float):

@@ -5,8 +5,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 from prefect.logging import get_run_logger
 
+from meerkatpolpipeline.measurementset import check_ms_timesteps
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.sclient import singularity_wrapper
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, get_imset_from_prefix
@@ -303,7 +305,12 @@ def do_facetselfcal_preprocess(
     if len(all_preprocessed_mses) > 0:
         logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
         logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
-        return all_preprocessed_mses
+
+        bad_ntimes = check_ms_timesteps(preprocessed_msdir, ntimes_cutoff=20)
+
+        logger.info(f"Out of the {len(all_preprocessed_mses)} mses, {np.sum(bad_ntimes)} have less than {20} timesteps and not be used.")
+
+        return all_preprocessed_mses[~bad_ntimes]
 
     # Otherwise, build and start preprocess command
     facetselfcal_options = get_options_facetselfcal_preprocess(selfcal_options)
@@ -327,6 +334,9 @@ def do_facetselfcal_preprocess(
         raise ValueError(f"Found no preprocessed mses at the expected location: {preprocessed_msdir}. Something went wrong?")
 
     logger.info(f"Measurement set has been split into {len(all_preprocessed_mses)}, can be found in {preprocessed_msdir}")
+    bad_ntimes = check_ms_timesteps(preprocessed_msdir, ntimes_cutoff=20)
+    logger.info(f"Out of the {len(all_preprocessed_mses)} mses, {np.sum(bad_ntimes)} have less than {20} timesteps and not be used.")
+    all_preprocessed_mses = all_preprocessed_mses[~bad_ntimes]
 
     # facetselfcal by default makes a copy of the MS, but it should also have produced
     # timesplit MSes in the 'split_measurements' subdirectory. 
