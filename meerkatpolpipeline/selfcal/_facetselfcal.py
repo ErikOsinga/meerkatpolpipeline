@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -348,7 +349,7 @@ def do_facetselfcal_preprocess(
     # so we can remove the copy of the MS
     facetselfcal_ms_copy = ms.with_name(ms.name.replace('.ms','.ms.copy'))
     logger.info(f"Removing facetselfcal ms.copy {facetselfcal_ms_copy}")
-    facetselfcal_ms_copy.unlink()
+    shutil.rmtree(facetselfcal_ms_copy)
 
     return all_preprocessed_mses
 
