@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -180,7 +181,10 @@ def create_facetselfcal_command(
             cmd_parts.extend([flag] + [str(d) for d in dims])
         elif isinstance(val, list):
             # facetselfcal expects lists literally as strings
-            cmd_parts.extend([flag, str(val)])
+            # without whitespace
+            v = str(val)
+            v = re.sub("[\s]*", "", v)
+            cmd_parts.extend([flag, v])
         elif isinstance(val, tuple):
             cmd_parts.extend([flag, ",".join(str(v) for v in val)])
         else:
@@ -312,7 +316,7 @@ def do_facetselfcal_preprocess(
     
         # check how many have at least 20 timesteps (required by facetselfcal)
         bad_ntimes = check_ms_timesteps(all_preprocessed_mses, ntimes_cutoff=20)
-        logger.info(f"Out of the {len(all_preprocessed_mses)} mses, {np.sum(bad_ntimes)} have less than {20} timesteps and not be used.")
+        logger.info(f"Out of the {len(all_preprocessed_mses)} mses, {np.sum(bad_ntimes)} have less than {20} timesteps and will not be used.")
 
         return all_preprocessed_mses[~bad_ntimes]
 
@@ -482,6 +486,7 @@ def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions, stop: int = 4):
         "facetdirections": str(selfcal_options['ddcal_facetdirections']),
         "noarchive": True,
         "forwidefield": True,
+        # needs no spacebar in between options? 
         "solint_list": ['1min', '30min'], # probably need to check min times again
         "soltype_list": ['phaseonly', 'scalarcomplexgain'],
         "normamps_list": [None, 'normslope+normamps'], # important for amplitude drifting
@@ -529,7 +534,6 @@ def do_facetselfcal_DD(
     nrounds_DD = 4 # --stop parameter for facetselfcal
 
     # Check if DD step was already done by a previous run.
-    print("TODO: check if already done")
     final_image = np.array(sorted(workdir.glob(f"*00{nrounds_DD-1}-MFS-image.fits")))
     if len(final_image) == 1:
         logger.info(f"Found image {final_image}, assuming facetselfcal DD step already done.")
