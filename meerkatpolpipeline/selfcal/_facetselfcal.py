@@ -120,7 +120,7 @@ class FacetselfcalOptions(BaseOptions):
     stopafterpreapply: bool = False
     """Stop execution after the preapply step"""
 
-    dde: bool = False
+    DDE: bool = False
     """Enable direction-dependent effects calibration"""
 
     facetdirections: str | None = None
