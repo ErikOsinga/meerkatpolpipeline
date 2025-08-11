@@ -10,7 +10,11 @@ from pathlib import Path
 import numpy as np
 from prefect.logging import get_run_logger
 
-from meerkatpolpipeline.measurementset import applycal, check_ms_timesteps
+from meerkatpolpipeline.measurementset import (
+    applycal,
+    check_ms_timesteps,
+    copy_corrdata_to_data_dp3,
+)
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.sclient import singularity_wrapper
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, get_imset_from_prefix
@@ -514,7 +518,7 @@ def do_facetselfcal_DD(
         all_DIcal_mses: list[Path] | Path,
         workdir: Path,
         lofar_container: Path
-    ) -> Path:
+    ) -> list[Path]:
     """Run the facetselfcal Direction Dependent (DD) self-calibration step.
 
     Args:
@@ -524,7 +528,7 @@ def do_facetselfcal_DD(
         lofar_container       : Path                 : lofar software
 
     Returns:
-        Path: new Path to the facetselfcal calibrated MS
+        list[Path]: new Paths to the facetselfcal calibrated MS
 
     """
     logger = get_run_logger()
@@ -544,17 +548,23 @@ def do_facetselfcal_DD(
     # Otherwise, build and start DD command
     facetselfcal_options = get_options_facetselfcal_DD(selfcal_options, stop=nrounds_DD)
 
+    # facetselfcal requires an input MS with only a data column. Copy the DIcal MSes over from the DIcal directory using DP3
+    logger.info(f"Copying input {all_DIcal_mses} to {workdir}, putting CORRECTED_DATA -> DATA")
+    all_mses_for_DDcal = copy_corrdata_to_data_dp3(msin=all_DIcal_mses, msout_dir=workdir, lofar_container=lofar_container)
+
     # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
     facetselfcal_cmd = create_facetselfcal_command(
         options=facetselfcal_options,
-        ms=all_DIcal_mses,
+        ms=all_mses_for_DDcal,
         facetselfcal_directory=selfcal_options['facetselfcal_directory']
     )
 
-    if isinstance(all_DIcal_mses, (list,np.ndarray)):
-        msdir = all_DIcal_mses[0].parent
+    if isinstance(all_mses_for_DDcal, (list,np.ndarray)):
+        msdir = all_mses_for_DDcal[0].parent
     else:
-        msdir = all_DIcal_mses.parent
+        msdir = all_mses_for_DDcal.parent
+
+
 
     # all arguments should be given as kwargs to not confuse singularity wrapper
     run_facetselfcal_command(

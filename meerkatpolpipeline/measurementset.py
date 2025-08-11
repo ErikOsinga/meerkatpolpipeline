@@ -15,8 +15,10 @@ import numpy as np
 import tables
 from astropy.coordinates import SkyCoord
 from casacore.tables import table
+from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.caracal import field_intents
+from meerkatpolpipeline.sclient import singularity_wrapper
 from meerkatpolpipeline.utils.utils import execute_command, make_utf8
 
 
@@ -50,6 +52,7 @@ def determine_meerkat_band_from_ch0(Ch0MHz: float):
     elif Ch0MHz < 1713:
         return 'L'
     raise ValueError(f"{Ch0MHz} not automatically mapped to a MeerKAT band.")
+
 
 def msoverview_summary(
         binds: list[Path],
@@ -150,6 +153,7 @@ def msoverview_summary(
 
     return mssummary
 
+
 def load_field_intents_csv(csv_path: Path) -> dict[int, tuple[str, str]]:
     """
     Load field intents from a CSV with headers:
@@ -165,6 +169,7 @@ def load_field_intents_csv(csv_path: Path) -> dict[int, tuple[str, str]]:
             fid = int(row["field_id"])
             mapping[fid] = (row["field_name"], row["intent_string"])
     return mapping
+
 
 def get_field_intents(
         binds: list[Path],
@@ -215,6 +220,65 @@ def find_closest_ddsol(h5, ms): #
             dirname = direction[0]
     H5.close()
     return dirname
+
+
+def copy_corrdata_to_data_dp3(
+        msin: Path | list[Path],
+        msout_dir: Path,
+        lofar_container: Path,
+        msin_datacolumn: str = "CORRECTED_DATA"
+    ) -> list[Path]:
+    """
+    copy the CORRECTED_DATA column of a (list of) MS to a new directory with the same MS.name but with only a DATA column 
+
+    returns the copied MSes as list[Path]
+    """
+
+    if isinstance(msin, Path):
+        msin = [msin]
+    elif isinstance(msin, (list,np.ndarray)):
+        assert isinstance(msin[0], Path), f"if {msin=} is a list, expect it to be of type list[Path]"
+    else:
+        raise TypeError(f"{msin=} expected to be of type list[Path] or Path")
+
+    copied_mses = []
+    for ms in msin:
+        assert msout_dir != ms.parent, f"Output directory {msout_dir} should be different than parent directory of {msin=}"
+        
+        cmd = f"DP3 msin={msin} msin.datacolumn={msin_datacolumn} setps=[], msout={msout_dir / msin.name}"
+        
+        run_DP3_command(
+            dp3_command=cmd,
+            container=lofar_container,
+            bind_dirs=[
+                msin.parent,
+                msout_dir,
+            ],
+        )
+
+        copied_mses.append(msout_dir / msin.name)
+
+    return copied_mses
+
+
+@singularity_wrapper
+def run_DP3_command(dp3_command: str, **kwargs) -> str:
+    """Run a DP3 command using singularity wrapper
+
+    Note that all arguments should be given as kwargs to not confuse singularity wrapper
+
+    Args:
+        dp3_command: a DP3 command as a string
+        **kwargs: Additional keyword arguments that will be passed to the singularity_wrapper
+
+    Returns:
+        str: the command that was executed
+    """
+    logger = get_run_logger()
+
+    logger.info(f"DP3 command {dp3_command}")
+
+    return dp3_command
 
 
 def fulljonesparmdb(h5):
