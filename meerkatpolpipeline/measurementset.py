@@ -233,6 +233,7 @@ def copy_corrdata_to_data_dp3(
 
     returns the copied MSes as list[Path]
     """
+    logger = get_run_logger()
 
     if isinstance(msin, Path):
         msin = [msin]
@@ -245,18 +246,24 @@ def copy_corrdata_to_data_dp3(
     for ms in msin:
         assert msout_dir != ms.parent, f"Output directory {msout_dir} should be different than parent directory of {ms=}"
         
-        cmd = f"DP3 msin={ms} msin.datacolumn={msin_datacolumn} steps=[] msout={msout_dir / ms.name}"
-        
-        run_DP3_command(
-            dp3_command=cmd,
-            container=lofar_container,
-            bind_dirs=[
-                ms.parent,
-                msout_dir,
-            ],
-        )
+        msout = msout_dir / ms.name
 
-        copied_mses.append(msout_dir / ms.name)
+        if msout.exists():
+            logger.warning(f"{msout} already exists. Skipping copy.")
+
+        else:
+            cmd = f"DP3 msin={ms} msin.datacolumn={msin_datacolumn} steps=[] msout={msout}"
+            
+            run_DP3_command(
+                dp3_command=cmd,
+                container=lofar_container,
+                bind_dirs=[
+                    ms.parent,
+                    msout_dir,
+                ],
+            )
+
+        copied_mses.append(msout)
 
     return copied_mses
 
