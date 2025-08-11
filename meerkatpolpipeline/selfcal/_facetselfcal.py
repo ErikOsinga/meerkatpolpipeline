@@ -479,7 +479,7 @@ def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions, stop: int = 4):
         "imsize" : selfcal_options['imsize'],
         "pixelsize": selfcal_options['pixelsize'],
         "DDE": True,
-        "facetdirections": selfcal_options['ddcal_facetdirections'],
+        "facetdirections": str(selfcal_options['ddcal_facetdirections']),
         "noarchive": True,
         "forwidefield": True,
         "solint_list": ['1min', '30min'], # probably need to check min times again
