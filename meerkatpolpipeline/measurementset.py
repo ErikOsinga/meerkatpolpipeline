@@ -243,20 +243,20 @@ def copy_corrdata_to_data_dp3(
 
     copied_mses = []
     for ms in msin:
-        assert msout_dir != ms.parent, f"Output directory {msout_dir} should be different than parent directory of {msin=}"
+        assert msout_dir != ms.parent, f"Output directory {msout_dir} should be different than parent directory of {ms=}"
         
-        cmd = f"DP3 msin={msin} msin.datacolumn={msin_datacolumn} setps=[], msout={msout_dir / msin.name}"
+        cmd = f"DP3 msin={ms} msin.datacolumn={msin_datacolumn} setps=[], msout={msout_dir / ms.name}"
         
         run_DP3_command(
             dp3_command=cmd,
             container=lofar_container,
             bind_dirs=[
-                msin.parent,
+                ms.parent,
                 msout_dir,
             ],
         )
 
-        copied_mses.append(msout_dir / msin.name)
+        copied_mses.append(msout_dir / ms.name)
 
     return copied_mses
 
