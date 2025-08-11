@@ -354,7 +354,7 @@ def do_facetselfcal_preprocess(
     return all_preprocessed_mses
 
 
-def get_options_facetselfcal_DI(selfcal_options: SelfCalOptions):
+def get_options_facetselfcal_DI(selfcal_options: SelfCalOptions, stop: int = 3):
     """
     Hardcoded set of options for DIcal with facetselfcal
         given some user input SelfcalOptions 
@@ -383,7 +383,7 @@ def get_options_facetselfcal_DI(selfcal_options: SelfCalOptions):
         "paralleldeconvolution": 1200,
         "parallelgridding": 4,
         "start": 0,
-        "stop": 3,
+        "stop": stop,
         "multiscale": True,
         "multiscale_start": 0
     }
@@ -414,15 +414,19 @@ def do_facetselfcal_DI(
 
     logger.info(f"Starting facetselfcal DI step in {workdir}.")
 
+    nrounds_DI = 3 # --stop parameter for facetselfcal
+
     # Check if DI step was already done by a previous run.
-    final_image = np.array(sorted(workdir.glob("*004-MFS-image.fits")))
+    final_image = np.array(sorted(workdir.glob(f"*00{nrounds_DI-1}-MFS-image.fits")))
     if len(final_image) == 1:
         logger.info(f"Found image {final_image}, assuming facetselfcal DI step already done.")
-        mses_after_DIcal = np.array(sorted(workdir.glob("*.ms.copy")))
+        # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
+        mses_after_DIcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
         return mses_after_DIcal
 
+
     # Otherwise, build and start DI command
-    facetselfcal_options = get_options_facetselfcal_DI(selfcal_options)
+    facetselfcal_options = get_options_facetselfcal_DI(selfcal_options, stop=nrounds_DI)
 
     # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
     facetselfcal_cmd = create_facetselfcal_command(
@@ -447,10 +451,10 @@ def do_facetselfcal_DI(
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
 
-    # check if image_003-MFS-image.fits has been made, where 00{i} should match the --stop parameter in get_options_facetselfcal_DI()
-    final_image = np.array(sorted(workdir.glob("*003-MFS-image.fits")))
+    # check if image_003-MFS-image.fits has been made, where 00{i} should match the --stop - 1 parameter in get_options_facetselfcal_DI()
+    final_image = np.array(sorted(workdir.glob(f"*00{nrounds_DI-1}-MFS-image.fits")))
     if len(final_image) != 1:
-        raise ValueError(f"Went looking for image-003-MFS.fits. Expected one image but found {final_image}")
+        raise ValueError(f"Went looking for image-00{nrounds_DI-1}-MFS.fits. Expected one image but found {final_image}")
 
     final_image = final_image[0]
     # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
@@ -459,7 +463,7 @@ def do_facetselfcal_DI(
     return mses_after_DIcal
 
 
-def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions):
+def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions, stop: int = 4):
     """
     Hardcoded set of options for DDcal with facetselfcal
         given some user input SelfcalOptions 
@@ -491,7 +495,7 @@ def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions):
         "paralleldeconvolution": 1200,
         "parallelgridding": 4,
         "start": 0,
-        "stop": 4,
+        "stop": stop,
         "multiscale": True,
         "multiscale_start": 0
     }
@@ -522,17 +526,19 @@ def do_facetselfcal_DD(
 
     logger.info(f"Starting facetselfcal DD step in {workdir}.")
 
+    nrounds_DD = 4 # --stop parameter for facetselfcal
+
     # Check if DD step was already done by a previous run.
     print("TODO: check if already done")
-    # preprocessed_msdir = workdir / "split_measurements"
-    # all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
-    # if len(all_preprocessed_mses) > 0:
-    #     logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
-    #     logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
-    #     return all_preprocessed_mses
+    final_image = np.array(sorted(workdir.glob(f"*00{nrounds_DD-1}-MFS-image.fits")))
+    if len(final_image) == 1:
+        logger.info(f"Found image {final_image}, assuming facetselfcal DD step already done.")
+        # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
+        mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
+        return mses_after_DDcal
 
     # Otherwise, build and start DD command
-    facetselfcal_options = get_options_facetselfcal_DD(selfcal_options)
+    facetselfcal_options = get_options_facetselfcal_DD(selfcal_options, stop=nrounds_DD)
 
     # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
     facetselfcal_cmd = create_facetselfcal_command(
@@ -557,10 +563,10 @@ def do_facetselfcal_DD(
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
 
-    # check if image_004-MFS-image.fits has been made, where 00{i} should match the --stop parameter in get_options_facetselfcal_DD()
-    final_image = np.array(sorted(workdir.glob("*004-MFS-image.fits")))
+    # check if image_004-MFS-image.fits has been made, where 00{i} should match the --stop -1 parameter in get_options_facetselfcal_DD()
+    final_image = np.array(sorted(workdir.glob(f"*00{nrounds_DD-1}-MFS-image.fits")))
     if len(final_image) != 1:
-        raise ValueError(f"Went looking for image-004-MFS.fits. Expected one image but found {final_image}")
+        raise ValueError(f"Went looking for image-00{nrounds_DD-1}-MFS.fits. Expected one image but found {final_image}")
 
     final_image = final_image[0]
     # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
