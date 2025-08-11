@@ -245,7 +245,7 @@ def copy_corrdata_to_data_dp3(
     for ms in msin:
         assert msout_dir != ms.parent, f"Output directory {msout_dir} should be different than parent directory of {ms=}"
         
-        cmd = f"DP3 msin={ms} msin.datacolumn={msin_datacolumn} setps=[], msout={msout_dir / ms.name}"
+        cmd = f"DP3 msin={ms} msin.datacolumn={msin_datacolumn} steps=[], msout={msout_dir / ms.name}"
         
         run_DP3_command(
             dp3_command=cmd,
