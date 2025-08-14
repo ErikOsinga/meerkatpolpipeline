@@ -471,7 +471,7 @@ def do_facetselfcal_DI(
     return mses_after_DIcal
 
 
-def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions, stop: int = 4):
+def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions, start: int = 0, stop: int = 4):
     """
     Hardcoded set of options for DDcal with facetselfcal
         given some user input SelfcalOptions 
@@ -503,7 +503,7 @@ def get_options_facetselfcal_DD(selfcal_options: SelfCalOptions, stop: int = 4):
         "fitspectralpol": 9,
         "paralleldeconvolution": 1200,
         "parallelgridding": 4,
-        "start": 0,
+        "start": start,
         "stop": stop,
         "multiscale": True,
         "multiscale_start": 0
@@ -535,9 +535,11 @@ def do_facetselfcal_DD(
 
     logger.info(f"Starting facetselfcal DD step in {workdir}.")
 
+    # TODO: make this input in config file
     nrounds_DD = 4 # --stop parameter for facetselfcal
 
     # Check if DD step was already done by a previous run.
+    # for --stop = 4 we image up to image_003-MFS-image.fits
     final_image = np.array(sorted(workdir.glob(f"*00{nrounds_DD-1}-MFS-image.fits")))
     if len(final_image) == 1:
         logger.info(f"Found image {final_image}, assuming facetselfcal DD step already done.")
@@ -545,10 +547,35 @@ def do_facetselfcal_DD(
         mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
         return mses_after_DDcal
 
-    # Otherwise, build and start DD command
-    facetselfcal_options = get_options_facetselfcal_DD(selfcal_options, stop=nrounds_DD)
+    # Check if DD step was already done by a previous run, but up to a smaller iteration than nrounds_DD is currently
+    final_image = None
+    for round in (1, nrounds_DD-2):
+        image_this_round = np.array(sorted(workdir.glob(f"*00{round}-MFS-image.fits")))
+        if len(image_this_round) > 0:
+            final_image = image_this_round[0]
+    
+
+    facetselfcal_start = 0
+    if final_image is not None:
+        logger.info(f"Found image {final_image} from a previous facetselfcal DD run.")
+
+        match = re.search(r"_([0-9]+)-MFS-image\.fits$", final_image.name)
+        if match:
+            facetselfcal_start = int(match.group(1))
+        else:
+            msg = f"Could not automatically determine selfcal iteration from {final_image}"
+            logger.error(msg)
+            raise ValueError(msg)
+
+        logger.info(f"Assuming facetselfcal DD has already ran up to iteration {facetselfcal_start}. Continuing from there.")
+
+
+    # build and start DD command
+    facetselfcal_options = get_options_facetselfcal_DD(selfcal_options, start=facetselfcal_start, stop=nrounds_DD)
+
 
     # facetselfcal requires an input MS with only a data column. Copy the DIcal MSes over from the DIcal directory using DP3
+    # which is pretty redundant because facetselfcal makes another copy anyway...
     logger.info(f"Copying input {all_DIcal_mses} to {workdir}, putting CORRECTED_DATA -> DATA")
     all_mses_for_DDcal = copy_corrdata_to_data_dp3(msin=all_DIcal_mses, msout_dir=workdir, lofar_container=lofar_container)
 
