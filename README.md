@@ -80,3 +80,8 @@ Likely an issue with Prefect+Tkinter having bad interactions. According to an LL
 Try setting 
 `export MPLBACKEND=Agg`
 in the environment where you call the pipeline. 
+
+
+### 2. Caracal logs too large for Prefect
+You can set the max log size larger with the following env var, 3 MB should be fine for caracal logs
+```export PREFECT_LOGGING_TO_API_MAX_LOG_SIZE=3000000``
