@@ -561,13 +561,13 @@ def do_facetselfcal_DD(
 
         match = re.search(r"_([0-9]+)-MFS-image\.fits$", final_image.name)
         if match:
-            facetselfcal_start = int(match.group(1))
+            facetselfcal_start = int(match.group(1)) + 1 # we should start from 1 iteration above the iteration that was succesful.
         else:
             msg = f"Could not automatically determine selfcal iteration from {final_image}"
             logger.error(msg)
             raise ValueError(msg)
 
-        logger.info(f"Assuming facetselfcal DD has already ran up to iteration {facetselfcal_start}. Continuing from there.")
+        logger.info(f"Assuming facetselfcal DD has already ran up to (not including) iteration {facetselfcal_start}. Continuing from there.")
 
 
     # build and start DD command
