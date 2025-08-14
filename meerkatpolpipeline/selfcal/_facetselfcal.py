@@ -30,6 +30,8 @@ class SelfCalOptions(BaseOptions):
     """directory to lofar_facet_selfcal. Required"""
     targetfield: str | None = None
     """name of targetfield. Propagated to all steps."""
+    log_wsclean_to_file: bool = False
+    """flag can be set to log the wsclean output to a file instead of stdout. Only works with Erik's forked version of facetselfcal"""
     selfcal_clip_chan_start: int = 20
     """clip channels from MS before this number. Keep in mind that this is after cross-cal averaging"""
     selfcal_clip_total_nchan: int = 894
@@ -140,6 +142,8 @@ class FacetselfcalOptions(BaseOptions):
     remove_outside_center_box: str | float | None = None
     """float [deg] or User defined box DS9 region file to subtract sources that are outside this part of the image, see also --remove-outside-center. If "keepall" is set then no subtract is done and everything is kept, this is mainly useful if you are already working on box-extracted data. If number is given a boxsize of this size (degr) will be used in the phase center. In case of a --DDE solve the solution closest to the box center is applied (unless "keepall" is set)."""
 
+    log_wsclean_to_file: bool = False
+    """log wsclean runs to a file instead of stdout to prevent clogging terminal/prefect. only available in the forked https://github.com/ErikOsinga/lofar_facet_selfcal/"""
 
 class FacetselfcalCommand(BaseOptions):
     """Simple container for a facetselfcal command."""
@@ -393,7 +397,8 @@ def get_options_facetselfcal_DI(selfcal_options: SelfCalOptions, stop: int = 3):
         "start": 0,
         "stop": stop,
         "multiscale": True,
-        "multiscale_start": 0
+        "multiscale_start": 0,
+        "log_wsclean_to_file": selfcal_options['log_wsclean_to_file']
     }
 
     facetselfcal_options = FacetselfcalOptions(**opt_dict)
