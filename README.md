@@ -56,3 +56,27 @@ The meerkat pol pipeline should automatically find the running server and report
 
 
 
+
+
+
+## Common problems / errors
+
+### 1. Runtime error: main thread is not in main loop
+```
+RuntimeError: main thread is not in main loop
+Exception ignored in: <function Variable.__del__ at 0x7f61f06b59e0>
+Traceback (most recent call last):
+  File "/net/lofar4/data2/osinga/software/miniconda/installation/envs/meerkatpol/lib/python3.11/tkinter/__init__.py", line 410, in __del__
+    if self._tk.getboolean(self._tk.call("info", "exists", self._name)):
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: main thread is not in main loop
+Exception ignored in: <function Variable.__del__ at 0x7f61f06b59e0>
+```
+Likely an issue with Prefect+Tkinter having bad interactions. According to an LLM:
+> Tk/Tcl requires all create/destroy calls to happen on the main thread. When the task exits, Tk objects are finalized from a non-main thread → “main thread is not in main loop” spam → Tcl_AsyncDelete: async handler deleted by the wrong thread → hard abort/core dump.
+
+
+
+Try setting 
+`export MPLBACKEND=Agg`
+in the environment where you call the pipeline. 
