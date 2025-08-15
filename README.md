@@ -4,40 +4,6 @@ MeerKAT polarisation data reduction and analysis
 
 Assuming Python 3.11 for the bookkeeping scripts in this directory, though most actual software is run in Singularity containers.
 
-## Running the pipeline
-
-### 1. Install & Start prefect
-Make sure you have the pipeline installed as explained below in the installation instructions.
-Start your own prefect server with
-`prefect server start`
-which will be visible on `localhost:4200`
-
-### 2. Remote prefect server
-Ignore this if you don't want to log to a remote prefect server
-
-You can optionally start a Prefect server on another machine (e.g. some perpetually available VM). 
-Let's say it's accessible at user@remoteaddress.com.
-
-After starting a server on that machine, you can make sure the pipeline communicates with it as follows:
-
-```
-echo "Opening SSH tunnel to prefect server host "
-# open connection
-ssh -fNT -L 127.0.0.1:4200:localhost:4200 user@remoteaddress.com
-
-# set which port to communicate results to 
-export PREFECT_API_URL="http://localhost:4200/api"
-```
-
-### 3. Starting the pipeline
-Simply call the pipeline as follows:
-
-```
-python meerkatpolpipeline/flows/Lband_reduction.py --cli-config-file ./meerkatpolpipeline/tests/temp_sample_configuration.yaml --working-dir ./meerkatpolpipeline/tests/temp
-```
-
-using a configuration file that you can create starting from the example configuration file.
-
 
 ## Installation
 
@@ -79,8 +45,52 @@ which will start a server accessible at http://localhost:4200/
 
 The meerkat pol pipeline should automatically find the running server and report its results to the prefect server. Check out the results at http://localhost:4200/runs
 
-### Remote prefect server 
 
+## Running the pipeline
+
+Simply call the pipeline as follows:
+
+```
+python meerkatpolpipeline/flows/Lband_reduction.py --cli-config-file ./meerkatpolpipeline/tests/temp_sample_configuration.yaml --working-dir ./meerkatpolpipeline/tests/temp
+```
+
+using a configuration file that you can create starting from the example configuration file.
+
+### Recommended preamble to the script
+A summary of environment variables to set to make the pipeline behave well
+```
+# set max log size to 3 MB
+export PREFECT_LOGGING_TO_API_MAX_LOG_SIZE=3000000
+# use Agg backend for MPL
+export MPLBACKEND=Agg
+
+# start pipeline
+python meerkatpolpipeline/flows/Lband_reduction.py \
+  --cli-config-file ./my_lband_config.yaml \
+  --working-dir /data2/osinga/my_target1/ \
+  --append-to-flowname "target1"
+
+# --append-to-flowname is handy to keep track of different runs.
+```
+
+
+
+## Remote prefect server
+If you want to log to a remote prefect server.
+
+You can optionally start a Prefect server on another machine (e.g. some perpetually available VM). 
+Let's say it's accessible at user@remoteaddress.com.
+
+After starting a server on that machine, you can make sure the pipeline communicates with it as follows:
+
+```
+echo "Opening SSH tunnel to prefect server host "
+# open connection
+ssh -fNT -L 127.0.0.1:4200:localhost:4200 user@remoteaddress.com
+
+# set which port to communicate results to 
+export PREFECT_API_URL="http://localhost:4200/api"
+```
 
 
 
