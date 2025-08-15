@@ -85,3 +85,18 @@ in the environment where you call the pipeline.
 ### 2. Caracal logs too large for Prefect
 You can set the max log size larger with the following env var, 3 MB should be fine for caracal logs
 ```export PREFECT_LOGGING_TO_API_MAX_LOG_SIZE=3000000``
+
+
+
+### 3. Caracal crashes in G-step (19) on gain calibrator
+with 
+```
+Caught exception: Table DataManager error: Invalid operation: TSM: no array in row 267281 of column MODEL_DATA in /stimela_mount/msdir/mcxcJ1358_uncalibrated_preprocessed-cal.ms/table.f25
+```
+
+I'm not sure what's causing this as previous gaincal steps do work and there seems to be nothing writing to the MODEL_DATA column in between the steps, but I found that if this happens, it's because of the `crystalball_skymodel: true` setting. Try using the other config template [caracal-polcal-strategy-no-crystalbal.yml](https://github.com/ErikOsinga/meerkatpolpipeline/blob/main/templates/caracal-polcal-strategy-no-crystalbal.yml) that has this set to False. Note that the skymodel might be (?) less accurate then. See also [this caracal issue](https://github.com/caracal-pipeline/caracal/issues/1408)
+
+
+
+
+
