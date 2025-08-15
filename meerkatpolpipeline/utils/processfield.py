@@ -237,7 +237,7 @@ def plot_total_intensity_spectrum(
         if has_model:
 
             # plot model on top panel if given
-            plt.plot(frequencies, model_broadcast[:, i][mask], label=model_i_label, color='black', linestyle='--')
+            ax.plot(frequencies, model_broadcast[:, i][mask], label=model_i_label, color='black', linestyle='--')
 
             # Plot ratio model/data on lower panel if model is provided
             mi = model_broadcast[:, i][mask]
@@ -246,6 +246,7 @@ def plot_total_intensity_spectrum(
             valid = (intens > 0) & np.isfinite(mi)
             ratio[valid] = mi[valid] / intens[valid]
             ax_ratio.scatter(frequencies, ratio, c=f'C{i}', marker='.', label=f'ratio r{i}')
+            ax_ratio.axhline(1, color='k',ls='dashed')
 
     # Axes formatting
     ax.set_xscale('log')
