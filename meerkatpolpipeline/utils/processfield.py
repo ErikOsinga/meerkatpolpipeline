@@ -143,64 +143,134 @@ def plot_total_intensity_spectrum(
     ylabel: str | None = None,
     plotdir: Path | None = None,
     verbose: bool = False,
+    model_i: np.ndarray | None = None,
 ) -> None:
-    """Plot total intensity spectrum.
-    
-    # frequencieslist = (nchannels,)
-    # intensitieslist = (nchannels,nregions)
     """
-    for i in range(np.shape(intensitieslist)[1]):
+    Plot total intensity spectrum per region. If `model_i` is provided, add a second panel
+    showing model/data vs frequency with a shared x-axis.
+
+    Parameters
+    ----------
+    frequencieslist : np.ndarray
+        Shape (nchannels,)
+    intensitieslist : np.ndarray
+        Shape (nchannels, nregions)
+    model_i : np.ndarray | None, optional
+        Model intensity vs frequency. Shape (nchannels,) or (nchannels, nregions).
+        If (nchannels,), it is broadcast to all regions.
+    """
+
+    # Validate shapes
+    if frequencieslist.ndim != 1:
+        raise ValueError("frequencieslist must be 1D with shape (nchannels,)")
+
+    if intensitieslist.ndim != 2:
+        raise ValueError("intensitieslist must be 2D with shape (nchannels, nregions)")
+
+    nchannels, nregions = intensitieslist.shape
+    if frequencieslist.shape[0] != nchannels:
+        raise ValueError("frequencieslist and intensitieslist must have the same nchannels")
+
+    # Prepare model shape handling
+    has_model = model_i is not None
+    if has_model:
+        if not isinstance(model_i, np.ndarray):
+            raise ValueError("model_i must be a numpy array if provided")
+        if model_i.ndim == 1:
+            if model_i.shape[0] != nchannels:
+                raise ValueError("model_i length must equal nchannels")
+            model_broadcast = np.tile(model_i[:, None], (1, nregions))
+        elif model_i.ndim == 2:
+            if model_i.shape != intensitieslist.shape:
+                raise ValueError("When 2D, model_i must match intensitieslist shape")
+            model_broadcast = model_i
+        else:
+            raise ValueError("model_i must be 1D or 2D")
+    else:
+        model_broadcast = None
+
+    # Figure and axes
+    if has_model:
+        fig, (ax, ax_ratio) = plt.subplots(
+            2, 1, sharex=True,
+            gridspec_kw={"height_ratios": [3, 1], "hspace": 0.05},
+            figsize=(7, 6)
+        )
+    else:
+        fig, ax = plt.subplots(figsize=(7, 4))
+        ax_ratio = None
+
+    for i in range(nregions):
         intensities = intensitieslist[:, i]
-        # make sure values make sense
+        # mask: positive frequencies and intensities
         mask = (intensities > 0) & (frequencieslist > 0)
-        if (len(mask) - np.sum(mask)) > 0:
-            if verbose:
-                print(f"    Region {i}: Masking {len(mask) - np.sum(mask)} channels")
+
+        if (len(mask) - np.sum(mask)) > 0 and verbose:
+            print(f" Region {i}: Masking {len(mask) - np.sum(mask)} channels")
+
         frequencies = frequencieslist[mask]
-        intensities = intensities[mask]
+        intens = intensities[mask]
 
+        # Uncertainties (could be scalar or per-channel)
         if unc is not None:
-            if not isinstance(unc, float):
-                uc = unc[:, i]  # fractional RMS added
-                uc = uc[mask]
+            if isinstance(unc, float):
+                yerr = unc
             else:
-                uc = unc  # uniform input user RMS
+                if unc.ndim != 2 or unc.shape != intensitieslist.shape:
+                    raise ValueError("unc must be float or shape (nchannels, nregions)")
+                yerr = unc[:, i][mask]
+            ax.errorbar(frequencies, intens, yerr=yerr, ls='none', c=f'C{i}')
 
-            plt.errorbar(frequencies, intensities, yerr=uc, ls='none', c=f'C{i}')
+        ax.scatter(frequencies, intens, label=f"{label} r{i}", c=f'C{i}', marker=marker)
 
-        plt.scatter(frequencies, intensities, label=label, c=f'C{i}', marker=marker)
-        if fit and len(intensities) > 3:  # need at least 3 channels to fit
-            # Perform log-log fitting: log(S) = alpha * log(nu)
-            log_frequencies = np.log10(frequencies)
-            log_intensities = np.log10(intensities)
-            # Fit a line to the log-log data
-            alpha, intercept = np.polyfit(log_frequencies, log_intensities, 1)
-            # Print the best-fit alpha
+        # Optional power-law fit on the data (top panel)
+        if fit and len(intens) > 3:
+            log_f = np.log10(frequencies)
+            log_s = np.log10(intens)
+            alpha, intercept = np.polyfit(log_f, log_s, 1)
             if verbose:
-                print(f"    Region {i}: Best-fit alpha: {alpha:.2f}")
-            # Generate best-fit model
-            fit_intensities = 10 ** (alpha * log_frequencies + intercept)
-            # Plot the best-fit model
-            plt.plot(
-                frequencies,
-                fit_intensities,
-                label=f'Fit (alpha={alpha:.2f})',
-                color=f'C{i}'
-            )
+                print(f" Region {i}: Best-fit alpha: {alpha:.2f}")
+            fit_int = 10 ** (alpha * log_f + intercept)
+            ax.plot(frequencies, fit_int, label=f'Fit r{i} (alpha={alpha:.2f})', color=f'C{i}')
 
-    plt.loglog()
-    plt.xlim(0.9 * np.nanmin(frequencieslist), 1.1 * np.nanmax(frequencieslist))
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel(ylabel)
-    plt.title('Total Intensity Spectrum (Stokes I)')
-    plt.legend()
+        # Ratio panel if model is provided
+        if has_model:
+            mi = model_broadcast[:, i][mask]
+            # Avoid division warnings; mask already removed zeros in data
+            ratio = np.full_like(mi, np.nan, dtype=float)
+            valid = (intens > 0) & np.isfinite(mi)
+            ratio[valid] = mi[valid] / intens[valid]
+            ax_ratio.scatter(frequencies, ratio, c=f'C{i}', marker='.', label=f'ratio r{i}')
+
+    # Axes formatting
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlim(0.9 * np.nanmin(frequencieslist[frequencieslist > 0]),
+                1.1 * np.nanmax(frequencieslist))
+
+    ax.set_xlabel('Frequency (Hz)' if not has_model else '')
+    ax.set_ylabel(ylabel if ylabel is not None else 'Intensity')
+    ax.set_title('Total Intensity Spectrum (Stokes I)')
+    ax.legend(ncols=2, fontsize=8)
+
+    if has_model and ax_ratio is not None:
+        ax_ratio.set_xscale('log')
+        ax_ratio.set_xlim(ax.get_xlim())
+        ax_ratio.axhline(1.0, ls='--', lw=1)
+        ax_ratio.set_ylim(0.2, 5)  # sensible default; adjust if your data needs more headroom
+        ax_ratio.set_ylabel('model/data')
+        ax_ratio.set_xlabel('Frequency (Hz)')
+        ax_ratio.legend(ncols=2, fontsize=8)
+
     plt.tight_layout()
+
     if plotdir is not None:
-        plt.savefig(plotdir / "stokesI_spectrum.png")
+        fname = "stokesI_spectrum_with_ratio.png" if has_model else "stokesI_spectrum.png"
+        plt.savefig(Path(plotdir) / fname, dpi=150)
+
     if show:
         plt.show()
     plt.close()
-    return
 
 
 def get_fluxes(imageset: ImageSet, region_file: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -294,6 +364,7 @@ def process_stokesI(
         ylabel=ylabel,
         plotdir=plotdir,
         verbose=True,
+        model_i=models['i'](frequencies)
     )
     
     return stokesI, stokesIpeak, frequencies
