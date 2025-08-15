@@ -144,6 +144,7 @@ def plot_total_intensity_spectrum(
     plotdir: Path | None = None,
     verbose: bool = False,
     model_i: np.ndarray | None = None,
+    model_i_label: str = ""
 ) -> None:
     """
     Plot total intensity spectrum per region. If `model_i` is provided, add a second panel
@@ -221,7 +222,7 @@ def plot_total_intensity_spectrum(
                 yerr = unc[:, i][mask]
             ax.errorbar(frequencies, intens, yerr=yerr, ls='none', c=f'C{i}')
 
-        ax.scatter(frequencies, intens, label=f"{label} r{i}", c=f'C{i}', marker=marker)
+        ax.scatter(frequencies, intens, label=f"{label} region{i}", c=f'C{i}', marker=marker)
 
         # Optional power-law fit on the data (top panel)
         if fit and len(intens) > 3:
@@ -231,10 +232,14 @@ def plot_total_intensity_spectrum(
             if verbose:
                 print(f" Region {i}: Best-fit alpha: {alpha:.2f}")
             fit_int = 10 ** (alpha * log_f + intercept)
-            ax.plot(frequencies, fit_int, label=f'Fit r{i} (alpha={alpha:.2f})', color=f'C{i}')
+            ax.plot(frequencies, fit_int, label=f'Fit region{i} (alpha={alpha:.2f})', color=f'C{i}')
 
-        # Ratio panel if model is provided
         if has_model:
+
+            # plot model on top panel if given
+            plt.plot(frequencies, model_broadcast[:, i][mask], label=model_i_label, color='black', linestyle='--')
+
+            # Plot ratio model/data on lower panel if model is provided
             mi = model_broadcast[:, i][mask]
             # Avoid division warnings; mask already removed zeros in data
             ratio = np.full_like(mi, np.nan, dtype=float)
@@ -347,7 +352,12 @@ def process_stokesI(
         stokesIplot[flagchan, :] = np.nan
     
     if plotmodel:
-        plt.plot(frequencies, models['i'](frequencies), label=f"{models['src']} model", color='black', linestyle='--')
+        # plt.plot(frequencies, models['i'](frequencies), label=f"{models['src']} model", color='black', linestyle='--')
+        model_i = models['i'](frequencies)
+        model_i_label = f"{models['src']} model"
+    else:
+        model_i = None
+        model_i_label = ""
 
     if not plotdir.exists():
         logger.info(f"    Creating {plotdir}")
@@ -364,7 +374,8 @@ def process_stokesI(
         ylabel=ylabel,
         plotdir=plotdir,
         verbose=True,
-        model_i=models['i'](frequencies)
+        model_i=model_i,
+        model_i_label=model_i_label
     )
     
     return stokesI, stokesIpeak, frequencies
