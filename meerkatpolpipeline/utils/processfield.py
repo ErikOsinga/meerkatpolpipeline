@@ -235,18 +235,19 @@ def plot_total_intensity_spectrum(
             ax.plot(frequencies, fit_int, label=f'Fit region{i} (alpha={alpha:.2f})', color=f'C{i}')
 
         if has_model:
+            mi = model_broadcast[:, i][mask]
 
             # plot model on top panel if given
-            ax.plot(frequencies, model_broadcast[:, i][mask], label=model_i_label, color='black', linestyle='--')
+            ax.plot(frequencies, mi, label=model_i_label, color='black', linestyle='--')
 
             # Plot ratio model/data on lower panel if model is provided
-            mi = model_broadcast[:, i][mask]
+
             # Avoid division warnings; mask already removed zeros in data
             ratio = np.full_like(mi, np.nan, dtype=float)
             valid = (intens > 0) & np.isfinite(mi)
             ratio[valid] = mi[valid] / intens[valid]
             ax_ratio.scatter(frequencies, ratio, c=f'C{i}', marker='.', label=f'ratio r{i}')
-            ax_ratio.axhline(1, color='k',ls='dashed')
+            # ax_ratio.axhline(1, color='k',ls='dashed')
 
     # Axes formatting
     ax.set_xscale('log')
@@ -261,9 +262,10 @@ def plot_total_intensity_spectrum(
 
     if has_model and ax_ratio is not None:
         ax_ratio.set_xscale('log')
+        # ax_ratio.set_yscale('log')
         ax_ratio.set_xlim(ax.get_xlim())
-        ax_ratio.axhline(1.0, ls='--', lw=1)
-        ax_ratio.set_ylim(0.2, 5)  # sensible default; adjust if your data needs more headroom
+        ax_ratio.axhline(1.0, ls='--', lw=1, color='k')
+        # ax_ratio.set_ylim(0.2, 5) # factor 5
         ax_ratio.set_ylabel('model/data')
         ax_ratio.set_xlabel('Frequency (Hz)')
         ax_ratio.legend(ncols=2, fontsize=8)
