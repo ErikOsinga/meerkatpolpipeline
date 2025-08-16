@@ -638,7 +638,7 @@ def get_options_facetselfcal_extract(selfcal_options: SelfCalOptions):
         "imsize" : selfcal_options['imsize'],
         "pixelsize": selfcal_options['pixelsize'],
         "DDE": True,
-        "facetdirections": selfcal_options['ddcal_facetdirections'],
+        "facetdirections": str(selfcal_options['ddcal_facetdirections']),
         "remove_outside_center": True,
         "remove_outside_center_box": selfcal_options['remove_outside_center_box'],
         "start": 4, # should match DDcal 'stop', also if start != 0, grabs the .copy MSes from current dir.
