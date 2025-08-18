@@ -255,12 +255,12 @@ def process_science_fields(
         logger.warning(f"No cross-calibration step was performed, checking for calibrated MS in {crosscal_base_dir} subdirectories")
         
         calibrated_cal_ms = find_calibrated_ms(
-            crosscal_base_dir.parent,
+            crosscal_base_dir,
             preprocessed_ms,
             suffix="-cal.ms"
         )
         calibrated_target_ms = find_calibrated_ms(
-            crosscal_base_dir.parent,
+            crosscal_base_dir,
             preprocessed_ms,
             suffix=f"-{strategy['targetfield']}-corr.ms"
         )
