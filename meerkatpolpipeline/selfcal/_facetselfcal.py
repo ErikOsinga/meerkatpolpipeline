@@ -745,6 +745,7 @@ def do_facetselfcal_extract(
         bind_dirs=[
             selfcal_options['facetselfcal_directory'],
             msdir,
+            selfcal_options['ddcal_facetdirections'].parent,
         ],
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
