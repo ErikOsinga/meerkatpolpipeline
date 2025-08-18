@@ -17,6 +17,7 @@ from meerkatpolpipeline.measurementset import (
 )
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.sclient import singularity_wrapper
+from meerkatpolpipeline.utils import remove_one_copy_from_filename
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, get_imset_from_prefix
 
 
@@ -548,8 +549,9 @@ def do_facetselfcal_DD(
     final_image = np.array(sorted(workdir.glob(f"*00{nrounds_DD-1}-MFS-image.fits")))
     if len(final_image) == 1:
         logger.info(f"Found image {final_image}, assuming facetselfcal DD step already done.")
-        # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
-        mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
+        # grab the calibrated MSes. They are all the *ms.copy.copy that dont have 'plotlosoto' prefix
+        mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy.copy")))
+        # note that there are two .copy now at the end of the filename, one from DIcal, one from DDcal.
         return mses_after_DDcal
 
     # Check if DD step was already done by a previous run, but up to a smaller iteration than nrounds_DD is currently
@@ -616,8 +618,9 @@ def do_facetselfcal_DD(
         raise ValueError(f"Went looking for image-00{nrounds_DD-1}-MFS.fits. Expected one image but found {final_image}")
 
     final_image = final_image[0]
-    # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
-    mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
+    # grab the calibrated MSes. They are all the *ms.copy.copy that dont have 'plotlosoto' prefix
+    mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy.copy")))
+    # note that there are two .copy now at the end of the filename, one from DIcal, one from DDcal.
 
     return mses_after_DDcal
 
@@ -708,7 +711,7 @@ def do_facetselfcal_extract(
 
     logger.info(f"Starting facetselfcal extract step in {workdir}.")
 
-    # Check if DD step was already done by a previous run.
+    # Check if extract step was already done by a previous run.
     print("TODO: check if already done")
     # preprocessed_msdir = workdir / "split_measurements"
     # all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
@@ -719,6 +722,9 @@ def do_facetselfcal_extract(
 
     # Otherwise, build and start extract command
     facetselfcal_options = get_options_facetselfcal_extract(selfcal_options)
+
+    # Have to remove .copy if we are doing start != 0 with facetselfcal (as we are)
+    all_DDcal_mses = remove_one_copy_from_filename(all_DDcal_mses)
 
     # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
     facetselfcal_cmd = create_facetselfcal_command(
@@ -744,7 +750,7 @@ def do_facetselfcal_extract(
     )
 
     # grab the extracted MSes
-    mses_after_extraction = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy.subtracted")))
+    mses_after_extraction = np.array(sorted(workdir.glob("[!plotlosoto]*subtracted")))
     assert len(mses_after_extraction) != 0, f"Found {len(mses_after_extraction)} mses in {workdir}. However, expected at least one..."
     logger.info(f"Found {len(mses_after_extraction)} extracted mses in {workdir}")
 

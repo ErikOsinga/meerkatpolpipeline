@@ -350,9 +350,9 @@ def process_science_fields(
         DDcal_workdir = selfcal_workdir / "DDcal"
         DDcal_workdir.mkdir(exist_ok=True)
         task_facetselfcal_extract = task(_facetselfcal.do_facetselfcal_extract, name="facetselfcal_extract")
-        # note that we use the same MSes as after DIcal, because facetselfcal with start !=0 will automatically use the .ms.copy files
-        # that should be there (see mses_after_DDcal)
-        corrected_extracted_mses = task_facetselfcal_extract(selfcal_options, mses_after_DIcal, DDcal_workdir, lofar_container)
+        # note that inside do_facetselfcal_extract, we remove one .copy from the filename, since facetselfcal with
+        # start !=0 will automatically use the .ms.copy files that should be there after DDcal. (see mses_after_DDcal)
+        corrected_extracted_mses = task_facetselfcal_extract(selfcal_options, mses_after_DDcal, DDcal_workdir, lofar_container)
         logger.info(f"extract step completed. MSes found at {corrected_extracted_mses}")
 
         logger.info("All selfcal steps fully completed.")

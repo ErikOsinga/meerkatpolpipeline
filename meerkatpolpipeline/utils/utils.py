@@ -202,3 +202,17 @@ def make_utf8(inp):
         return inp
     except (UnicodeDecodeError, AttributeError):
         return inp
+
+
+def remove_one_copy_from_filename(paths: np.ndarray[Path]) -> np.ndarray[Path]:
+    """Remove one '.copy' extension from each PosixPath in the array.
+    Useful because facetselfcal with --start != 0 requires inputs without the .copy to resume a run.
+    otherwise it will just create another .copy file again.
+    """
+    new_paths = []
+    for p in paths:
+        name = p.name
+        if name.endswith(".copy"):
+            name = name[:-5]  # remove the last ".copy"
+        new_paths.append(p.with_name(name))
+    return np.array(new_paths, dtype=object)
