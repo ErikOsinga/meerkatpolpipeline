@@ -17,7 +17,7 @@ from meerkatpolpipeline.measurementset import (
 )
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.sclient import singularity_wrapper
-from meerkatpolpipeline.utils import remove_one_copy_from_filename
+from meerkatpolpipeline.utils.utils import remove_one_copy_from_filename
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, get_imset_from_prefix
 
 
