@@ -308,9 +308,13 @@ def process_science_fields(
         )
 
         if check_calibrator_options['image_gaincal']:
+
+            _, gaincal_field = _caracal.obtain_by_intent(field_intents_dict, "gaincal")
+
             task_image_gaincal = task(image_gaincal, name="image_gaincal")
             task_image_gaincal(
                 check_calibrator_options,
+                gaincal_field=gaincal_field,
                 working_dir=check_calibrator_workdir,
                 casa_container=casa_container,
                 lofar_container=lofar_container,

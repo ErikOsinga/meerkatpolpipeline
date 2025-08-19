@@ -301,6 +301,7 @@ def check_calibrator(
 
 def image_gaincal(
         check_calibrator_options: dict | CheckCalibratorOptions,
+        gaincal_field: str,
         working_dir: Path,
         casa_container: Path,
         lofar_container: Path,
@@ -310,6 +311,7 @@ def image_gaincal(
     
     args:
         check_calibrator_options (dict | CheckCalibratorOptions): Dictionary storing CheckCalibratorOptions for the check_calibrator step.
+        gaincal_field (str): string denoting gaincal field
         working_dir (Path): The working directory for the check_calibrator step
         casa_container (Path | None): Path to the container with the casa installation.
         lofar_container (Path | None): Path to the container with the wsclean installation.
@@ -328,7 +330,7 @@ def image_gaincal(
 
     gaincal_ms = split_calibrator(
         cal_ms_path=check_calibrator_options['crosscal_ms'],
-        cal_field=check_calibrator_options['polcal_field'],
+        cal_field=gaincal_field,
         output_ms=working_dir / "gaincal.ms",
         casa_container=casa_container,
         bind_dirs=bind_dirs + [working_dir],
