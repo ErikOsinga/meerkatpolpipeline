@@ -266,7 +266,7 @@ def check_calibrator(
 
     polcal_ms = split_calibrator(
         cal_ms_path=check_calibrator_options['crosscal_ms'],
-        polcal_field=check_calibrator_options['polcal_field'],
+        cal_field=check_calibrator_options['polcal_field'],
         output_ms=working_dir / "polcal.ms",
         casa_container=casa_container,
         bind_dirs=bind_dirs,
@@ -321,7 +321,7 @@ def image_gaincal(
 
     gaincal_ms = split_calibrator(
         cal_ms_path=check_calibrator_options['crosscal_ms'],
-        polcal_field=check_calibrator_options['polcal_field'],
+        cal_field=check_calibrator_options['polcal_field'],
         output_ms=working_dir / "gaincal.ms",
         casa_container=casa_container,
         bind_dirs=bind_dirs + [working_dir],
