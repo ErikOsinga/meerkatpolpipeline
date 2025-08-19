@@ -35,24 +35,26 @@ class CheckCalibratorOptions(BaseOptions):
     """String containing the name of the polarisation calibrator field. If None, will be determined automatically"""
     no_fit_rm: bool = False
     """ disable the -fit-rm flag in wsclean, since its only available in the newest versions."""
+    image_gaincal: bool = False
+    """ also make an image of the gain calibrator? Default False"""
 
     
-def split_polcal(
+def split_calibrator(
         cal_ms_path: Path,
-        polcal_field: str,
+        cal_field: str,
         casa_container: Path,
         output_ms: Path | None = None,
         bind_dirs: list[Path] | None = None,
         chanbin: int = 16,
     ) -> Path:
     """
-    Split the polarisation calibrator with default 16x channel averaging.
+    Split the (polarisation/gain/bandpass/flux) calibrator with default 16x channel averaging.
     """
     if output_ms is None:
-        output_ms = cal_ms_path.with_name(cal_ms_path.stem + "-polcal.ms")
+        output_ms = cal_ms_path.with_name(cal_ms_path.stem + f"-{cal_field}.ms")
 
     logger = get_run_logger()
-    logger.info(f"Splitting polarisation calibrator {polcal_field} from {cal_ms_path} to {output_ms}")
+    logger.info(f"Splitting calibrator {cal_field} from {cal_ms_path} to {output_ms}")
 
     if output_ms.exists():
         logger.info(f"Output MS {output_ms} already exists, skipping split.")
@@ -63,7 +65,7 @@ def split_polcal(
         vis=cal_ms_path,
         outputvis=output_ms,
         datacolumn="corrected",
-        field=polcal_field,
+        field=cal_field,
         spw="",
         chanaverage=True,
         chanbin=chanbin, # e.g. 16x averaging
@@ -262,7 +264,7 @@ def check_calibrator(
     """
     logger = get_run_logger()
 
-    polcal_ms = split_polcal(
+    polcal_ms = split_calibrator(
         cal_ms_path=check_calibrator_options['crosscal_ms'],
         polcal_field=check_calibrator_options['polcal_field'],
         output_ms=working_dir / "polcal.ms",
@@ -286,5 +288,52 @@ def check_calibrator(
     )
 
     logger.info(f"Calibrator checks completed. Please see the plots in {working_dir / 'plots'} for results.")
+
+    return polcal_ms
+
+
+def image_gaincal(
+        check_calibrator_options: dict | CheckCalibratorOptions,
+        working_dir: Path,
+        casa_container: Path,
+        lofar_container: Path,
+        bind_dirs: list[Path],
+    ) -> None:
+    """Image the gain calibrator field.
+    
+    args:
+        check_calibrator_options (dict | CheckCalibratorOptions): Dictionary storing CheckCalibratorOptions for the check_calibrator step.
+        working_dir (Path): The working directory for the check_calibrator step
+        casa_container (Path | None): Path to the container with the casa installation.
+        lofar_container (Path | None): Path to the container with the wsclean installation.
+        bind_dirs (list[Path] | None): List of directories to bind to the container.
+    
+    Returns:
+        None
+    """
+    logger = get_run_logger()
+
+
+    working_dir = working_dir / "gaincal"
+    working_dir.mkdir(exist_ok=True)
+
+    logger.info(f"Gaincal imaging requested. Will image gain calibrator in {working_dir}.")
+
+    gaincal_ms = split_calibrator(
+        cal_ms_path=check_calibrator_options['crosscal_ms'],
+        polcal_field=check_calibrator_options['polcal_field'],
+        output_ms=working_dir / "gaincal.ms",
+        casa_container=casa_container,
+        bind_dirs=bind_dirs + [working_dir],
+    )
+
+    imageset_stokesI, imageset_stokesQ, imageset_stokesU = go_wsclean_smallcubes(
+        gaincal_ms,
+        working_dir,
+        check_calibrator_options,
+        lofar_container= lofar_container,
+    )
+
+    logger.info(f"Gaincal imaging completed. Please see the gaincal images in {working_dir} for results.")
 
     return

@@ -14,7 +14,10 @@ from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.caracal import _caracal
 from meerkatpolpipeline.casacrosscal import casacrosscal
-from meerkatpolpipeline.check_calibrator.check_calibrator import check_calibrator
+from meerkatpolpipeline.check_calibrator.check_calibrator import (
+    check_calibrator,
+    image_gaincal,
+)
 from meerkatpolpipeline.configuration import (
     Strategy,
     get_options_from_strategy,
@@ -303,6 +306,19 @@ def process_science_fields(
                 check_calibrator_workdir # output MS location
             ] + casa_additional_bind # any additional bindings
         )
+
+        if check_calibrator_options['image_gaincal']:
+            task_image_gaincal = task(image_gaincal, name="image_gaincal")
+            task_image_gaincal(
+                check_calibrator_options,
+                working_dir=check_calibrator_workdir,
+                casa_container=casa_container,
+                lofar_container=lofar_container,
+                bind_dirs = [
+                    check_calibrator_options['crosscal_ms'].parent, # input MS location
+                    check_calibrator_workdir # output MS location
+                ] + casa_additional_bind # any additional bindings
+            )
 
     else:
         logger.warning("Check calibrator step is disabled, skipping checking of polarisation calibrator.")
