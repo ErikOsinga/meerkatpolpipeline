@@ -45,6 +45,8 @@ class SelfCalOptions(BaseOptions):
     """ASCII csv file containing facet directions for DDcal. File needs at least two columns with decimal degree RA and Dec. Default is None."""
     remove_outside_center_box: float | str | None = None
     """float [deg] or User defined box DS9 region file to subtract sources that are outside this part of the image, see also facetselfcal --remove-outside-center."""
+    cleanup_channel_images: bool = False
+    """Cleanup channel images from any selfcal round that is not the last round? Will not touch MFS images. Default False."""
 
 class FacetselfcalOptions(BaseOptions):
     """A container to handle facetselfcal.py options. 
@@ -436,6 +438,14 @@ def do_facetselfcal_DI(
         logger.info(f"Found image {final_image}, assuming facetselfcal DI step already done.")
         # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
         mses_after_DIcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
+
+        # cleanup if requested
+        if selfcal_options['cleanup_channel_images']:
+            cleanup_below_round = nrounds_DI-1 # cleanup earlier round channel images
+            logger.info(f"Cleaning up channel images from {workdir} below round {cleanup_below_round}")
+            removed_images = cleanup_channel_images(workdir, cleanup_below_round)
+            logger.info(f"Removed images {removed_images=}")
+
         return mses_after_DIcal
 
 
@@ -473,6 +483,13 @@ def do_facetselfcal_DI(
     final_image = final_image[0]
     # grab the calibrated MSes. They are all the *ms.copy that dont have 'plotlosoto' prefix
     mses_after_DIcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy")))
+
+    # cleanup if requested
+    if selfcal_options['cleanup_channel_images']:
+        cleanup_below_round = nrounds_DI-1 # cleanup earlier round channel images
+        logger.info(f"Cleaning up channel images from {workdir} below round {cleanup_below_round}")
+        removed_images = cleanup_channel_images(workdir, cleanup_below_round)
+        logger.info(f"Removed images {removed_images=}")
 
     return mses_after_DIcal
 
@@ -552,6 +569,14 @@ def do_facetselfcal_DD(
         # grab the calibrated MSes. They are all the *ms.copy.copy that dont have 'plotlosoto' prefix
         mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy.copy")))
         # note that there are two .copy now at the end of the filename, one from DIcal, one from DDcal.
+
+        # cleanup if requested
+        if selfcal_options['cleanup_channel_images']:
+            cleanup_below_round = nrounds_DD-1 # cleanup earlier round channel images
+            logger.info(f"Cleaning up channel images from {workdir} below round {cleanup_below_round}")
+            removed_images = cleanup_channel_images(workdir, cleanup_below_round)
+            logger.info(f"Removed images {removed_images=}")
+
         return mses_after_DDcal
 
     # Check if DD step was already done by a previous run, but up to a smaller iteration than nrounds_DD is currently
@@ -621,6 +646,13 @@ def do_facetselfcal_DD(
     # grab the calibrated MSes. They are all the *ms.copy.copy that dont have 'plotlosoto' prefix
     mses_after_DDcal = np.array(sorted(workdir.glob("[!plotlosoto]*.ms.copy.copy")))
     # note that there are two .copy now at the end of the filename, one from DIcal, one from DDcal.
+
+    # cleanup if requested
+    if selfcal_options['cleanup_channel_images']:
+        cleanup_below_round = nrounds_DD-1 # cleanup earlier round channel images
+        logger.info(f"Cleaning up channel images from {workdir} below round {cleanup_below_round}")
+        removed_images = cleanup_channel_images(workdir, cleanup_below_round)
+        logger.info(f"Removed images {removed_images=}")
 
     return mses_after_DDcal
 
@@ -762,3 +794,61 @@ def do_facetselfcal_extract(
 
     return mses_after_extraction
 
+
+def cleanup_channel_images(workdir: Path, cleanup_below_round: int, test: bool = False) -> list[Path]:
+    """
+    Remove WSClean channel FITS files for all self-cal rounds strictly below `cleanup_below_round`,
+    preserving any MFS products (names containing '-MFS-').
+
+    Examples of files removed (round 0 and 1 if cleanup_below_round=2):
+      image_000-0000-image.fits, image_001-0003-model.fits, etc.
+
+    Examples of files preserved:
+      image_000-MFS-image.fits, image_000-MFS-dirty.fits, image_000-MFS-image.fits.mask.fits
+
+    Parameters
+    ----------
+    workdir : Path
+        Directory containing WSClean outputs (e.g., .../DIcal).
+    cleanup_below_round : int
+        Delete channel files for rounds 0..cleanup_below_round-1.
+    test : bool, optional
+        If True, only list files that would be removed, without deleting them.
+
+    Returns
+    -------
+    List[Path]
+        Paths that were removed (or would be removed if test=True).
+
+    Notes
+    -----
+    - Only *.fits are considered.
+    - Safety rule: any filename with '-MFS-' is skipped.
+    """
+    if not isinstance(workdir, Path):
+        raise ValueError(f"{workdir=}, expected Path")
+
+    if not workdir.exists():
+        raise FileNotFoundError(f"Directory does not exist: {workdir}")
+
+    removed: list[Path] = []
+
+    def is_channel_fits(p: Path) -> bool:
+        name = p.name
+        return (
+            name.startswith("image_")
+            and name.endswith(".fits")
+            and "-MFS-" not in name
+        )
+
+    for r in range(max(0, cleanup_below_round)):
+        for f in workdir.glob(f"image_{r:03d}-*.fits"):
+            if is_channel_fits(f):
+                if not test:
+                    try:
+                        f.unlink()
+                    except FileNotFoundError:
+                        continue
+                removed.append(f)
+
+    return removed
