@@ -356,9 +356,17 @@ def process_science_fields(
         logger.info(f"extract step completed. MSes found at {corrected_extracted_mses}")
 
         logger.info("All selfcal steps fully completed.")
+    
     else:
-        print("TODO: find extracted MSes if selfcal step is disabled.")
-        # corrected_extracted_mses = find_extracted_mses()
+        logger.warning("Selfcal step is disabled, trying to find extracted MSes...")
+        
+        selfcal_workdir = working_dir / "selfcal"
+        DDcal_workdir = selfcal_workdir / "DDcal"
+        
+        logger.info(f"Checking for extracted MSes in {DDcal_workdir}")
+        corrected_extracted_mses = list(sorted(DDcal_workdir.glob("[!plotlosoto]*.subtracted_ddcor")))
+        assert len(corrected_extracted_mses) != 0, f"Found {len(corrected_extracted_mses)} mses in {DDcal_workdir}. However, expected at least one... Please enable selfcal step."
+
 
 
     ########## step 5: IQUV cube image 12 channel ##########

@@ -694,7 +694,7 @@ def do_facetselfcal_extract(
         all_DDcal_mses: list[Path] | Path,
         workdir: Path,
         lofar_container: Path
-    ) -> Path:
+    ) -> list[Path]:
     """Run the facetselfcal extract step.
 
     Args:
@@ -704,7 +704,7 @@ def do_facetselfcal_extract(
         lofar_container       : Path                 : lofar software
 
     Returns:
-        Path: new Path to the facetselfcal calibrated MS
+        list[Path]: new Paths to the facetselfcal extracted + closest direction applied MS
 
     """
     logger = get_run_logger()
@@ -712,14 +712,11 @@ def do_facetselfcal_extract(
     logger.info(f"Starting facetselfcal extract step in {workdir}.")
 
     # Check if extract step was already done by a previous run.
-    print("TODO: check if already done")
-    # preprocessed_msdir = workdir / "split_measurements"
-    # all_preprocessed_mses = list(sorted(preprocessed_msdir.glob("*.ms")))
-    # if len(all_preprocessed_mses) > 0:
-    #     logger.info(f"Found {len(all_preprocessed_mses)} existing preprocessed MSes in {preprocessed_msdir}")
-    #     logger.info("Assuming facetselfcal preprocess step already done. Not repeating.")
-    #     return all_preprocessed_mses
-
+    mses_after_extraction = list(sorted(workdir.glob("[!plotlosoto]*.subtracted_ddcor")))
+    if len(mses_after_extraction) > 0:
+        logger.info(f"Found {len(mses_after_extraction)} *.subtracted_ddcor mses in {workdir}. Assuming extract already done.")
+        return mses_after_extraction
+    
     # Otherwise, build and start extract command
     facetselfcal_options = get_options_facetselfcal_extract(selfcal_options)
 
@@ -750,16 +747,18 @@ def do_facetselfcal_extract(
         options = ["--pwd", str(workdir)] # execute command in selfcal workdir
     )
 
-    # grab the extracted MSes
-    mses_after_extraction = np.array(sorted(workdir.glob("[!plotlosoto]*subtracted")))
+    # grab the extracted MSes, with the closest direction applied
+    mses_after_extraction = list(sorted(workdir.glob("[!plotlosoto]*.subtracted_ddcor")))
     assert len(mses_after_extraction) != 0, f"Found {len(mses_after_extraction)} mses in {workdir}. However, expected at least one..."
-    logger.info(f"Found {len(mses_after_extraction)} extracted mses in {workdir}")
+    logger.info(f"Found {len(mses_after_extraction)} extracted + corrected mses in {workdir}")
 
-    # apply the closest direction and write results to a new (set of) MS(es)
-    corrected_extracted_mses = apply_closest_direction(mses_after_extraction)
-    # Should be only few tens of GB at most all together. Very managable.
+    ### FACETSELFCAL ALREADY APPLIES CLOSEST DIRECTION, SO DONT DO BELOW: 
+    # # apply the closest direction and write results to a new (set of) MS(es)
+    # corrected_extracted_mses = apply_closest_direction(mses_after_extraction)
+    # # Should be only few tens of GB at most all together. Very managable.
 
     # Can image the central X degrees as the user likes. Or run additional selfcal: DI or DD.
     # TODO: could implement that as a list of tasks.
-    return corrected_extracted_mses
+
+    return mses_after_extraction
 
