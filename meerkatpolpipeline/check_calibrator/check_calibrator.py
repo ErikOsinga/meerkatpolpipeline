@@ -83,9 +83,15 @@ def go_wsclean_smallcubes(
         ms: Path,
         working_dir: Path,
         check_calibrator_options: CheckCalibratorOptions,
-        lofar_container: Path) -> tuple[ImageSet,ImageSet,ImageSet]:
+        lofar_container: Path,
+        prefix: str
+    ) -> tuple[ImageSet,ImageSet,ImageSet]:
     """
     Quick round of imaging the calibrator in IQU
+
+    ms : Path to MS to image
+    working_dir: parent directory of 'IQUimages' where images will be made
+    prefix: "-name" prefix for WSclean, e.g. "polcal" or "gaincal"
     """
 
     logger = get_run_logger()
@@ -119,8 +125,8 @@ def go_wsclean_smallcubes(
         'scale': '1.0arcsec',
     }
 
-    # prefix is $workdir/check_calibrator/IQUimages/polcal...(e.g. -image-00*.fits")
-    prefix = str(wsclean_output_dir / "polcal" )
+    # prefix is $workdir/check_calibrator/IQUimages/polcal...(e.g. polcal-image-00*.fits")
+    prefix = str(wsclean_output_dir / prefix )
 
     # create WSclean command for stokes I
     options_stokesI = WSCleanOptions(**hardcoded_options_stokesI)
@@ -277,6 +283,7 @@ def check_calibrator(
         working_dir,
         check_calibrator_options,
         lofar_container= lofar_container,
+        prefix='polcal'
     )
 
     validate_calibrator_field(
@@ -332,6 +339,7 @@ def image_gaincal(
         working_dir,
         check_calibrator_options,
         lofar_container= lofar_container,
+        prefix='gaincal'
     )
 
     logger.info(f"Gaincal imaging completed. Please see the gaincal images in {working_dir} for results.")
