@@ -245,7 +245,8 @@ def get_imset_from_prefix(
         prefix: str | Path,
         pol: str = "i",
         validate: bool = True,
-        chanout: int | None = None
+        chanout: int | None = None,
+        pbcor_done: bool = False
     ) -> ImageSet:
     """
     Get an ImageSet from a given prefix, i.e. wsclean '-name' argument or globstring pattern.
@@ -299,7 +300,7 @@ def get_imset_from_prefix(
     if validate:
         if chanout is None:
             raise ValueError("chanout must be specified if validate is True")
-        validate_imset(imset, chanout)
+        validate_imset(imset, chanout, pbcor_done=pbcor_done)
 
     return imset
 
@@ -333,11 +334,17 @@ def get_wsclean_output(
 
     chanout = wsclean_command.options.channels_out
 
-    imset = get_imset_from_prefix(prefix, pol, validate, chanout)
+    imset = get_imset_from_prefix(
+        prefix,
+        pol,
+        validate,
+        chanout,
+        pbcor_done=wsclean_command.options.apply_primary_beam
+    )
 
     return imset
 
-def validate_imset(imset: ImageSet, nchan: int) -> None:
+def validate_imset(imset: ImageSet, nchan: int, pbcor_done: bool = False) -> None:
     """
     Validate that for each product (image, dirty, model, residual),
     there are nchan + 1 files (including MFS).
@@ -349,8 +356,17 @@ def validate_imset(imset: ImageSet, nchan: int) -> None:
         "model": imset.model,
         "residual": imset.residual,
     }
+
+    # if pbcor was done, these images will have 2x expected number of files
+    can_be_pbcor = ["image", "model", "residual"] 
+
     for kind, files in products.items():
         count = len(files) if files is not None else 0
+
+        if kind in can_be_pbcor and pbcor_done:
+            # If pbcor was done, expect 2x the number of files
+            count //= 2
+
         if count != expected:
             raise ValueError(
                 f"Expected {expected} '{kind}' files, but found {count}."
