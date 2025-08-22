@@ -180,6 +180,8 @@ def process_science_fields(
         if crosscal_options['which'] == 'caracal':
             logger.info("Caracal cross-calibration step is enabled, starting caracal cross-calibration.")
             crosscal_dir = crosscal_base_dir / 'caracal'
+            crosscal_dir.mkdir(exist_ok=True) # runs can be repeated
+
 
             # set up tasks
             task_cleanup_caracal = task(_caracal.cleanup_caracal_run, name="cleanup_caracal_run")
@@ -244,6 +246,7 @@ def process_science_fields(
         elif crosscal_options['which'] == 'casacrosscal':
             logger.info("Casa crosscal step is enabled, starting casa cross-calibration.")
             crosscal_dir = crosscal_base_dir / 'casacrosscal'
+            crosscal_dir.mkdir(exist_ok=True) # runs can be repeated
 
             task_casa_crosscal = task(casacrosscal.do_casa_crosscal, name="casa_crosscal")
             calibrated_target_ms = task_casa_crosscal(
