@@ -120,7 +120,8 @@ def do_casa_crosscal(
             casa_container=casa_container,
             output_ms=crosscal_dir / (preprocessed_ms.stem + "-cal.ms"),
             bind_dirs=bind_dirs,
-            chanbin=1
+            chanbin=1,
+            datacolumn="DATA"
         )
 
         _, targetfield = obtain_by_intent(ms_summary['field_intents'], 'target')
@@ -132,7 +133,8 @@ def do_casa_crosscal(
             casa_container=casa_container,
             output_ms=crosscal_dir / (preprocessed_ms.stem + "-target.ms"),
             bind_dirs=bind_dirs,
-            chanbin=1
+            chanbin=1,
+            datacolumn="DATA"
         )
 
 

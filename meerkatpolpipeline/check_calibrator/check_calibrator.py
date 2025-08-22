@@ -40,6 +40,7 @@ def split_calibrator(
         output_ms: Path | None = None,
         bind_dirs: list[Path] | None = None,
         chanbin: int = 16,
+        datacolumn: str = "corrected",
     ) -> Path:
     """
     Split the (polarisation/gain/bandpass/flux) calibrator with default 16x channel averaging.
@@ -65,7 +66,7 @@ def split_calibrator(
         task="mstransform",
         vis=cal_ms_path,
         outputvis=output_ms,
-        datacolumn="corrected",
+        datacolumn=datacolumn,
         field=cal_field,
         spw="",
         chanaverage=chanaverage,
