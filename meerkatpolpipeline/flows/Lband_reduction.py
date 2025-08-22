@@ -77,7 +77,7 @@ def process_science_fields(
         download_workdir.mkdir(exist_ok=True) # runs can be repeated
 
         # First check if the preprocessed MS already exists. If so, we can skip the whole step.
-        ms_path = working_dir / download_options['ms_name']
+        ms_path = download_workdir / download_options['ms_name']
         preprocessed_ms = ms_path.parent / f"{ms_path.stem}_preprocessed.ms"
         if preprocessed_ms.exists():
             logger.info(f"Preprocessed MS already exists at {preprocessed_ms}, skipping download_preprocess step.")
