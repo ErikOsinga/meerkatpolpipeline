@@ -33,7 +33,7 @@ from casatasks import (  # type: ignore
     bandpass,
     clearcal,
     flagdata,
-    flagmanager,
+    # flagmanager,
     gaincal,
     polcal,
     setjy,

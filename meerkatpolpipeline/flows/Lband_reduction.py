@@ -246,7 +246,7 @@ def process_science_fields(
             crosscal_dir = crosscal_base_dir / 'casacrosscal'
 
             task_casa_crosscal = task(casacrosscal.do_casa_crosscal, name="casa_crosscal")
-            crosscal_dir = task_casa_crosscal(
+            calibrated_target_ms = task_casa_crosscal(
                 crosscal_options, 
                 preprocessed_ms, 
                 crosscal_dir, 
@@ -467,7 +467,7 @@ def process_science_fields(
         nvss_comparison_workdir.mkdir(exist_ok=True)
         logger.info("TODO: implement compare_to_nvss step")
 
-    
+
 
     
 

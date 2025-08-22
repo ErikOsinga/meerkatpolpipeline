@@ -173,8 +173,13 @@ def do_casa_crosscal(
             options = ["--pwd", str(crosscal_dir)] # execute command in crosscal/casacrosscal workdir
         )
 
+        # if completed succesfully, rename the target MS to have suffix {strategy['targetfield']}-corr.ms
+        calibrated_target_ms = target_ms.stem + f"-{crosscal_options.targetfield}-corr.ms"
+        target_ms.rename(crosscal_dir / calibrated_target_ms)
+        
+        logger.info(f"Casa crosscal completed, target MS saved at {crosscal_dir / calibrated_target_ms}")
 
-        return target_ms
+        return calibrated_target_ms
 
 # to prepare target and calibrators for casa crosscal,
 # see /net/rijn9/data2/osinga/meerkatBfields/Abell754/test_annalisa_script/copy_and_split_ms.py
