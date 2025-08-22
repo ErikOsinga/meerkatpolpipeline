@@ -248,7 +248,7 @@ def plot_total_intensity_spectrum(
             ratio[valid] = mi[valid] / intens[valid]
 
             median_ratio = np.median(ratio[valid])
-            ax_ratio.scatter(frequencies, ratio, c=f'C{i}', marker='.', label=f'ratio r{i}, median={median_ratio:.1f}')
+            ax_ratio.scatter(frequencies, ratio, c=f'C{i}', marker='.', label=f'ratio r{i}, median={median_ratio:.2f}')
             # ax_ratio.axhline(1, color='k',ls='dashed')
 
     # Axes formatting
