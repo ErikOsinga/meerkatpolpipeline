@@ -191,6 +191,8 @@ def get_field_ids(ms_path: str, fieldnames: list[str]) -> dict[str, int]:
     ValueError
         If any fieldname is not found or appears multiple times in the FIELD subtable.
     """
+    ms_path = str(ms_path)
+    
     field_table_path = ms_path.rstrip("/") + "/FIELD"
     with table(field_table_path) as t:
         names = t.getcol("NAME")
