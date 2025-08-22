@@ -5,6 +5,7 @@ import glob
 import shutil
 from pathlib import Path
 
+from casacore.tables import table
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.measurementset import msoverview_summary
@@ -168,8 +169,47 @@ def determine_calibrators(caracal_options: CrossCalOptions, ms_summary: dict) ->
 
     return caracal_options
 
+
+def get_field_ids(ms_path: str, fieldnames: list[str]) -> dict[str, int]:
+    """
+    Retrieve unique field IDs for a list of fieldnames from a Measurement Set.
+
+    Parameters
+    ----------
+    ms_path : str
+        Path to the Measurement Set.
+    fieldnames : list of str
+        List of fieldnames to search for.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping each fieldname to its unique field ID.
+
+    Raises
+    ------
+    ValueError
+        If any fieldname is not found or appears multiple times in the FIELD subtable.
+    """
+    field_table_path = ms_path.rstrip("/") + "/FIELD"
+    with table(field_table_path) as t:
+        names = t.getcol("NAME")
+
+    result = {}
+    for fname in fieldnames:
+        matches = [i for i, n in enumerate(names) if n == fname]
+        if len(matches) == 0:
+            raise ValueError(f"Fieldname '{fname}' not found in {ms_path}.")
+        if len(matches) > 1:
+            raise ValueError(f"Fieldname '{fname}' is not unique in {ms_path} (found IDs {matches}).")
+        result[fname] = matches[0]
+
+    return result
+
+
 def write_crosscal_csv(
     crosscal_options: dict[str, str | None],
+    ms: Path,
     output_path: str
 ) -> Path:
     """
@@ -179,6 +219,8 @@ def write_crosscal_csv(
     This function is used when 'auto_determine_obsconf' is False,
     and the user has supplied the calibrators manually.
     The output CSV will contain the calibrators and their intents
+
+    The MS is required to get the field IDs.
 
     Only options with non‑None values are written.
     """
@@ -191,6 +233,15 @@ def write_crosscal_csv(
         "obsconf_gcal":      "CALIBRATE_PHASE",
     }
 
+    all_fieldnames = {} # e.g. obsconf_target: "Coma1", obsconf_xcal: "J0408+6545" etc
+    for key, intent in intent_map.items():
+        fieldname = crosscal_options.get(key)
+        if fieldname is not None:
+            all_fieldnames[key] = fieldname
+
+    # retrieve field IDs
+    ids_dict = get_field_ids(ms, all_fieldnames.values())
+
     with open(output_path, mode="w", newline="") as csvfile:
         writer = csv.DictWriter(
             csvfile,
@@ -198,14 +249,18 @@ def write_crosscal_csv(
         )
         writer.writeheader()
 
-        for key, intent in intent_map.items():
-            value = crosscal_options.get(key)
-            if value is None:
-                continue
-
+        for key, fieldname in all_fieldnames.items():
+            intent = intent_map.get(key)
+            if intent is None:
+                raise ValueError(f"Intent for key '{key}' not found in intent_map. Please check the crosscal_options.")
+            # get the field ID for this fieldname
+            field_id = ids_dict.get(fieldname)
+            if not field_id:
+                raise ValueError(f"Field name '{fieldname}' not found in the MS '{ms}'. Please check the field names.")
+            # write each field ID with the corresponding field name and intent
             writer.writerow({
-                "field_id": None,
-                "field_name": value,
+                "field_id": field_id,  # take the first ID if there are multiple
+                "field_name": fieldname,
                 "intent_string": intent
             })
 

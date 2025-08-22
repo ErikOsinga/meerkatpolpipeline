@@ -136,6 +136,7 @@ def process_science_fields(
 
     else:
         logger.warning("Download step is disabled, skipping download and preprocessing.")
+        ms_path = download_workdir / download_options['ms_name']
         preprocessed_ms = ms_path.parent / f"{ms_path.stem}_preprocessed.ms"
         logger.info(f"Assuming preprocessed MS is available at {preprocessed_ms}. If not, please enable the download step in the strategy file.")
 
@@ -165,7 +166,7 @@ def process_science_fields(
         if not crosscal_options['auto_determine_obsconf']:
             # then the calibrators should be set by the user. Write to an intent file
             logger.info(f"Auto-determination of obsconf is disabled, writing user-defined field intents to {field_intents_csv}.")
-            _caracal.write_crosscal_csv(crosscal_options, output_path=field_intents_csv)
+            _caracal.write_crosscal_csv(crosscal_options, ms=preprocessed_ms, output_path=field_intents_csv)
 
         logger.info(f"{ms_summary=}")
         
@@ -239,9 +240,24 @@ def process_science_fields(
         ############ 2. option 2: casa cross-calibration step ############
         elif crosscal_options['which'] == 'casacrosscal':
             logger.info("Casa crosscal step is enabled, starting casa cross-calibration.")
-            print("TODO")
+            crosscal_dir = crosscal_base_dir / 'casacrosscal'
+
             task_casa_crosscal = task(casacrosscal.do_casa_crosscal, name="casa_crosscal")
-            crosscal_dir = task_casa_crosscal(crosscal_options, preprocessed_ms, crosscal_base_dir, ms_summary)
+            crosscal_dir = task_casa_crosscal(
+                crosscal_options, 
+                preprocessed_ms, 
+                crosscal_dir, 
+                ms_summary,
+                casa_container,
+                lofar_container,
+                bind_dirs = [
+                    preprocessed_ms.parent, # input MS location
+                    crosscal_dir # output MS location
+                ] + casa_additional_bind # any additional bindings
+            )
+
+
+
 
         ############ 2. option 3: oopsie, user has made a mistake ############
         else:
