@@ -74,7 +74,7 @@ class WSCleanOptions(BaseOptions):
     """Maximum number of minor cycles"""
     multiscale: bool = False
     """Enable multiscale deconvolution"""
-    multiscale_scale_bias: float = 0.75
+    multiscale_scale_bias: float | None = None
     """Multiscale bias term"""
     multiscale_gain: float | None = None
     """Size of step made in the subminor loop of multi-scale. Default currently 0.2, but shows sign of instability. A value of 0.1 might be more stable."""
