@@ -13,13 +13,7 @@ from meerkatpolpipeline.utils.processfield import (
     process_stokesI,
     process_stokesQU,
 )
-from meerkatpolpipeline.wsclean.wsclean import (
-    ImageSet,
-    WSCleanOptions,
-    create_wsclean_command,
-    get_wsclean_output,
-    run_wsclean_command,
-)
+from meerkatpolpipeline.wsclean.wsclean import ImageSet, WSCleanOptions, run_wsclean
 
 
 class CheckCalibratorOptions(BaseOptions):
@@ -59,6 +53,13 @@ def split_calibrator(
     if output_ms.exists():
         logger.info(f"Output MS {output_ms} already exists, skipping split.")
         return output_ms
+    
+    if chanbin == 1:
+        logger.info("No channel binning requested, chanbin=1. Will not average channels.")
+        chanaverage = False
+    else:
+        logger.info(f"Channel binning requested, chanbin={chanbin}. Will average channels.")
+        chanaverage = True
 
     casa_command(
         task="mstransform",
@@ -67,7 +68,7 @@ def split_calibrator(
         datacolumn="corrected",
         field=cal_field,
         spw="",
-        chanaverage=True,
+        chanaverage=chanaverage,
         chanbin=chanbin, # e.g. 16x averaging
         keepflags=True,
         usewtspectrum=False,
@@ -79,105 +80,98 @@ def split_calibrator(
     return output_ms
 
 
+def build_wsclean_options_for_calibrator(
+    stokes: str,
+    check_calibrator_options: dict
+) -> WSCleanOptions:
+    """
+    Build default WSClean options for calibrators with your requested settings.
+    stokes: 'i' or 'qu'
+    """
+    if stokes.lower() not in {"i", "qu"}:
+        raise ValueError("stokes must be 'i' or 'qu'")
+
+    base = {
+        "no_update_model_required": True,
+        "minuv_l": 10.0,
+        "size": 3150,  # interpreted as -size 3150 3150 by your command builder
+        "parallel_deconvolution": 1575,
+        "reorder": True,
+        "weight": "briggs 0",
+        "parallel_reordering": 4,
+        "data_column": "CORRECTED_DATA",
+        "join_channels": True,
+        "channels_out": 12,
+        "no_mf_weighting": True,
+        "parallel_gridding": 4,
+        "auto_mask": 3.0,
+        "auto_threshold": 1.5,
+        "gridder": "wgridder",
+        "wgridder_accuracy": 0.0001,
+        "mem": 80,  # requested -mem 80 (not abs_mem)
+        "nmiter": 6,
+        "niter": 75000,
+        "scale": "2.5arcsec",
+        "taper_gaussian": "10.0arcsec",
+        "apply_primary_beam": True,
+        "multiscale": True,
+        "multiscale_scale_bias": 0.75,
+        "multiscale_max_scales": 9,
+    }
+
+    if stokes.lower() == "i":
+        base.update({
+            "pol": "i",
+            "mgain": 0.8,
+        })
+    else:
+        base.update({
+            "pol": "qu",
+            "mgain": 0.7,
+            "join_polarizations": True,
+            "squared_channel_joining": True,
+            "fit_rm": not bool(check_calibrator_options.get("no_fit_rm", False)),
+        })
+
+    return WSCleanOptions(**base)
+
+
 def go_wsclean_smallcubes(
-        ms: Path,
-        working_dir: Path,
-        check_calibrator_options: CheckCalibratorOptions,
-        lofar_container: Path,
-        prefix: str
-    ) -> tuple[ImageSet,ImageSet,ImageSet]:
+    ms: Path,
+    working_dir: Path,
+    check_calibrator_options: dict,
+    lofar_container: Path,
+    prefix: str
+) -> tuple[ImageSet, ImageSet, ImageSet]:
     """
-    Quick round of imaging the calibrator in IQU
+    Quick imaging in I+Q+U of calibrator fields.
 
-    ms : Path to MS to image
-    working_dir: parent directory of 'IQUimages' where images will be made
-    prefix: "-name" prefix for WSclean, e.g. "polcal" or "gaincal"
+    returns an ImageSet for each polarisation (I,Q,U)
     """
+    # Stokes I (requested calibrator defaults)
+    opts_I = build_wsclean_options_for_calibrator("i", check_calibrator_options)
+    [imageset_I] = run_wsclean(
+        ms=ms,
+        working_dir=working_dir,
+        lofar_container=lofar_container,
+        prefix=prefix,
+        options=opts_I,
+        expected_pols=["i"],
+    )
 
-    logger = get_run_logger()
+    # Stokes QU (requested calibrator defaults)
+    opts_QU = build_wsclean_options_for_calibrator("qu", check_calibrator_options)
+    imagesets_QU = run_wsclean(
+        ms=ms,
+        working_dir=working_dir,
+        lofar_container=lofar_container,
+        prefix=prefix,
+        options=opts_QU,
+        expected_pols=["q", "u"],
+    )
+    imageset_Q, imageset_U = imagesets_QU
 
-    # mkdir for wsclean output
-    wsclean_output_dir = working_dir / "IQUimages"
-    if not wsclean_output_dir.exists():
-        logger.info(f"Creating wsclean output directory at {wsclean_output_dir}")
-        wsclean_output_dir.mkdir()
-
-    # hardcoded options for Stokes I
-    hardcoded_options_stokesI = {
-        'data_column': 'DATA', # since we split the MS
-        'no_update_model_required': True,
-        'minuv_l': 10.0,
-        'size': 1000,
-        'weight': "briggs -0.5",
-        'mgain': 0.9,
-        'join_channels': True,
-        'channels_out': 12,
-        'no_mf_weighting': True,
-        'parallel_gridding': 4,
-        'auto_mask': 3.0,
-        'auto_threshold': 1.5,
-        'pol': 'i',
-        'gridder': 'wgridder',
-        'wgridder_accuracy': 0.0001,
-        'abs_mem': 100,
-        'nmiter': 8,
-        'niter': 10000,
-        'scale': '1.0arcsec',
-    }
-
-    # prefix is $workdir/check_calibrator/IQUimages/polcal...(e.g. polcal-image-00*.fits")
-    prefix = str(wsclean_output_dir / prefix )
-
-    # create WSclean command for stokes I
-    options_stokesI = WSCleanOptions(**hardcoded_options_stokesI)
-    wsclean_command_stokesI = create_wsclean_command(options_stokesI, ms, prefix)
-    # check if the output files already exist (user has ran it before?)
-    imageset_stokesI = get_wsclean_output(wsclean_command_stokesI, pol='i', validate=False)
-    
-    if len(imageset_stokesI.image) == 0:
-        logger.info("Running WSClean for Stokes I imaging")
-        run_wsclean_command(wsclean_command=wsclean_command_stokesI,
-                            container=lofar_container,
-                            bind_dirs=[ms.parent,wsclean_output_dir]
-        )
-        # check if images were created and return an image set
-        imageset_stokesI = get_wsclean_output(wsclean_command_stokesI, pol='i', validate=True)
-
-    else:
-        logger.info("WSClean output for Stokes I already exists, skipping WSClean run.")
-
-
-    # Add options for linear pol
-    hardcoded_options_stokesQU = {
-        'pol': 'qu',
-        'fit_rm': True if not check_calibrator_options['no_fit_rm'] else False,
-        'join_polarizations': True,
-        'squared_channel_joining': True,
-        'mgain': 0.8,
-    }
-    
-    options_stokesQU = options_stokesI.with_options(**hardcoded_options_stokesQU)
-    
-    # create WSclean command for stokes QU
-    wsclean_command_stokesQU = create_wsclean_command(options_stokesQU, ms, prefix)
-    # check if the output files already exist (user has ran it before?)
-    imageset_stokesQ = get_wsclean_output(wsclean_command_stokesQU, pol='q', validate=False)
-    imageset_stokesU = get_wsclean_output(wsclean_command_stokesQU, pol='u', validate=False)
-    if len(imageset_stokesQ.image) == 0 and len(imageset_stokesU.image) == 0:
-        logger.info("Running WSClean for Stokes QU imaging")
-    
-        run_wsclean_command(wsclean_command=wsclean_command_stokesQU,
-                            container=lofar_container,
-                            bind_dirs=[ms.parent,wsclean_output_dir]
-        )
-
-        # check if images were created and return two image sets
-        imageset_stokesQ = get_wsclean_output(wsclean_command_stokesQU, pol='q', validate=True)
-        imageset_stokesU = get_wsclean_output(wsclean_command_stokesQU, pol='u', validate=True)
-    else:
-        logger.info("WSClean output for Stokes QU already exists, skipping WSClean run.")
-    
-    return imageset_stokesI, imageset_stokesQ, imageset_stokesU
+    return imageset_I, imageset_Q, imageset_U
 
 
 def regionfile_from_calibrator(src: str) -> Path:
@@ -340,7 +334,7 @@ def image_gaincal(
         gaincal_ms,
         working_dir,
         check_calibrator_options,
-        lofar_container= lofar_container,
+        lofar_container=lofar_container,
         prefix='gaincal'
     )
 

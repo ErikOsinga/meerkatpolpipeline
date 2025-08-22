@@ -340,3 +340,48 @@ def validate_imset(imset: ImageSet, nchan: int) -> None:
                 f"Expected {expected} '{kind}' files, but found {count}."
             )
     return
+
+
+def run_wsclean(
+    ms: Path,
+    working_dir: Path,
+    lofar_container: Path,
+    prefix: str,
+    options: WSCleanOptions,
+    expected_pols: list[str],
+) -> list[ImageSet]:
+    """
+    Run WSClean once with the given options and return ImageSet(s) for expected_pols.
+
+    expected_pols: e.g. ['i'] or ['q','u']
+    """
+    logger = get_run_logger()
+
+    # Ensure output dir exists
+    wsclean_output_dir = working_dir / "IQUimages"
+    if not wsclean_output_dir.exists():
+        logger.info(f"Creating wsclean output directory at {wsclean_output_dir}")
+        wsclean_output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Prefix lives inside IQUimages
+    full_prefix = str(wsclean_output_dir / prefix)
+
+    # Build command
+    wsclean_cmd = create_wsclean_command(options, ms, full_prefix)
+
+    # Probe outputs
+    pre = [get_wsclean_output(wsclean_cmd, pol=p.lower(), validate=False) for p in expected_pols]
+    need_run = any(len(imgset.image) == 0 for imgset in pre)
+
+    if need_run:
+        logger.info(f"Running WSClean for pol={options.pol} imaging")
+        run_wsclean_command(
+            wsclean_command=wsclean_cmd,
+            container=lofar_container,
+            bind_dirs=[ms.parent, wsclean_output_dir],
+        )
+        post = [get_wsclean_output(wsclean_cmd, pol=p.lower(), validate=True) for p in expected_pols]
+        return post
+    else:
+        logger.info(f"WSClean output for pol(s) {expected_pols} already exists, skipping run.")
+        return pre
