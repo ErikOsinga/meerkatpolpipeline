@@ -359,7 +359,7 @@ def validate_imset(imset: ImageSet, nchan: int) -> None:
 
 
 def run_wsclean(
-    ms: Path,
+    ms: Path | list[Path],
     working_dir: Path,
     lofar_container: Path,
     prefix: str,
@@ -391,10 +391,15 @@ def run_wsclean(
 
     if need_run:
         logger.info(f"Running WSClean for pol={options.pol} imaging")
+       
+        # currently assume all MSes at least live in the same parent directory
+        if not isinstance(ms, list):
+            ms = [ms]
+
         run_wsclean_command(
             wsclean_command=wsclean_cmd,
             container=lofar_container,
-            bind_dirs=[ms.parent, wsclean_output_dir],
+            bind_dirs=[ms[0].parent, wsclean_output_dir],
         )
         post = [get_wsclean_output(wsclean_cmd, pol=p.lower(), validate=True) for p in expected_pols]
         return post
