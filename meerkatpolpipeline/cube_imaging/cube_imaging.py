@@ -50,7 +50,7 @@ def go_wsclean_smallcubes_target(
         reorder=True,
         weight="briggs 0",
         parallel_reordering=4,
-        data_column="CORRECTED_DATA",
+        data_column="DATA", # _subtracted_ddcor should only contain DATA column
         join_channels=True,
         channels_out=12,
         no_mf_weighting=True,
