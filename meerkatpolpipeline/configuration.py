@@ -10,8 +10,8 @@ from typing import Any
 import yaml
 
 from meerkatpolpipeline.caracal._caracal import CrossCalOptions
-from meerkatpolpipeline.cube_imaging.cube_imaging import SmallCubeImagingOptions
 from meerkatpolpipeline.check_calibrator.check_calibrator import CheckCalibratorOptions
+from meerkatpolpipeline.cube_imaging.cube_imaging import SmallCubeImagingOptions
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions

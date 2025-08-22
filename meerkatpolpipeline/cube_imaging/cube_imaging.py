@@ -5,12 +5,6 @@ from pathlib import Path
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.options import BaseOptions
-from meerkatpolpipeline.utils.processfield import (
-    determine_calibrator,
-    determine_model,
-    process_stokesI,
-    process_stokesQU,
-)
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, WSCleanOptions, run_wsclean
 
 
@@ -40,6 +34,9 @@ def go_wsclean_smallcubes_target(
     
     Returns: (imageset_I, imageset_Q, imageset_U)
     """
+
+    logger = get_run_logger()
+    logger.info(f"Starting WSClean imaging for target field {cube_imaging_options.targetfield} in {working_dir}")
 
     # Common parameters between I and QU
     common = dict(
