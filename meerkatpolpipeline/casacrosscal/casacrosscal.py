@@ -94,10 +94,24 @@ def do_casa_crosscal(
         logger.info(f"Starting casa crosscal in {crosscal_dir} with options: {crosscal_options}")
 
         logger.info(f"Splitting off calibrator and target into separate MS in {crosscal_dir}")
-        
-        calibrators, fcal, bpcal, gcal, xcal = obtain_all_calibrators(ms_summary)
+
+
+        if not crosscal_options['auto_determine_obsconf']:
+            logger.info("Using user-supplied calibrators for caracal reduction")
+
+            fcal = crosscal_options['obsconf_fcal']
+            bpcal = crosscal_options['obsconf_bpcal']
+            gcal = crosscal_options['obsconf_gcal']
+            xcal = crosscal_options['obsconf_xcal']
+            calibrators = list(set([fcal, bpcal, gcal, xcal]))
+        else:
+            logger.info("Auto-determining calibrators from MS field intents for caracal reduction")
+            calibrators, fcal, bpcal, gcal, xcal = obtain_all_calibrators(ms_summary)
+
         if len(calibrators) == 0:
             raise ValueError("No calibrators found in ms_summary. Please check your input data.")
+
+        logger.info(f"Using calibrators: {calibrators}, with fcal: {fcal}, bpcal: {bpcal}, gcal: {gcal}, xcal: {xcal}")
 
         # Split calibrator
         cal_ms = split_calibrator(
