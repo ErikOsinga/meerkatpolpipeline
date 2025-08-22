@@ -31,6 +31,7 @@ from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
 from meerkatpolpipeline.utils.utils import find_calibrated_ms
+from meerkatpolpipeline.wsclean.wsclean import get_imset_from_prefix
 
 # from meerkatpolpipeline.logging import logger
 
@@ -408,29 +409,68 @@ def process_science_fields(
 
 
     ########## step 5: IQUV cube image 12 channel ##########
+    cube_imaging_workdir = working_dir / "small_cube_imaging"
+    cube_imaging_workdir.mkdir(exist_ok=True)
+
+    cube_imaging_options = get_options_from_strategy(strategy, operation="small_cube_imaging")
+
     if 'small_cube_imaging' in enabled_operations:
         # Make a 12 channel cube of the target in IQU, from the extracted dataset for a quick look
-        cube_imaging_workdir = working_dir / "small_cube_imaging"
-        cube_imaging_workdir.mkdir(exist_ok=True)
-
-        cube_imaging_options = get_options_from_strategy(strategy, operation="small_cube_imaging")
 
         # check for user overwrite
         if cube_imaging_options['corrected_extracted_mses'] is None:
             cube_imaging_options['corrected_extracted_mses'] = corrected_extracted_mses
 
+        # Make quicklook 12-channel cubes in IQU of the target field, with pb correction.
         task_image_smallcubes = task(go_wsclean_smallcubes_target, name="wsclean_smallcubes_target")
-        task_image_smallcubes(ms = corrected_extracted_mses,
+        imageset_I, imageset_Q, imageset_U = task_image_smallcubes(
+            ms = corrected_extracted_mses,
             working_dir = cube_imaging_workdir,
             lofar_container=lofar_container,
             cube_imaging_options=cube_imaging_options
         )
 
+    else:
+        wsclean_output_dir = cube_imaging_workdir / "IQUimages"
+        logger.warning(f"Small cube imaging step is disabled, skipping small cube imaging. Looking for IQU cubes in {wsclean_output_dir}...")
 
-    # do I image separate from QUV
+        full_prefix =  str(wsclean_output_dir / cube_imaging_options['targetfield']+'_stokesI')
+
+        imageset_I = get_imset_from_prefix(
+            prefix=full_prefix,
+            pol="i",
+            validate=True,
+            chanout=12, # default
+            pbcor_done=True # default
+        )
+
+        imageset_Q = get_imset_from_prefix(
+            prefix=full_prefix,
+            pol="q",
+            validate=True,
+            chanout=12, # default
+            pbcor_done=True # default
+        )
+
+        imageset_U = get_imset_from_prefix(
+            prefix=full_prefix,
+            pol="u",
+            validate=True,
+            chanout=12, # default
+            pbcor_done=True # default
+        )
+
+    
+    ########## step 6: preliminary check of IQUV cubes vs NVSS ##########
+    if "compare_to_nvss" in enabled_operations:
+        nvss_comparison_workdir = working_dir / "nvss_comparison"
+        nvss_comparison_workdir.mkdir(exist_ok=True)
+        logger.info("TODO: implement compare_to_nvss step")
+
     
 
-    ########## step 6: prelim. check of IQUV cubes vs NVSS ##########
+    
+
 
 
     ########## step 7: Resample the frequency axis if requested (required for L-band + UHF imaging) ##########
