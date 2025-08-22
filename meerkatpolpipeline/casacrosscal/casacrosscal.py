@@ -66,7 +66,7 @@ def run_aoflagger(cmd_aoflagger: str, **kwargs) -> str:
 
 
 def do_casa_crosscal(
-        crosscal_options: CrossCalOptions,
+        crosscal_options: CrossCalOptions | dict,
         preprocessed_ms: Path,
         crosscal_dir: Path,
         ms_summary: dict,
@@ -124,7 +124,7 @@ def do_casa_crosscal(
             datacolumn="DATA"
         )
 
-        _, targetfield = obtain_by_intent(ms_summary['field_intents'], 'target')
+        targetfield = crosscal_options['targetfield']
 
         # Split target
         target_ms = split_calibrator(
