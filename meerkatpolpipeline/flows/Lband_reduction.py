@@ -76,47 +76,48 @@ def process_science_fields(
         # create subdirectory 'download'
         download_workdir.mkdir(exist_ok=True) # runs can be repeated
 
-        #### 1.1 download and extract
-        task_start_download = task(download_and_extract, name="download_and_preprocess")
-        ms_path = task_start_download(download_options, working_dir=download_workdir)
-
-        # get MS summary
-        task_msoverview_summary = task(msoverview_summary, name="msoverview_summary")
-        ms_summary = task_msoverview_summary(
-            binds=[str(ms_path.parent)],
-            container=lofar_container,
-            ms=ms_path,
-            output_to_file= download_workdir / "msoverview_summary.txt",
-        )
-
-        #### 1.2 parang correction
-
-        # grab the script from the meerkatpolpipeline package
-        from meerkatpolpipeline.download import download  # cant import casa scripts
-        parang_script = Path(download.__file__).parent / "go_correct_parang.py"
-                    
-        cmd_parang = f"""python {parang_script} \
-             --running-inside-sing \
-             --test-already-done \
-            {ms_path}
-        """
-
-        task_parang_correction = task(run_singularity_command, name="run_parang_correction")
-        task_parang_correction(
-            lofar_container,
-            cmd_parang,
-            bind_dirs=[ms_path.parent,parang_script.parent],
-            max_retries=1
-        )
-
-        #### 1.3 copy CORRECTED_DATA over to a new MS with only DATA column including clip if requested
+        # First check if the preprocessed MS already exists. If so, we can skip the whole step.
+        ms_path = working_dir / download_options['ms_name']
         preprocessed_ms = ms_path.parent / f"{ms_path.stem}_preprocessed.ms"
-
         if preprocessed_ms.exists():
-            logger.info(f"Preprocessed MS already exists at {preprocessed_ms}, skipping clipping and copying.")
+            logger.info(f"Preprocessed MS already exists at {preprocessed_ms}, skipping download_preprocess step.")
 
-        else:
-            logger.info(f"Preprocessed MS does not exist at {preprocessed_ms}, will copy and potentially clip channels from {ms_path}.")
+        else: 
+
+            #### 1.1 download and extract
+            task_start_download = task(download_and_extract, name="download_and_preprocess")
+            ms_path = task_start_download(download_options, working_dir=download_workdir)
+
+            # get MS summary
+            task_msoverview_summary = task(msoverview_summary, name="msoverview_summary")
+            ms_summary = task_msoverview_summary(
+                binds=[str(ms_path.parent)],
+                container=lofar_container,
+                ms=ms_path,
+                output_to_file= download_workdir / "msoverview_summary.txt",
+            )
+
+            #### 1.2 parang correction
+
+            # grab the script from the meerkatpolpipeline package
+            from meerkatpolpipeline.download import download  # cant import casa scripts
+            parang_script = Path(download.__file__).parent / "go_correct_parang.py"
+                        
+            cmd_parang = f"""python {parang_script} \
+                --running-inside-sing \
+                --test-already-done \
+                {ms_path}
+            """
+
+            task_parang_correction = task(run_singularity_command, name="run_parang_correction")
+            task_parang_correction(
+                lofar_container,
+                cmd_parang,
+                bind_dirs=[ms_path.parent,parang_script.parent],
+                max_retries=1
+            )
+
+            logger.info(f"Preprocessed MS does not yet exist at {preprocessed_ms}, will copy and potentially clip channels from {ms_path}.")
             
             task_copy_and_clip_ms = task(copy_and_clip_ms, name="copy_and_clip_ms")
             task_copy_and_clip_ms(
@@ -133,7 +134,7 @@ def process_science_fields(
         logger.info("Download and preprocessing step completed.")
         logger.info(f"Preprocessed MS can be found at {preprocessed_ms}")
 
-        # TODO: clean up .tar.gz file if user requests?
+        # TODO: clean up .tar.gz file if user requests? and maybe also the original MS?
 
     else:
         logger.warning("Download step is disabled, skipping download and preprocessing.")
