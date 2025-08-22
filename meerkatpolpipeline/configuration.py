@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from meerkatpolpipeline.caracal._caracal import CrossCalOptions
+from meerkatpolpipeline.cube_imaging.cube_imaging import SmallCubeImagingOptions
 from meerkatpolpipeline.check_calibrator.check_calibrator import CheckCalibratorOptions
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
@@ -34,7 +35,7 @@ KNOWN_OPERATIONS = (
     "crosscal",
     "check_calibrator",
     "selfcal",
-    "firstpass_cubes",
+    "small_cube_imaging",
     "compare_to_nvss",
     "grid_freq_axis",
     "create_iqu_cubes",
@@ -51,6 +52,7 @@ STRATEGY_OPTIONS_MAPPING = {
     "crosscal": CrossCalOptions,
     "check_calibrator": CheckCalibratorOptions,
     "selfcal": SelfCalOptions,
+    "small_cube_imaging": SmallCubeImagingOptions,
     # TODO
 }
 

@@ -24,6 +24,7 @@ from meerkatpolpipeline.configuration import (
     load_and_copy_strategy,
     log_enabled_operations,
 )
+from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_smallcubes_target
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
@@ -406,6 +407,25 @@ def process_science_fields(
 
 
     ########## step 5: IQUV cube image 12 channel ##########
+    if 'small_cube_imaging' in enabled_operations:
+        # Make a 12 channel cube of the target in IQU, from the extracted dataset for a quick look
+        cube_imaging_workdir = working_dir / "small_cube_imaging"
+        cube_imaging_workdir.mkdir(exist_ok=True)
+
+        cube_imaging_options = get_options_from_strategy(strategy, operation="small_cube_imaging")
+
+        # check for user overwrite
+        if cube_imaging_options['corrected_extracted_mses'] is None:
+            cube_imaging_options['corrected_extracted_mses'] = corrected_extracted_mses
+
+        task_image_smallcubes = task(go_wsclean_smallcubes_target, name="wsclean_smallcubes_target")
+        task_image_smallcubes(ms = corrected_extracted_mses,
+            working_dir = cube_imaging_workdir,
+            lofar_container=lofar_container,
+            cube_imaging_options=cube_imaging_options
+        )
+
+
     # do I image separate from QUV
     
 

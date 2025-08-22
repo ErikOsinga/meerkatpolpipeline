@@ -8,6 +8,7 @@ from __future__ import annotations
 from glob import glob
 from pathlib import Path
 
+import numpy as np
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.options import BaseOptions
@@ -161,7 +162,7 @@ class WSCleanCommand(BaseOptions):
     """The constructed wsclean command that would be executed."""
     options: WSCleanOptions
     """The set of wslean options used for imaging"""
-    ms: Path
+    ms: Path | list[Path]
     """The measurement sets that have been included in the wsclean command. """
     image_prefix_str: str | None = None
     """The prefix of the images that will be created"""
@@ -173,7 +174,7 @@ class WSCleanCommand(BaseOptions):
 
 def create_wsclean_command(
         options: WSCleanOptions,
-        ms: Path,
+        ms: list[Path] | Path,
         prefix: str | None = None
     ) -> WSCleanCommand:
     """
@@ -204,8 +205,11 @@ def create_wsclean_command(
     if prefix:
         cmd_parts.extend(["-name", prefix])
 
-    # Append the measurement set
-    cmd_parts.append(str(ms))
+    # Append the measurement set(s)
+    if isinstance(ms, Path):
+        cmd_parts.append(str(ms))
+    elif isinstance(ms, (list, np.ndarray)):
+        cmd_parts.extend([str(m) for m in ms])
 
     # Join with line continuations for readability
     cmd_str = " \
