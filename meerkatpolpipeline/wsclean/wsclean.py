@@ -79,6 +79,8 @@ class WSCleanOptions(BaseOptions):
     """Size of step made in the subminor loop of multi-scale. Default currently 0.2, but shows sign of instability. A value of 0.1 might be more stable."""
     multiscale_scales: tuple[int, ...] | None = None
     """Scales used for multi-scale deconvolution"""
+    multiscale_max_scales: int | None = None
+    """Maximum number of scales to use in the multiscale deconvolution. If None, then WSclean default is 10."""    
     fit_spectral_pol: int | None = None
     """Number of spectral terms to include during sub-band subtraction"""
     weight: str = "briggs -0.5"
@@ -139,6 +141,16 @@ class WSCleanOptions(BaseOptions):
     """Opposite of -mf-weighting; can be used to turn off MF weighting in -join-channels mode. Suggested for channel science"""
     fit_rm: bool = False
     """Fit a rotation measure to the data during deconvlution. Available since WSClean 3.7"""
+    reorder: bool = True
+    """If True, reorder the MS at the beginning of wsclean. This is the default behaviour"""
+    parallel_reordering: int | None = 4
+    """Default 4 in WSClean as well"""
+    mem: int | None = None
+    """Memory percentage to use for wsclean. If None, then the value of abs_mem will be used or all memory."""
+    taper_gaussian: str | None = None
+    """A Gaussian taper to apply to the MS before imaging. This is a string that will be passed to wsclean as the -taper-gaussian argument."""
+    apply_primary_beam: bool = False
+    """Apply the primary beam correction to the images."""
 
 
 
