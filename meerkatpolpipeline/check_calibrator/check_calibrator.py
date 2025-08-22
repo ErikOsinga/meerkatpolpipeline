@@ -94,12 +94,12 @@ def build_wsclean_options_for_calibrator(
     base = {
         "no_update_model_required": True,
         "minuv_l": 10.0,
-        "size": 3150,  # interpreted as -size 3150 3150 by your command builder
-        "parallel_deconvolution": 1575,
+        "size": 1000,  # interpreted as -size 1000 1000 by command builder
+        # "parallel_deconvolution": 1575,
         "reorder": True,
-        "weight": "briggs 0",
+        "weight": "briggs -0.5",
         "parallel_reordering": 4,
-        "data_column": "CORRECTED_DATA",
+        "data_column": "DATA",
         "join_channels": True,
         "channels_out": 12,
         "no_mf_weighting": True,
@@ -108,15 +108,10 @@ def build_wsclean_options_for_calibrator(
         "auto_threshold": 1.5,
         "gridder": "wgridder",
         "wgridder_accuracy": 0.0001,
-        "mem": 80,  # requested -mem 80 (not abs_mem)
-        "nmiter": 6,
-        "niter": 75000,
-        "scale": "2.5arcsec",
-        "taper_gaussian": "10.0arcsec",
-        "apply_primary_beam": True,
-        "multiscale": True,
-        "multiscale_scale_bias": 0.75,
-        "multiscale_max_scales": 9,
+        "abs_mem": 100,
+        "nmiter": 8,
+        "niter": 50000,
+        "scale": "1.0arcsec",
     }
 
     if stokes.lower() == "i":
