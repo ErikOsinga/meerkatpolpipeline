@@ -148,7 +148,7 @@ def do_casa_crosscal(
 
         
         # cant run aoflagger inside the casa script because it requires a different container
-        binding_dir = f"{cal_ms.parent},{aoflagger_strategy.parent}"
+        binding_dir = [cal_ms.parent, aoflagger_strategy.parent, crosscal_dir]
 
 
         # initial flagging on raw data
@@ -163,7 +163,7 @@ def do_casa_crosscal(
         run_aoflagger(
             cmd_aoflagger=cmd_aoflagger,
             container=lofar_container,
-            bind_dirs=[binding_dir],
+            bind_dirs=binding_dir,
             options=["--pwd", str(crosscal_dir)]  # execute command in crosscal/casacrosscal workdir
         )
 
