@@ -49,7 +49,7 @@ def split_calibrator(
         output_ms = cal_ms_path.with_name(cal_ms_path.stem + f"-{cal_field}.ms")
 
     logger = get_run_logger()
-    logger.info(f"Splitting calibrator {cal_field} from {cal_ms_path} to {output_ms}")
+    logger.info(f"Splitting {cal_field} from {cal_ms_path} to {output_ms}")
 
     if output_ms.exists():
         logger.info(f"Output MS {output_ms} already exists, skipping split.")
