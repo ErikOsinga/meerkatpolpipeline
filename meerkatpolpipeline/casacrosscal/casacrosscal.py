@@ -159,6 +159,7 @@ def do_casa_crosscal(
             {cal_ms}
         """
 
+        logger.info("Running aoflagger")
 
         run_aoflagger(
             cmd_aoflagger=cmd_aoflagger,
@@ -176,9 +177,10 @@ def do_casa_crosscal(
             --gcal {gcal} \
             --xcal {xcal} \
             --leakcal {fcal} \
-            --aoflagger_strategy {aoflagger_strategy} \
-            --flocs_simg {lofar_container}
         """
+
+
+        logger.info("Running casa crosscal script.")
 
         # run the casa crosscal script
         # all arguments should be given as kwargs to not confuse singularity wrapper
