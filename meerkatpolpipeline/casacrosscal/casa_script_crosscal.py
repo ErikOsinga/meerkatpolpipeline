@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
 
 import numpy as np
 
@@ -40,7 +39,6 @@ from casatasks import (  # type: ignore
     split,
     tclean,
 )
-from casatools import casalog  # type: ignore
 
 POL_CALIBRATORS = ["J0521+1638", "J1331+3030"]
 
@@ -91,6 +89,7 @@ def parse_args():
 
 
 def setup_logging(prefix: str):
+    """ deprecated
     log_file = f"{prefix}.log"
     logging.basicConfig(
         filename=log_file,
@@ -110,7 +109,8 @@ def setup_logging(prefix: str):
         pass
     logging.getLogger('asyncio').setLevel(logging.WARNING)
     return logging.getLogger(__name__)
-
+    """
+    return NotImplementedError
 
 def main():
     args = parse_args()
@@ -130,8 +130,9 @@ def main():
     assert os.path.exists(targetms), f"Target MS {targetms} does not exist"
 
     # logging
-    prefix = os.path.splitext(os.path.basename(calms))[0]
-    logger = setup_logging(prefix)
+    # prefix = os.path.splitext(os.path.basename(calms))[0]
+    # logger = setup_logging(prefix)
+    logger = logging.getLogger(__name__)
 
     # scan and calibrators
     scan_xcal = args.scan_xcal
