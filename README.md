@@ -1,11 +1,19 @@
 # meerkatpolpipeline
-MeerKAT polarisation data reduction and analysis
+MeerKAT polarisation data reduction and analysis pipeline. 
 
 
-Assuming Python 3.11 for the bookkeeping scripts in this directory, though most actual software is run in Singularity containers.
+This pipeline supports a range of functionalities, including downloading uncalibrated data, cross-calibration, verification of results against known calibrator models, (DI/DD) self-calibration, polarization cube imaging, RM synthesis, and the creation of preliminary science plots (*work in progress*).
+
+
+The pipeline uses [Prefect](https://www.prefect.io/) to track task dependencies and logs.
+
+<img width="1095" height="798" alt="example-pipeline-dashboard" src="https://github.com/user-attachments/assets/44fd8df2-3d08-487c-95c7-53a9af30e247" />
+
+
 
 
 ## Installation
+We assume Python 3.11 (or later) for the pipeline, although most actual software is run in Singularity containers.
 
 Install e.g. with
 
@@ -33,7 +41,7 @@ uv pip install -e .[dev]
 ## Running a Prefect server
 
 ### Local prefect server
-The simplest thing is to start a local prefect server (e.g. open a second terminal)
+The simplest thing is to start a local prefect server (e.g. open a second terminal window):
 
 ```
 conda activate meerkatpol
