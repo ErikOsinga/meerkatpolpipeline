@@ -187,7 +187,7 @@ def do_casa_crosscal(
         run_casa_script(
             cmd_casa=cmd_casa,
             container=casa_container,
-            bind_dirs=bind_dirs,
+            bind_dirs=bind_dirs+[casa_script.parent],
             options = ["--pwd", str(crosscal_dir)] # execute command in crosscal/casacrosscal workdir
         )
 
