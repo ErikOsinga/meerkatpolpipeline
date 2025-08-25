@@ -156,7 +156,7 @@ def do_casa_crosscal(
 
         cmd_aoflagger = f"""aoflagger -strategy {aoflagger_strategy} \
             --fields {cal_fields} \
-            {cal_ms}
+            {cal_ms} 2>&1 | tee {crosscal_dir}/aoflagger_casacrosscal.log
         """
 
         logger.info("Running aoflagger")
