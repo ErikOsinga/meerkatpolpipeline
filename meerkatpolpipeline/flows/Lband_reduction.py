@@ -33,15 +33,6 @@ from meerkatpolpipeline.selfcal import _facetselfcal
 from meerkatpolpipeline.utils.utils import find_calibrated_ms
 from meerkatpolpipeline.wsclean.wsclean import get_imset_from_prefix
 
-# from meerkatpolpipeline.logging import logger
-
-# TODO: submit prefect tasks instead of running sequentially?
-# TODO: look into logging to prefect dashboard with custom logger
-
-
-def check_caracal_run():
-    print("TODO: verify that caracal completed succesfully, and return the -cal.ms path location")
-
 
 @flow(name="MeerKAT pipeline", log_prints=True)
 def process_science_fields(
