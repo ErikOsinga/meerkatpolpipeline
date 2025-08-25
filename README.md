@@ -51,7 +51,7 @@ The meerkat pol pipeline should automatically find the running server and report
 Simply call the pipeline as follows:
 
 ```
-python meerkatpolpipeline/flows/Lband_reduction.py --cli-config-file ./meerkatpolpipeline/tests/temp_sample_configuration.yaml --working-dir ./meerkatpolpipeline/tests/temp
+python meerkatpolpipeline/flows/Lband_reduction.py --cli-config-file ./meerkatpolpipeline/templates/pipeline-template-config.yaml --working-dir ./path/to/workdir/
 ```
 
 using a configuration file that you can create starting from the example configuration file.
