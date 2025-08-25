@@ -1,0 +1,134 @@
+
+## required headers are: 
+#  "version",
+#  "targetfield",
+#  "lofar_container",
+#  "casa_container",
+# "defaults",
+
+version: 0.1
+# string matching target field name
+targetfield: "TargetField"
+# container with lofar software for facetselfcal
+lofar_container: /net/achterrijn/data1/sweijen/software/containers/lofar_sksp_rijnX.sif
+# container with casa software.
+casa_container: /net/rijn9/data2/osinga/meerkatBfields/software/containers/flint-containers_casa.sif
+
+## optional headers
+# in case users have configured their own casa installation 'measurespath'.
+# see https://casadocs.readthedocs.io/en/stable/notebooks/external-data.html
+# make this point to the directory where the casa files are stored.
+casa_additional_bind: /net/rijn9/data2/osinga/meerkatBfields/software/casafiles
+
+
+## DEFAULTS SECTION
+# required header storing default parameters per step. Params that are unlikely to change go here.
+# these can be overwritten in the step specific section below
+defaults:
+  # download step with preprocessing including untarring and clipping edge channels
+  download_preprocess:
+    tries: inf
+    waitretry_seconds: 2
+    # clip channels of uncalibrated ms
+    clip_chan_start: 163
+    clip_chan_end: 3885
+    clip_assumed_nchan: 4096
+
+  # crosscal step with caracal or casacrosscal (see which below)
+  crosscal:
+    # auto determine calibrators from MS ?
+    auto_determine_obsconf: true
+    # backend if using caracal
+    backend: singularity
+    # location of carcal files, flagging strategy etc.
+    caracal_files: '/path/to/caracal_files/'
+    # template strategy for caracal (see e.g. templates/caracal-polcal-strategy.yml)
+    caracal_template_strategy: /path/to/meerkatpolpipeline/templates/caracal-polcal-strategy.yml
+
+  # selfcal step with facetselfcal
+  selfcal:
+    # location of facetselfcal.py, e.g. forked version used here
+    facetselfcal_directory: /net/rijn9/data2/osinga/meerkatBfields/software/facetselfcal_fork/lofar_facet_selfcal
+    # log wsclean to file instead of stdout during facetselfcal, only available in forked facetselfcal
+    # requires forked https://github.com/ErikOsinga/lofar_facet_selfcal
+    log_wsclean_to_file: true
+    # cleanup fits channel images from selfcal rounds that are not the last round
+    cleanup_channel_images: true
+
+
+## STEP SPECIFIC SECTIONS BELOW
+
+# here you can put parameters that are likely to change per target
+download_preprocess:
+  # enable or disable the download step
+  enable: true
+  link: https://archive-gw-1.kat.ac.za/link-to-data
+  # will be saved in --working_dir / download /
+  # output name is what to call the file thats downloaded 
+  output_name: target_ms.tar.gz
+  # ms_name is what to call the (extracted) ms
+  ms_name: target_ms.ms
+  # if downloading the MS directly (not tarred), these can be the same value
+
+  # NOTE:
+  # unless 'msdir' and 'dataid' are given in the caracal step below
+  # then even if download step is disabled, ms_name will be used to determine the
+  # location of the MS, so it can be used in caracal.
+  
+
+crosscal:
+  # enable or disable the crosscal step
+  enable: true
+  # either caracal or casacrosscal
+  which: caracal
+
+  # OPTIONAL: parent directory of MS, this is where caracal will write its output
+  # if not given, will determine it from the download step.
+  msdir: /data2/osinga/meerkatBfields/meerkatpolpipeline/tests/temp/caracal
+  # OPTIONAL: name of ms, without ".ms", as ".ms" will be appended
+  # if not given, will determine it from the download step.
+  dataid: "target_ms"
+
+  # e.g. if we dont want to let the script determine the calibrators
+  auto_determine_obsconf: false
+  # set the calibrators and target field manually
+  obsconf_target: TargetField
+  obsconf_gcal: J1330+2509
+  obsconf_xcal: J1331+3030
+  obsconf_bpcal: J1939-6342
+  obsconf_fcal: J1939-6342
+
+
+check_calibrator:
+  # enable or disable the check_calibrator step
+  enable: true
+  ## crosscal MS will be found automatically but allows user overwrite
+  # crosscal_ms:
+  ## polcal field will be found automatically but allows user overwrite
+  # polcal_field:
+  # use -fit-rm during polcal imaging? Only works with WSClean 3.7+ Disable below.
+  no_fit_rm: true
+  # image gain cal as well?
+  image_gaincal: false
+
+
+selfcal:
+  # selfcal with facetselfcal. This does DI, DD, and Extraction.
+  enable: true
+
+  # do more edge channel clipping.
+  # note that the user must be aware of averaging done by caracal
+  # default template strategy averages a factor 4 in freq
+  selfcal_clip_chan_start: 20
+  selfcal_clip_total_nchan: 894
+
+  # imsize and pixelsize (arcsec) for the imaging in the selfcal loop.
+  imsize: 8192
+  pixelsize: 1 
+
+  # hand-crafted directions of bright sources to identify facets for DDcal
+  ddcal_facetdirections: /path/to/directions_brightsources_facets.reg
+
+  # for the extract step, remove sources outside a box of this size around phase center
+  remove_outside_center_box: 1.5
+
