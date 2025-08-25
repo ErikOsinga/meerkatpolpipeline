@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 
 import numpy as np
 
@@ -87,6 +88,8 @@ def parse_args():
     )
     return parser.parse_args()
 
+def get_script_dir() -> str:
+    return os.path.dirname(os.path.abspath(__file__))
 
 def setup_logging(prefix: str):
     """ deprecated
@@ -196,6 +199,9 @@ def main():
             setjy(vis=calms, field=cal, standard='Stevens-Reynolds 2016', usescratch=True)
 
         elif cal == 'J0408-6545':
+            # cal_J0408.py should be in the same directory as this script
+            script_dir = get_script_dir()
+            sys.path.append(script_dir)
             import cal_J0408
             freqs = np.linspace(0.9, 2, 200) * 1e9
             a, b, c, d = -0.9790, 3.3662, -1.1216, 0.0861
