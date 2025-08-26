@@ -61,7 +61,7 @@ def go_wsclean_smallcubes_target(
         niter=75000,
         scale="2.5arcsec",
         taper_gaussian="10.0arcsec",
-        apply_primary_beam=True,
+        apply_primary_beam=False,
     )
 
     # ----- Stokes I (multiscale ON) -----
