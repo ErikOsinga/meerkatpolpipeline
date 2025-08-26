@@ -56,7 +56,7 @@ def run_singularity_command(
     bind_dirs: Path | Collection[Path] | None = None,
     stream_callback_func: Callable | None = None,
     ignore_logging_output: bool = False,
-    max_retries: int = 2,
+    max_retries: int = 1,
     options: list | None = None,
 ) -> None:
     """Executes a command within the context of a nominated singularity
