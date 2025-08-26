@@ -25,7 +25,7 @@ def go_wsclean_smallcubes_target(
     ms: Path,
     working_dir: Path,
     lofar_container: Path,
-    cube_imaging_options: SmallCubeImagingOptions
+    cube_imaging_options: dict | SmallCubeImagingOptions
 ) -> tuple[ImageSet, ImageSet, ImageSet]:
     """
     Image the TARGET field in I + Q + U using some default settings.
@@ -36,7 +36,7 @@ def go_wsclean_smallcubes_target(
     """
 
     logger = get_run_logger()
-    logger.info(f"Starting WSClean imaging for target field {cube_imaging_options.targetfield} in {working_dir}")
+    logger.info(f"Starting WSClean imaging for target field {cube_imaging_options['targetfield']} in {working_dir}")
 
     # Common parameters between I and QU
     common = dict(
