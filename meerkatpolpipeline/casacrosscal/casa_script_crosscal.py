@@ -167,7 +167,7 @@ def main():
     do_flags = False # we flag outside the script
     selfcal_xcal = True
     model_xcal = True
-    split_xcal = True
+    split_xcal = False # will be done outside the script
     apply_target = True
 
     # ensure output dir
