@@ -240,7 +240,7 @@ def process_science_fields(
             crosscal_dir.mkdir(exist_ok=True) # runs can be repeated
 
             task_casa_crosscal = task(casacrosscal.do_casa_crosscal, name="casa_crosscal")
-            calibrated_target_ms = task_casa_crosscal(
+            calibrated_cal_ms, calibrated_target_ms = task_casa_crosscal(
                 crosscal_options, 
                 preprocessed_ms, 
                 crosscal_dir, 
@@ -264,9 +264,7 @@ def process_science_fields(
     else:
         logger.warning("Crosscal is disabled. Skipping cross-calibration.")
         crosscal_dir = None
-        
 
-    # check if we are proceeding with a caracal-cal.ms or a casacrosscal-cal.ms based on user options
     if crosscal_dir is None:
         logger.warning(f"No cross-calibration step was performed, checking for calibrated MS in {crosscal_base_dir} subdirectories")
         
@@ -278,7 +276,7 @@ def process_science_fields(
         calibrated_target_ms = find_calibrated_ms(
             crosscal_base_dir,
             preprocessed_ms,
-            suffix=f"-{strategy['targetfield']}-corr.ms"
+            suffix="-corr.ms"
         )
     
     
@@ -286,6 +284,8 @@ def process_science_fields(
             raise ValueError(
                 f"No calibrated target/cal measurement set found in {crosscal_base_dir}. Please enable either caracal or casacrosscal step in the strategy file."
             )
+        logger.info(f"Found calibrated target MS at {calibrated_target_ms} and calibrated cal MS at {calibrated_cal_ms}.")
+        logger.info("Assuming field intents CSV is available in the crosscal directory. If not, please enable crosscal step.")
 
         # set crosscal dir wherever the calibrated MS was found
         crosscal_dir = calibrated_target_ms.parent
