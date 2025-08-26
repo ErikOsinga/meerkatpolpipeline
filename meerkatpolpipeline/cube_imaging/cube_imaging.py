@@ -83,6 +83,9 @@ def go_wsclean_smallcubes_target(
         expected_pols=["i"],
     )
 
+    # >>> Primary beam correction can only be performed on Stokes I, polarizations (XX,YY) or when imaging all four polarizations.
+
+
     # ----- Stokes QU (multiscale OFF) -----
     # Build fresh options to avoid inheriting multiscale from I.
     opts_QU = WSCleanOptions(
