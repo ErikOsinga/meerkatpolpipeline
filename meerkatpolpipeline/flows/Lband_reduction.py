@@ -139,7 +139,6 @@ def process_science_fields(
     crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
     crosscal_base_dir.mkdir(exist_ok=True) # runs can be repeated
 
-    # will be written either by caracal step, or CASA (TODO)
     field_intents_csv = crosscal_base_dir / "field_intents.csv"
 
     if "crosscal" in enabled_operations:

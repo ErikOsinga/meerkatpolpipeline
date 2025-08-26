@@ -176,6 +176,14 @@ def do_casa_crosscal(
             options=["--pwd", str(crosscal_dir)]  # execute command in crosscal/casacrosscal workdir
         )
 
+        leakcal = fcal  # use fcal for leakcal
+        logger.info(f"Defaulting to fcal as leakage calibrator: {fcal}")
+        
+        # TODO: consider if we want to use only one leakage calibrator if multiple are present?
+        # if ',' in leakcal:
+        #     leakcal = leakcal.split(',')[0]
+        #     logger.info(f"Found two input flux calibrators {fcal=}. Using only the first one as leakage cal: {leakcal}")
+
         # run casa crosscal script
         cmd_casa = f"""casa --nologger --nogui -c '{casa_script}' \
             --calms {cal_ms} \
@@ -184,7 +192,7 @@ def do_casa_crosscal(
             --bpcal {bpcal} \
             --gcal {gcal} \
             --xcal {xcal} \
-            --leakcal {fcal} \
+            --leakcal {leakcal} \
         """
 
         logger.info("Running casa crosscal script.")

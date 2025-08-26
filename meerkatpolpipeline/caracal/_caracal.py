@@ -198,13 +198,15 @@ def get_field_ids(ms_path: str, fieldnames: list[str]) -> dict[str, int]:
         names = t.getcol("NAME")
 
     result = {}
-    for fname in fieldnames:
-        matches = [i for i, n in enumerate(names) if n == fname]
-        if len(matches) == 0:
-            raise ValueError(f"Fieldname '{fname}' not found in {ms_path}.")
-        if len(matches) > 1:
-            raise ValueError(f"Fieldname '{fname}' is not unique in {ms_path} (found IDs {matches}).")
-        result[fname] = matches[0]
+    for fname_str in fieldnames:
+        # fieldname can be a casa stringlist, split it
+        for fname in fname_str.split(","):
+            matches = [i for i, n in enumerate(names) if n == fname]
+            if len(matches) == 0:
+                raise ValueError(f"Fieldname '{fname}' not found in {ms_path}.")
+            if len(matches) > 1:
+                raise ValueError(f"Fieldname '{fname}' is not unique in {ms_path} (found IDs {matches}).")
+            result[fname] = matches[0]
 
     return result
 
@@ -255,16 +257,20 @@ def write_crosscal_csv(
             intent = intent_map.get(key)
             if intent is None:
                 raise ValueError(f"Intent for key '{key}' not found in intent_map. Please check the crosscal_options.")
-            # get the field ID for this fieldname
-            field_id = ids_dict.get(fieldname)
-            if not field_id:
-                raise ValueError(f"Field name '{fieldname}' not found in the MS '{ms}'. Please check the field names.")
-            # write each field ID with the corresponding field name and intent
-            writer.writerow({
-                "field_id": field_id,  # take the first ID if there are multiple
-                "field_name": fieldname,
-                "intent_string": intent
-            })
+            
+            for fname in fieldname.split(','): # fieldname can be a casa stringlist
+                # get the field ID for this fieldname
+                field_id = ids_dict.get(fname)
+
+                if field_id is None:
+                    raise ValueError(f"Field name '{fname}' not found in the MS '{ms}'. Please check the field names.")
+                
+                # write each field ID with the corresponding field name and intent
+                writer.writerow({
+                    "field_id": field_id,  
+                    "field_name": fname,
+                    "intent_string": intent
+                })
 
     return output_path
 
