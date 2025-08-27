@@ -65,6 +65,11 @@ class CrossCalOptions(BaseOptions):
     """reference antenna"""
     test: bool = False
     """create the caracal command but dont run it, for testing purposes only"""
+    freqbin_casa: int = 4
+    """frequency averaging (factor) to apply after calibrating with casa"""
+    timebin_casa: str = '16s'
+    """time averaging (width of tartget time step) after calibrating with casa"""
+
 
 class CaracalConfigFile(BaseOptions):
     """A class to hold values for the caracal polcal.yaml file, see the template caracal file

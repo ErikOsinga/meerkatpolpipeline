@@ -33,23 +33,42 @@ class CheckCalibratorOptions(BaseOptions):
     """ also make an image of the gain calibrator? Default False"""
 
     
-def split_calibrator(
-        cal_ms_path: Path,
-        cal_field: str,
+def split_field(
+        ms_path: Path,
+        field: str,
         casa_container: Path,
         output_ms: Path | None = None,
         bind_dirs: list[Path] | None = None,
         chanbin: int = 16,
+        timebin: str | None = None,
         datacolumn: str = "corrected",
     ) -> Path:
     """
-    Split the (polarisation/gain/bandpass/flux) calibrator with default 16x channel averaging.
+    Split any field from a measurement set using mstransform.
+    
+    Can use e.g. to split (polarisation/gain/bandpass/flux) calibrator with default 16x channel averaging.
+    or to split target field with no channel averaging (chanbin=1).
+
+    Args:
+        ms_path (Path): Path to the input measurement set.
+        field (str): Field name or ID to split out.
+        casa_container (Path): Path to the container with the casa installation.
+        output_ms (Path | None): Path to the output measurement set. If None, will be created in the same directory as ms_path with suffix '-{field}.ms'.
+        bind_dirs (list[Path] | None): List of directories to bind to the container.
+        chanbin (int): Number of channels to average together. Default is 16.
+        timebin (str | None): Time interval to average together, e.g. "16s". Default is None (no time averaging).
+        datacolumn (str): Data column to use. Default is "corrected".
+
+    Returns:
+        output_ms (Path): Path to the output measurement set.
+    
+
     """
     if output_ms is None:
-        output_ms = cal_ms_path.with_name(cal_ms_path.stem + f"-{cal_field}.ms")
+        output_ms = ms_path.with_name(ms_path.stem + f"-{field}.ms")
 
     logger = get_run_logger()
-    logger.info(f"Splitting {cal_field} from {cal_ms_path} to {output_ms}")
+    logger.info(f"Splitting {field} from {ms_path} to {output_ms}")
 
     if output_ms.exists():
         logger.info(f"Output MS {output_ms} already exists, skipping split.")
@@ -62,15 +81,24 @@ def split_calibrator(
         logger.info(f"Channel binning requested, chanbin={chanbin}. Will average channels.")
         chanaverage = True
 
+    if timebin is not None:
+        logger.info(f"Time binning requested, timebin={timebin}. Will average in time.")
+        timeaverage = True
+    else:
+        logger.info("No time binning requested, timebin=None. Will not average in time.")
+        timeaverage = False
+
     casa_command(
         task="mstransform",
-        vis=cal_ms_path,
+        vis=ms_path,
         outputvis=output_ms,
         datacolumn=datacolumn,
-        field=cal_field,
+        field=field,
         spw="",
         chanaverage=chanaverage,
         chanbin=chanbin, # e.g. 16x averaging
+        timeaverage=timeaverage,
+        timebin=timebin, # e.g. "16s"
         keepflags=True,
         usewtspectrum=False,
         hanning=False,
@@ -260,9 +288,9 @@ def check_calibrator(
     """
     logger = get_run_logger()
 
-    polcal_ms = split_calibrator(
-        cal_ms_path=check_calibrator_options['crosscal_ms'],
-        cal_field=check_calibrator_options['polcal_field'],
+    polcal_ms = split_field(
+        ms_path=check_calibrator_options['crosscal_ms'],
+        field=check_calibrator_options['polcal_field'],
         output_ms=working_dir / "polcal.ms",
         casa_container=casa_container,
         bind_dirs=bind_dirs,
@@ -318,9 +346,9 @@ def image_gaincal(
 
     logger.info(f"Gaincal imaging requested. Will image gain calibrator in {working_dir}.")
 
-    gaincal_ms = split_calibrator(
-        cal_ms_path=check_calibrator_options['crosscal_ms'],
-        cal_field=gaincal_field,
+    gaincal_ms = split_field(
+        ms_path=check_calibrator_options['crosscal_ms'],
+        field=gaincal_field,
         output_ms=working_dir / "gaincal.ms",
         casa_container=casa_container,
         bind_dirs=bind_dirs + [working_dir],

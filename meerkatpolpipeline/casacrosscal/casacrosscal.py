@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from casacore.tables import table
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.caracal._caracal import CrossCalOptions, obtain_by_intent
-from meerkatpolpipeline.check_calibrator.check_calibrator import split_calibrator
+from meerkatpolpipeline.check_calibrator.check_calibrator import split_field
 from meerkatpolpipeline.sclient import singularity_wrapper
 
 
@@ -93,6 +94,15 @@ def do_casa_crosscal(
         
     logger.info(f"Starting casa crosscal in {crosscal_dir} with options: {crosscal_options}")
 
+
+    # check if calibrated target MS already exists.
+    if (crosscal_dir / (preprocessed_ms.stem + "-target-corr.ms")).exists():
+        logger.info(f"Calibrated target MS {crosscal_dir / (preprocessed_ms.stem + '-target-corr.ms')} already exists. Skipping casa crosscal step.")
+        cal_ms = crosscal_dir / (preprocessed_ms.stem + "-cal.ms")
+        calibrated_target_ms = crosscal_dir / (preprocessed_ms.stem + "-target-corr.ms")
+        return cal_ms, calibrated_target_ms
+
+    # otherwise, continue with casa crosscal step. First, determine calibrators
     if not crosscal_options['auto_determine_obsconf']:
         logger.info("Using user-supplied calibrators for caracal reduction")
 
@@ -110,13 +120,12 @@ def do_casa_crosscal(
 
     logger.info(f"Using calibrators: {calibrators}, with fcal: {fcal}, bpcal: {bpcal}, gcal: {gcal}, xcal: {xcal}")
 
-
     logger.info(f"Splitting off calibrator and target into separate MS in {crosscal_dir}")
 
     # Split calibrator, will be skipped if already exists
-    cal_ms = split_calibrator(
-        cal_ms_path=preprocessed_ms,
-        cal_field=','.join(calibrators), # casa stringlist
+    cal_ms = split_field(
+        ms_path=preprocessed_ms,
+        field=','.join(calibrators), # casa stringlist
         casa_container=casa_container,
         output_ms=crosscal_dir / (preprocessed_ms.stem + "-cal.ms"),
         bind_dirs=bind_dirs,
@@ -127,85 +136,96 @@ def do_casa_crosscal(
     targetfield = crosscal_options['targetfield']
 
     # Split target, will be skipped if already exists
-    target_ms = split_calibrator(
-        cal_ms_path=preprocessed_ms,
-        cal_field=targetfield,
+    target_ms = split_field(
+        ms_path=preprocessed_ms,
+        field=targetfield,
         casa_container=casa_container,
-        output_ms=crosscal_dir / (preprocessed_ms.stem + "-target-corr.ms"),
+        output_ms=crosscal_dir / (preprocessed_ms.stem + "-target.ms"),
         bind_dirs=bind_dirs,
         chanbin=1,
         datacolumn="DATA"
     )
 
+    logger.info(f"Running aoflagger on calibrator measurementset {cal_ms}")
 
-    # Check if the target MS is already calibrated
-    tb = table(str(target_ms), readonly=True)
-    if 'CORRECTED_DATA' in tb.colnames():
-        tb.close()
-        logger.info(f"Target MS {target_ms} already contains CORRECTED_DATA column, assuming it is already calibrated. Skipping crosscal step.")
-        return cal_ms, target_ms
+    from meerkatpolpipeline.casacrosscal import (
+        cal_J0408,  # cant import casa scripts
+    )
+    casa_script = Path(cal_J0408.__file__).parent / "casa_script_crosscal.py"
+    aoflagger_strategy = Path(cal_J0408.__file__).parent / "default_StokesQUV.lua"
+
+    # cant run aoflagger inside the casa script because it requires a different container
+    binding_dir_aof = [cal_ms.parent, aoflagger_strategy.parent, crosscal_dir]
+
+    # initial flagging on raw data
+    cal_fields = ','.join(calibrators)  # casa stringlist
+
+    cmd_aoflagger = f"""aoflagger -strategy {aoflagger_strategy} \
+        --fields {cal_fields} \
+        {cal_ms}
+    """
+
+    logger.info("Running aoflagger")
+
+    run_aoflagger(
+        cmd_aoflagger=cmd_aoflagger,
+        container=lofar_container,
+        bind_dirs=binding_dir_aof,
+        options=["--pwd", str(crosscal_dir)]  # execute command in crosscal/casacrosscal workdir
+    )
+
+    leakcal = fcal  # use fcal for leakcal
+    logger.info(f"Defaulting to fcal as leakage calibrator: {fcal}")
     
+    # TODO: consider if we want to use only one leakage calibrator if multiple are present?
+    # if ',' in leakcal:
+    #     leakcal = leakcal.split(',')[0]
+    #     logger.info(f"Found two input flux calibrators {fcal=}. Using only the first one as leakage cal: {leakcal}")
+
+    # run casa crosscal script
+    cmd_casa = f"""casa --nologger --nogui -c '{casa_script}' \
+        --calms {cal_ms} \
+        --targetms {target_ms} \
+        --fcal {fcal} \
+        --bpcal {bpcal} \
+        --gcal {gcal} \
+        --xcal {xcal} \
+        --leakcal {leakcal} \
+    """
+
+    logger.info("Running casa crosscal script.")
+
+    # run the casa crosscal script
+    # all arguments should be given as kwargs to not confuse singularity wrapper
+    run_casa_script(
+        cmd_casa=cmd_casa,
+        container=casa_container,
+        bind_dirs=bind_dirs+[casa_script.parent],
+        options = ["--pwd", str(crosscal_dir)] # execute command in crosscal/casacrosscal workdir
+    )
+    
+    logger.info(f"Copying CORRECTED_DATA to DATA column and averaging to {crosscal_options['timebin_casa']} bin width in time and averaging a factor {crosscal_options['freqbin_casa']} in freq.")
+    
+    # split + average corrected target to a new MS.
+    calibrated_target_ms = split_field(
+        ms_path=target_ms,
+        field=targetfield,
+        casa_container=casa_container,
+        output_ms=crosscal_dir / (preprocessed_ms.stem + "-target-corr.ms"),
+        bind_dirs=bind_dirs,
+        chanbin=crosscal_options['freqbin_casa'],
+        timebin=crosscal_options['timebin_casa'],
+        datacolumn="CORRECTED_DATA"
+    )
+
+    # remove the uncalibrated target MS to save space
+    if target_ms.exists():
+        logger.info(f"Removing uncalibrated target MS {target_ms} to save space.")
+        table(str(target_ms)).unlock()
+        shutil.rmtree(target_ms)
     else:
-        tb.close()
+        raise FileNotFoundError(f"Expected uncalibrated target MS {target_ms} to exist, but it does not.")
     
-        logger.info(f"Running aoflagger on calibrator measurementset {cal_ms}")
-    
-        from meerkatpolpipeline.casacrosscal import (
-            cal_J0408,  # cant import casa scripts
-        )
-        casa_script = Path(cal_J0408.__file__).parent / "casa_script_crosscal.py"
-        aoflagger_strategy = Path(cal_J0408.__file__).parent / "default_StokesQUV.lua"
+    logger.info(f"Casa crosscal completed, calibrated target MS saved at {calibrated_target_ms}")
 
-        # cant run aoflagger inside the casa script because it requires a different container
-        binding_dir_aof = [cal_ms.parent, aoflagger_strategy.parent, crosscal_dir]
-
-        # initial flagging on raw data
-        cal_fields = ','.join(calibrators)  # casa stringlist
-
-        cmd_aoflagger = f"""aoflagger -strategy {aoflagger_strategy} \
-            --fields {cal_fields} \
-            {cal_ms}
-        """
-
-        logger.info("Running aoflagger")
-
-        run_aoflagger(
-            cmd_aoflagger=cmd_aoflagger,
-            container=lofar_container,
-            bind_dirs=binding_dir_aof,
-            options=["--pwd", str(crosscal_dir)]  # execute command in crosscal/casacrosscal workdir
-        )
-
-        leakcal = fcal  # use fcal for leakcal
-        logger.info(f"Defaulting to fcal as leakage calibrator: {fcal}")
-        
-        # TODO: consider if we want to use only one leakage calibrator if multiple are present?
-        # if ',' in leakcal:
-        #     leakcal = leakcal.split(',')[0]
-        #     logger.info(f"Found two input flux calibrators {fcal=}. Using only the first one as leakage cal: {leakcal}")
-
-        # run casa crosscal script
-        cmd_casa = f"""casa --nologger --nogui -c '{casa_script}' \
-            --calms {cal_ms} \
-            --targetms {target_ms} \
-            --fcal {fcal} \
-            --bpcal {bpcal} \
-            --gcal {gcal} \
-            --xcal {xcal} \
-            --leakcal {leakcal} \
-        """
-
-        logger.info("Running casa crosscal script.")
-
-        # run the casa crosscal script
-        # all arguments should be given as kwargs to not confuse singularity wrapper
-        run_casa_script(
-            cmd_casa=cmd_casa,
-            container=casa_container,
-            bind_dirs=bind_dirs+[casa_script.parent],
-            options = ["--pwd", str(crosscal_dir)] # execute command in crosscal/casacrosscal workdir
-        )
-       
-        logger.info(f"Casa crosscal completed, target MS saved at {target_ms}")
-
-        return cal_ms, target_ms
+    return cal_ms, calibrated_target_ms
