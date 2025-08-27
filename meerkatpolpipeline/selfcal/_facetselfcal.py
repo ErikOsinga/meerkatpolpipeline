@@ -194,7 +194,7 @@ def create_facetselfcal_command(
             # facetselfcal expects lists literally as strings
             # without whitespace
             v = str(val)
-            v = re.sub("[\s]*", "", v)
+            v = re.sub(r"[\s]*", "", v)
             cmd_parts.extend([flag, v])
         elif isinstance(val, tuple):
             cmd_parts.extend([flag, ",".join(str(v) for v in val)])

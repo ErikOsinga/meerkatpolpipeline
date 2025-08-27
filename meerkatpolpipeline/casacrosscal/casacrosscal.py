@@ -183,7 +183,7 @@ def do_casa_crosscal(
     #     logger.info(f"Found two input flux calibrators {fcal=}. Using only the first one as leakage cal: {leakcal}")
 
     # run casa crosscal script
-    cmd_casa = f"""casa --nologger --nogui -c '{casa_script}' \
+    cmd_casa = f"""casa --nologger --nogui -c {casa_script} \
         --calms {cal_ms} \
         --targetms {target_ms} \
         --fcal {fcal} \
