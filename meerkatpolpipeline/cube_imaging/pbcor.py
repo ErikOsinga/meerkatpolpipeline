@@ -161,7 +161,7 @@ def pbcor_allchan(globstr_original, globstr_pbcor, verbose=False) -> list[Path]:
         print(f"original_files={pbcor_files[:10]}")
 
     all_corrected = []
-    for i, (original, pbcor) in enumerate(zip(original_files,pbcor_files),total=len(original_files)):
+    for i, (original, pbcor) in enumerate(zip(original_files,pbcor_files)):
         if "MFS" in original:
             if verbose:
                 print(f"Skipping MFS image {original}")
