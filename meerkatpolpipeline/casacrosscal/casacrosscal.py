@@ -220,11 +220,11 @@ def do_casa_crosscal(
 
     # remove the uncalibrated target MS to save space
     if target_ms.exists():
-        logger.info(f"Removing uncalibrated target MS {target_ms} to save space.")
+        logger.info(f"Removing un-averaged target MS {target_ms} to save space.")
         table(str(target_ms)).unlock()
         shutil.rmtree(target_ms)
     else:
-        raise FileNotFoundError(f"Expected uncalibrated target MS {target_ms} to exist, but it does not.")
+        raise FileNotFoundError(f"Expected (un)calibrated target MS {target_ms} to exist, but it does not.")
     
     logger.info(f"Casa crosscal completed, calibrated target MS saved at {calibrated_target_ms}")
 
