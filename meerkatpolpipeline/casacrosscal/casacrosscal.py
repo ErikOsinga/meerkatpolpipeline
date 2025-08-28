@@ -215,7 +215,7 @@ def do_casa_crosscal(
         bind_dirs=bind_dirs,
         chanbin=crosscal_options['freqbin_casa'],
         timebin=crosscal_options['timebin_casa'],
-        datacolumn="CORRECTED_DATA"
+        datacolumn="corrected"
     )
 
     # remove the uncalibrated target MS to save space
