@@ -86,7 +86,7 @@ def go_wsclean_smallcubes_target(
         expected_pols=["i"],
     )
 
-    imageset_I = pbcor_smallcubes_target(imageset_I, working_dir / "pbcor_images")
+    imageset_I = pbcor_smallcubes_target(imageset_I, working_dir / "pbcor_images", pol='i')
 
     # ----- Stokes QU (multiscale OFF) -----
     # Build fresh options to avoid inheriting multiscale from I.
@@ -119,7 +119,7 @@ def go_wsclean_smallcubes_target(
     return imageset_I, imageset_Q, imageset_U
 
 
-def pbcor_smallcubes_target(imset: ImageSet, outdir_pbcor_images: Path) -> ImageSet:
+def pbcor_smallcubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> ImageSet:
     """
     Do PB correction for cubes made in go_wsclean_smallcubes_target.
     """
@@ -128,7 +128,12 @@ def pbcor_smallcubes_target(imset: ImageSet, outdir_pbcor_images: Path) -> Image
     path_split = str(imset.image[0]).split("-0000-")
     assert len(path_split) == 2, f"Cannot parse image name {imset.image[0]}. Expected '-0000-' in the name."
 
-    globstr = path_split[0] + "-*image.fits"
+    if pol.lower() == 'i':
+        globstr = path_split[0] + "-*image.fits"
+    elif pol.lower() == 'q':
+        globstr = path_split[0] + "-*Q-image.fits"
+    elif pol.lower() == 'u':
+        globstr = path_split[0] + "-*U-image.fits"
 
     # TODO: make script aware of Meerkat Band (eg. L or UHF)
     print("TODO: make script aware of Meerkat Band (eg. L or UHF)")
