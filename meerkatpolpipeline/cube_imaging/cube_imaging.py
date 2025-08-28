@@ -113,8 +113,8 @@ def go_wsclean_smallcubes_target(
     )
     imageset_Q, imageset_U = imagesets_QU
 
-    imageset_Q = pbcor_smallcubes_target(imageset_Q, working_dir / "pbcor_images")
-    imageset_U = pbcor_smallcubes_target(imageset_U, working_dir / "pbcor_images")
+    imageset_Q = pbcor_smallcubes_target(imageset_Q, working_dir / "pbcor_images", pol='q')
+    imageset_U = pbcor_smallcubes_target(imageset_U, working_dir / "pbcor_images", pol='u')
 
     return imageset_I, imageset_Q, imageset_U
 
