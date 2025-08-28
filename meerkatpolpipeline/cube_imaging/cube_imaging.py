@@ -125,8 +125,8 @@ def pbcor_smallcubes_target(imset: ImageSet, outdir_pbcor_images: Path) -> Image
     """
     outdir_pbcor_images.mkdir(parents=True, exist_ok=True)
 
-    path_split = str(imset.image[0]).split("-0000-image")
-    assert len(path_split) == 2, f"Cannot parse image name {imset.image[0]}. Expected '-0000-image' in the name."
+    path_split = str(imset.image[0]).split("-0000-")
+    assert len(path_split) == 2, f"Cannot parse image name {imset.image[0]}. Expected '-0000-' in the name."
 
     globstr = path_split[0] + "-*image.fits"
 
