@@ -33,6 +33,8 @@ class ImageSet(BaseOptions):
     """Residual images."""
     source_list: Path | None = None
     """Path to a source list that accompanies the image data"""
+    image_pbcor: list[Path] | None = None
+    """Primary beam corrected images, if primary beam correction was applied."""
 
 
 class WSCleanOptions(BaseOptions):

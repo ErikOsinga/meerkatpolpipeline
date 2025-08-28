@@ -4,6 +4,7 @@ from pathlib import Path
 
 from prefect.logging import get_run_logger
 
+from meerkatpolpipeline.cube_imaging.pbcor import calculate_pb, pbcor_allchan
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, WSCleanOptions, run_wsclean
 
@@ -64,6 +65,8 @@ def go_wsclean_smallcubes_target(
         apply_primary_beam=False,
     )
 
+    # >>> Primary beam correction can only be performed on Stokes I, polarizations (XX,YY) or when imaging all four polarizations.
+
     # ----- Stokes I (multiscale ON) -----
     opts_I = WSCleanOptions(
         **common,
@@ -83,8 +86,7 @@ def go_wsclean_smallcubes_target(
         expected_pols=["i"],
     )
 
-    # >>> Primary beam correction can only be performed on Stokes I, polarizations (XX,YY) or when imaging all four polarizations.
-
+    imageset_I = pbcor_smallcubes_target(imageset_I, working_dir / "pbcor_images")
 
     # ----- Stokes QU (multiscale OFF) -----
     # Build fresh options to avoid inheriting multiscale from I.
@@ -111,4 +113,29 @@ def go_wsclean_smallcubes_target(
     )
     imageset_Q, imageset_U = imagesets_QU
 
+    imageset_Q = pbcor_smallcubes_target(imageset_Q, working_dir / "pbcor_images")
+    imageset_U = pbcor_smallcubes_target(imageset_U, working_dir / "pbcor_images")
+
     return imageset_I, imageset_Q, imageset_U
+
+
+def pbcor_smallcubes_target(imset: ImageSet, outdir_pbcor_images: Path) -> ImageSet:
+    """
+    Do PB correction for cubes made in go_wsclean_smallcubes_target.
+    """
+
+    path_split = str(imset.image[0]).split("-0000-image")
+    assert len(path_split) == 2, f"Cannot parse image name {imset.image[0]}. Expected '-0000-image' in the name."
+
+    globstr = path_split[0] + "-*image.fits"
+
+    print("TODO: make aware of Meerkat Band (eg. L or UHF)")
+    calculate_pb(globstr, band='L', outdir=outdir_pbcor_images)
+
+    globstr_pbcor = f"{outdir_pbcor_images}/*-I-pb_model.fits"
+
+    all_corrected = pbcor_allchan(globstr, globstr_pbcor, verbose=False)
+
+    imset = imset.with_options(image_pbcor=all_corrected)
+
+    return imset

@@ -25,6 +25,7 @@ dependencies = [
     "python-casacore",
     "regions",
     "tables",
+    "katbeam",
 ]
 
 classifiers = [
