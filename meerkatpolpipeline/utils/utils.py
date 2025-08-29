@@ -44,6 +44,8 @@ def read_fits_data_and_frequency(filename: Path) -> tuple[np.ndarray, np.ndarray
     # remove freq and stokes axis
     if len(data.shape) == 4:
         data = data[0,0]
+    if len(data.shape) == 3:
+        data = data[0]
 
     return data, frequency, wcs
 
