@@ -3,9 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.constants import c
+from astropy.io import fits
 from configargparse import ArgumentParser
 from prefect.logging import get_run_logger
 from regions import Regions
@@ -84,7 +86,35 @@ def determine_model(src: str) -> tuple[Callable,Callable,Callable]:
     return I_model, EVPA_model, polfrac_model
 
 
-def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.ndarray, np.ndarray, float]:
+def get_Nbeams_for_region(head: fits.Header, ellipsemask: np.ndarray) -> float:
+    """
+    Calculate how much beams are covered by the region defined by ellipsemask.
+
+    Returns: 
+        Nbeams -- float -- amount of beams covered by the region
+    """
+    # BEAM AND PIXEL INFORMATION
+    bmaj      = head['BMIN']*u.deg
+    bmin      = head['BMAJ']*u.deg
+
+    beammaj = bmaj/(2.*(2.*np.log(2.))**0.5) # Convert to sigma
+    beammin = bmin/(2.*(2.*np.log(2.))**0.5) # Convert to sigma
+    pix_area  = abs(head['CDELT1']*head['CDELT2'])*u.deg*u.deg
+    beam_area = 2.*np.pi*1.0*beammaj*beammin # beam area in 
+    beam2pix  = beam_area/pix_area # beam area in pixels
+
+    # Find how many pixels this source covers 
+    Npix = np.sum(ellipsemask)
+    if beam2pix == 0:
+        # ill defined, return NaN
+        return np.nan
+    
+    Nbeams = (Npix/beam2pix).value
+
+    return Nbeams
+
+
+def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.ndarray, np.ndarray, float, np.ndarray]:
     """Calculate total flux and peak flux for a source in a FITS file using a DS9 region file.
     
     Args:
@@ -95,15 +125,19 @@ def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.
             - total_fluxes: Total flux density in Jy for each region in the region file.
             - peak_fluxes: Peak flux density in Jy/beam for each region in the region file.
             - freq: Frequency in Hz from the FITS file.
+            - Nbeams: Number of beams covered by each region.
 
     """
     data, freq, wcs = read_fits_data_and_frequency(filename)
+    
+    header = fits.getheader(filename)
     
     # Load the DS9 region file
     regions = Regions.read(region_file)
     
     total_fluxes = []
     peak_fluxes = []
+    Nbeams = []
 
     for r in regions:
         # Convert region to pixel coordinates
@@ -129,7 +163,10 @@ def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.
         total_fluxes.append(total_flux)
         peak_fluxes.append(peak_flux)
 
-    return np.array(total_fluxes), np.array(peak_fluxes), freq
+        # calculate Nbeams for information
+        Nbeams.append(get_Nbeams_for_region(header, ellipsemask))
+
+    return np.array(total_fluxes), np.array(peak_fluxes), freq, np.array(Nbeams)
 
 
 def plot_total_intensity_spectrum(
@@ -293,6 +330,8 @@ def get_fluxes(imageset: ImageSet, region_file: Path) -> tuple[np.ndarray, np.nd
     peakflux = []
     # freqs
     frequencies = []
+    # Nbeams
+    Nbeams = []
 
     # calculate fluxes for each image in the imageset
     for filename in imageset.image: # should be sorted by default
@@ -300,11 +339,12 @@ def get_fluxes(imageset: ImageSet, region_file: Path) -> tuple[np.ndarray, np.nd
         if "MFS" in filename.name:
             continue
 
-        fluxes, peaks, freq = calculate_flux_and_peak_flux(filename, region_file)
+        fluxes, peaks, freq, Nbeam = calculate_flux_and_peak_flux(filename, region_file)
 
         totalflux.append(fluxes)
         peakflux.append(peaks)
         frequencies.append(freq)
+        Nbeams.append(Nbeam)
 
     # convert to numpy arrays
     totalflux = np.array(totalflux) # shape (nfreq, n_regions)
