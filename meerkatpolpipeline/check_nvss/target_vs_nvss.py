@@ -124,40 +124,29 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def parse_region_center(regfile: Path) -> tuple[float, float]:
+def parse_region_centers(regfile: Path) -> list[SkyCoord]:
     """
-    Return RA, Dec (deg) for the first region in a DS9 region file.
+    Return a list of SkyCoord centers for all regions in a DS9 region file.
 
     Parameters
     ----------
     regfile : Path
-        Path to DS9 region file.
+        DS9 region file.
 
     Returns
     -------
-    tuple[float, float]
-        (ra_deg, dec_deg) of the first region's center.
-
-    Notes
-    -----
-    Uses `regions.Regions.read` when possible. Falls back to a
-    lightweight circle parser if the file cannot be parsed by `regions`.
+    list[SkyCoord]
+        Centers of all regions in the file, in ICRS.
     """
-    try:
-        regs = Regions.read(str(regfile))
-        if len(regs) == 0:
-            raise ValueError(f"No regions found in {regfile}")
-        center = regs[0].center
+    regs = Regions.read(str(regfile))
+    if len(regs) == 0:
+        raise ValueError(f"No regions found in {regfile}")
+    centers: list[SkyCoord] = []
+    for r in regs:
+        center = r.center
         sky = center.to_skycoord() if hasattr(center, "to_skycoord") else center
-        return float(sky.ra.deg), float(sky.dec.deg)
-    except Exception:
-        # fallback: minimal parser for lines containing "circle"
-        with open(regfile) as f:
-            for line in f:
-                if "circle" in line.lower():
-                    vals = line.split("(")[1].split(")")[0].split(",")
-                    return float(vals[0]), float(vals[1])
-    raise ValueError(f"No circle region found in {regfile}")
+        centers.append(SkyCoord(sky.ra, sky.dec))
+    return centers
 
 
 def collect_files(glob_stokesI: str, glob_stokesQ: str | None = None) -> list[str] | tuple[list[str], list[str], list[str]]:
@@ -218,51 +207,32 @@ def get_channel_frequencies(q_files: list[str]) -> np.ndarray:
     return np.asarray(freqs, dtype=float)
 
 
-def get_nvss_fluxes(args: argparse.Namespace, prefix: str) -> dict[str, float]:
+def get_nvss_fluxes(args: argparse.Namespace, prefix: str, region_index: int) -> dict[str, float]:
     """
-    Produce NVSS I/Q/U/p cutouts and compute integrated fluxes in the DS9 region.
-
-    Parameters
-    ----------
-    args : argparse.Namespace
-        Parsed args (uses ds9reg, nvss_size, nvss_dir, output_dir).
-    prefix : str
-        Base prefix for output files.
-
-    Returns
-    -------
-    dict[str, float]
-        {'freq': 1.4e9, 'flux_I': fi, 'flux_Q': fq, 'flux_U': fu, 'flux_P': fp}
-
-    Notes
-    -----
-    Currently assumes a single region in ds9reg.
+    Produce NVSS I/Q/U/p cutouts and compute integrated fluxes for a given region.
     """
-    ra, dec = parse_region_center(args.ds9reg)
+    centers = parse_region_centers(args.ds9reg)
+    ra, dec = float(centers[region_index].ra.deg), float(centers[region_index].dec.deg)
     cutouts = get_nvss_cutouts(ra, dec, args.nvss_size, args.nvss_dir)
 
     nvss_dir = args.output_dir / "nvsscutouts"
     nvss_dir.mkdir(parents=True, exist_ok=True)
-    base = nvss_dir / f"{prefix}_nvsscutout.fits"
+    base = nvss_dir / f"{prefix}_nvsscutout_r{region_index+1}.fits"
 
     write_nvss_cutouts(cutouts, base)
-    ifn = base.with_suffix(".I.fits")
-    qfn = base.with_suffix(".Q.fits")
-    ufn = base.with_suffix(".U.fits")
-    pfn = base.with_suffix(".p.fits")
+    ifn, qfn, ufn, pfn = base.with_suffix(".I.fits"), base.with_suffix(".Q.fits"), base.with_suffix(".U.fits"), base.with_suffix(".p.fits")
 
-    def _first_flux(fpath: Path) -> float:
-        fluxes, _, _, nbeams = calculate_flux_and_peak_flux(fpath, args.ds9reg)
-        _ = nbeams  # available if needed later
-        return float(fluxes[0])
+    def _flux_first(fpath: Path) -> float:
+        fluxes, _, _, _ = calculate_flux_and_peak_flux(fpath, args.ds9reg)
+        return float(fluxes[region_index])
 
-    fi = _first_flux(ifn)
-    fq = _first_flux(qfn)
-    fu = _first_flux(ufn)
-    fp = _first_flux(pfn)
-
-    # TODO: add uncertainties from NVSS maps (rms + beam)
-    return {"freq": 1.4e9, "flux_I": fi, "flux_Q": fq, "flux_U": fu, "flux_P": fp}
+    return {
+        "freq": 1.4e9,
+        "flux_I": _flux_first(ifn),
+        "flux_Q": _flux_first(qfn),
+        "flux_U": _flux_first(ufn),
+        "flux_P": _flux_first(pfn),
+    }
 
 
 def compute_uncertainty_pbcor(unc0: float, pb_files: list[str], ra: float, dec: float) -> np.ndarray:
@@ -309,34 +279,32 @@ def _first_region_flux_and_beams(fpath: str, region_file: Path) -> tuple[float, 
     return float(fluxes[0]), float(nbeams[0])
 
 
-def compute_fluxes(ifiles: list[str], qfiles: list[str], ufiles: list[str], region_file: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _region_flux_and_beams(fpath: str, region_file: Path, region_index: int) -> tuple[float, float]:
     """
-    Compute integrated fluxes and beam counts for I, Q, U over channels.
-
-    Parameters
-    ----------
-    ifiles, qfiles, ufiles : list[str]
-        File lists (aligned per-channel).
-    region_file : Path
-        DS9 region file.
+    Compute integrated flux and Nbeams for a specific region index.
 
     Returns
     -------
-    tuple of np.ndarray
-        (flux_I, flux_Q, flux_U, beams_I, beams_Q, beams_U), each 1D arrays.
+    tuple[float, float]
+        (flux, nbeams) for the specified region.
     """
-    flux_I: list[float] = []
-    flux_Q: list[float] = []
-    flux_U: list[float] = []
-    beams_I: list[float] = []
-    beams_Q: list[float] = []
-    beams_U: list[float] = []
+    fluxes, _, _, nbeams = calculate_flux_and_peak_flux(fpath, region_file)
+    return float(fluxes[region_index]), float(nbeams[region_index])
 
+
+def compute_fluxes(
+    ifiles: list[str], qfiles: list[str], ufiles: list[str], region_file: Path, region_index: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Compute integrated fluxes and beam counts for I, Q, U over channels
+    for a single region (selected by region_index).
+    """
+    flux_I, flux_Q, flux_U = [], [], []
+    beams_I, beams_Q, beams_U = [], [], []
     for i_f, q_f, u_f in zip(ifiles, qfiles, ufiles):
-        fI, bI = _first_region_flux_and_beams(i_f, region_file)
-        fQ, bQ = _first_region_flux_and_beams(q_f, region_file)
-        fU, bU = _first_region_flux_and_beams(u_f, region_file)
-
+        fI, bI = _region_flux_and_beams(i_f, region_file, region_index)
+        fQ, bQ = _region_flux_and_beams(q_f, region_file, region_index)
+        fU, bU = _region_flux_and_beams(u_f, region_file, region_index)
         flux_I.append(fI)
         beams_I.append(bI)
         flux_Q.append(fQ)
@@ -345,12 +313,12 @@ def compute_fluxes(ifiles: list[str], qfiles: list[str], ufiles: list[str], regi
         beams_U.append(bU)
 
     return (
-        np.asarray(flux_I, dtype=float),
-        np.asarray(flux_Q, dtype=float),
-        np.asarray(flux_U, dtype=float),
-        np.asarray(beams_I, dtype=float),
-        np.asarray(beams_Q, dtype=float),
-        np.asarray(beams_U, dtype=float),
+        np.asarray(flux_I, float),
+        np.asarray(flux_Q, float),
+        np.asarray(flux_U, float),
+        np.asarray(beams_I, float),
+        np.asarray(beams_Q, float),
+        np.asarray(beams_U, float),
     )
 
 
@@ -413,6 +381,7 @@ def plot_flux_vs_nvss(
     polang_err: np.ndarray,
     comp: dict | None = None,
     nvss: dict | None = None,
+    title_str: str | None = None
 ) -> Path:
     """
     Plot Stokes I/Q/U, P, and polarisation angle vs frequency or lambda^2.
@@ -438,6 +407,8 @@ def plot_flux_vs_nvss(
         reffreq_I, stokesI, stokesI_err, lam2_pol, polint, polint_err, rm.
     nvss : dict | None
         Optional NVSS dictionary from `get_nvss_fluxes`.
+    title_str: str | None
+        Optional title string for the plots.
 
     Returns
     -------
@@ -448,6 +419,8 @@ def plot_flux_vs_nvss(
     fig, axes = plt.subplots(2, 2, figsize=(12, 9))
     ax1, ax2, ax3, ax4 = axes.flat
 
+    panel_title = title_str if title_str is not None else "Stokes I"
+
     # Stokes I
     ax1.errorbar(freqs, flux_I, yerr=unc_I, fmt="o", linestyle="none", label="measured")
     if comp and np.isfinite(comp.get("reffreq_I", np.nan)) and np.isfinite(comp.get("stokesI", np.nan)):
@@ -456,8 +429,9 @@ def plot_flux_vs_nvss(
         )
     if nvss:
         ax1.errorbar(nvss["freq"], nvss["flux_I"], fmt="x", label="NVSS")
-    ax1.set_ylabel("Integrated flux [Jy]")
-    ax1.set_title("Stokes I")
+    ax1.set_ylabel("Integrated Stokes I flux [Jy]")
+    
+    ax1.set_title(panel_title)  # replaces "Stokes I"
     ax1.grid(True)
     ax1_top = ax1.twiny()
     ax1_top.set_xlim(ax1.get_xlim())
@@ -553,9 +527,9 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         Parsed CLI arguments.
     """
-    prefix = args.ds9reg.stem
+    prefix_base = args.ds9reg.stem
 
-    # manual channel flags
+    # parse flags once
     try:
         flag_chans: list[int] = ast.literal_eval(args.flag_chans)
         if not isinstance(flag_chans, list):
@@ -563,122 +537,112 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
     except Exception:
         raise ValueError("--flag-chans must be a Python list literal like [4,5,6]")
 
-    # collect fits lists
+    # collect lists once
     ifiles, qfiles, ufiles = collect_files(args.i_glob, args.q_glob)
     pb_files = sorted(glob.glob(args.pbcor_glob))
-
     if not (len(pb_files) == len(qfiles) == len(ifiles)):
         raise AssertionError(
             f"pbcor files count must match Q and I files count. Instead len(pb)={len(pb_files)}, len(Q)={len(qfiles)}, len(I)={len(ifiles)}"
         )
 
-    comp = None
-    if args.comparetable and args.comparetable_idx is not None:
-        # Placeholder for future comparison-table support.
-        print("TODO: implement comparison to table")
-
-    nvss_fluxes = get_nvss_fluxes(args, prefix) if args.comparenvssdirect else None
-
-    # channel properties
+    # channel properties (same for all regions)
     freqs = get_channel_frequencies(qfiles)
     channels = np.arange(len(freqs))
     lam2 = (c.value / freqs) ** 2
 
-    # integrated fluxes (first region)
-    flux_I, flux_Q, flux_U, beams_I, beams_Q, beams_U = compute_fluxes(
-        ifiles, qfiles, ufiles, args.ds9reg
-    )
+    # read centers for all regions
+    centers = parse_region_centers(args.ds9reg)
 
-    # uncertainties
-    if args.chan_unc_center is not None:
-        ra, dec = parse_region_center(args.ds9reg)
-        unc0 = float(args.chan_unc_center)
-        unc_I = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
-        unc_Q = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
-        unc_U = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
-        # TODO: include additional terms (e.g. number-of-beams, calibration)
-    else:
-        unc_I = np.zeros(len(qfiles), dtype=float)
-        unc_Q = unc_I.copy()
-        unc_U = unc_I.copy()
+    # optional comparison-table placeholder
+    comp = None
+    if args.comparetable and args.comparetable_idx is not None:
+        print("TODO: implement comparison to table")
 
-    # propagate to P and psi
-    I_u = unp.uarray(flux_I, unc_I)  # noqa: F841
-    Q_u = unp.uarray(flux_Q, unc_Q)
-    U_u = unp.uarray(flux_U, unc_U)
-    P_u = unp.sqrt(Q_u**2 + U_u**2)
-    psi_u = 0.5 * unp.arctan2(U_u, Q_u)
+    # iterate over regions
+    for r_idx, sky in enumerate(centers):
+        region_tag = f"{prefix_base}_r{r_idx+1}"
+        title_str = f"{prefix_base} — region {r_idx+1}"
 
-    polint = unp.nominal_values(P_u)
-    polint_err = unp.std_devs(P_u)
-    polang = unp.nominal_values(psi_u)
-    polang_err = unp.std_devs(psi_u)
-
-    # save data if requested
-    if args.output_dir_data is not None:
-        save_data(
-            prefix,
-            args.output_dir_data,
-            freqs,
-            flux_I,
-            flux_Q,
-            flux_U,
-            unc_I,
-            unc_Q,
-            unc_U,
-            beams_I,
-            beams_Q,
-            beams_U,
+        # integrated fluxes
+        flux_I, flux_Q, flux_U, beams_I, beams_Q, beams_U = compute_fluxes(
+            ifiles, qfiles, ufiles, args.ds9reg, r_idx
         )
 
-    # build masks
-    mask = ~np.isin(channels, flag_chans) if len(flag_chans) > 0 else np.ones_like(channels, dtype=bool)
-    print(f"Found {np.sum(~mask)}/{len(mask)} flagged channels manually")
+        # uncertainties (PB-scaled if provided)
+        if args.chan_unc_center is not None:
+            ra, dec = float(sky.ra.deg), float(sky.dec.deg)
+            unc0 = float(args.chan_unc_center)
+            unc_I = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
+            unc_Q = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
+            unc_U = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
+        else:
+            unc_I = np.zeros(len(qfiles), dtype=float)
+            unc_Q = unc_I.copy()
+            unc_U = unc_I.copy()
 
-    nan_mask = np.isnan(flux_I) | np.isnan(flux_Q) | np.isnan(flux_U)
-    print(f"Found {np.sum(nan_mask)}/{len(mask)} flagged channels because NaN")
+        # propagate to P and psi
+        I_u = unp.uarray(flux_I, unc_I)  # noqa: F841
+        Q_u = unp.uarray(flux_Q, unc_Q)
+        U_u = unp.uarray(flux_U, unc_U)
+        P_u = unp.sqrt(Q_u**2 + U_u**2)
+        psi_u = 0.5 * unp.arctan2(U_u, Q_u)
 
-    threshold = 1e3
-    high_mask = (np.abs(flux_I) > threshold) | (np.abs(flux_Q) > threshold) | (np.abs(flux_U) > threshold)
-    print(f"Found {np.sum(high_mask)}/{len(mask)} flagged channels because crazy-high values")
+        polint = unp.nominal_values(P_u)
+        polint_err = unp.std_devs(P_u)
+        polang = unp.nominal_values(psi_u)
+        polang_err = unp.std_devs(psi_u)
 
-    if args.flag_by_noise is not None:
-        raise NotImplementedError("Flag by noise not yet implemented")
-        # Example (when implemented):
-        # factor = float(args.flag_by_noise_factor)
-        # tbl = Table.read(args.flag_by_noise)
-        # mediannoise = np.nanmedian(tbl['noise_U'])
-        # mask_by_noise = tbl['noise_U'] > factor * mediannoise
-        # mask_indices = tbl['channel'][mask_by_noise]
-        # print(f"Masking {len(mask_indices)} channels because higher than {factor:.1f}x median noise")
-        # mask_for_noise = np.ones_like(channels, bool)
-        # mask_for_noise[mask_indices] = False
-        # mask &= ~(nan_mask | high_mask | ~mask_for_noise)
-    else:
-        mask &= ~(nan_mask | high_mask)
+        # save per-region data if requested
+        if args.output_dir_data is not None:
+            save_data(
+                region_tag, args.output_dir_data,
+                freqs, flux_I, flux_Q, flux_U,
+                unc_I, unc_Q, unc_U,
+                beams_I, beams_Q, beams_U,
+            )
 
-    print(f"Final number of good channels: {np.sum(mask)}/{len(mask)}")
+        # flags (per-region, but same mask logic)
+        mask = ~np.isin(channels, flag_chans) if len(flag_chans) > 0 else np.ones_like(channels, dtype=bool)
+        print(f"[{region_tag}] Flagged manually: {np.sum(~mask)}/{len(mask)}")
 
-    # plot
-    plot_flux_vs_nvss(
-        prefix,
-        args.output_dir,
-        freqs[mask],
-        flux_I[mask],
-        flux_Q[mask],
-        flux_U[mask],
-        unc_I[mask],
-        unc_Q[mask],
-        unc_U[mask],
-        lam2[mask],
-        channels[mask],
-        polint[mask],
-        polint_err[mask],
-        polang[mask],
-        polang_err[mask],
-        comp,
-        nvss_fluxes,
-    )
+        nan_mask = np.isnan(flux_I) | np.isnan(flux_Q) | np.isnan(flux_U)
+        print(f"[{region_tag}] Flagged NaN: {np.sum(nan_mask)}/{len(mask)}")
+
+        threshold = 1e3
+        high_mask = (np.abs(flux_I) > threshold) | (np.abs(flux_Q) > threshold) | (np.abs(flux_U) > threshold)
+        print(f"[{region_tag}] Flagged high: {np.sum(high_mask)}/{len(mask)}")
+
+        if args.flag_by_noise is not None:
+            raise NotImplementedError("Flag by noise not yet implemented")
+        else:
+            mask &= ~(nan_mask | high_mask)
+
+        print(f"[{region_tag}] Final good channels: {np.sum(mask)}/{len(mask)}")
+
+        # optional NVSS for this region
+        nvss_fluxes = get_nvss_fluxes(args, region_tag, r_idx) if args.comparenvssdirect else None
+
+        # plot, with per-region prefix and title
+        plot_flux_vs_nvss(
+            region_tag,
+            args.output_dir,
+            freqs[mask],
+            flux_I[mask],
+            flux_Q[mask],
+            flux_U[mask],
+            unc_I[mask],
+            unc_Q[mask],
+            unc_U[mask],
+            lam2[mask],
+            channels[mask],
+            polint[mask],
+            polint_err[mask],
+            polang[mask],
+            polang_err[mask],
+            comp=comp,
+            nvss=nvss_fluxes,
+            title_str=title_str,
+        )
 
 
 def main() -> None:
