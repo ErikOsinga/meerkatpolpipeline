@@ -31,6 +31,8 @@ class CheckCalibratorOptions(BaseOptions):
     """ disable the -fit-rm flag in wsclean, since its only available in the newest versions."""
     image_gaincal: bool = False
     """ also make an image of the gain calibrator? Default False"""
+    image_primary: bool = False
+    """ also make an image of the primary calibrator? Default False"""
 
     
 def split_field(
@@ -363,5 +365,54 @@ def image_gaincal(
     )
 
     logger.info(f"Gaincal imaging completed. Please see the gaincal images in {working_dir} for results.")
+
+    return
+
+def image_primary(
+        check_calibrator_options: dict | CheckCalibratorOptions,
+        primary_field: str,
+        working_dir: Path,
+        casa_container: Path,
+        lofar_container: Path,
+        bind_dirs: list[Path],
+    ) -> None:
+    """Image the primary calibrator field.
+    
+    args:
+        check_calibrator_options (dict | CheckCalibratorOptions): Dictionary storing CheckCalibratorOptions for the check_calibrator step.
+        primary_field (str): string denoting primary calibrator field
+        working_dir (Path): The working directory for the check_calibrator step
+        casa_container (Path | None): Path to the container with the casa installation.
+        lofar_container (Path | None): Path to the container with the wsclean installation.
+        bind_dirs (list[Path] | None): List of directories to bind to the container.
+    
+    Returns:
+        None
+    """
+    logger = get_run_logger()
+
+
+    working_dir = working_dir / "primary"
+    working_dir.mkdir(exist_ok=True)
+
+    logger.info(f"Primary calibrator imaging requested. Will image primary calibrator in {working_dir}.")
+
+    primary_ms = split_field(
+        ms_path=check_calibrator_options['crosscal_ms'],
+        field=primary_field,
+        output_ms=working_dir / "primary.ms",
+        casa_container=casa_container,
+        bind_dirs=bind_dirs + [working_dir],
+    )
+
+    imageset_stokesI, imageset_stokesQ, imageset_stokesU = go_wsclean_smallcubes(
+        primary_ms,
+        working_dir,
+        check_calibrator_options,
+        lofar_container=lofar_container,
+        prefix='primary'
+    )
+
+    logger.info(f"Primary calibrator imaging completed. Please see the primary calibrator images in {working_dir} for results.")
 
     return

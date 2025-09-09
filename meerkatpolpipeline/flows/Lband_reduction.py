@@ -17,6 +17,7 @@ from meerkatpolpipeline.casacrosscal import casacrosscal
 from meerkatpolpipeline.check_calibrator.check_calibrator import (
     check_calibrator,
     image_gaincal,
+    image_primary,
 )
 from meerkatpolpipeline.configuration import (
     Strategy,
@@ -335,6 +336,24 @@ def process_science_fields(
                     check_calibrator_workdir # output MS location
                 ] + casa_additional_bind # any additional bindings
             )
+
+        if check_calibrator_options['image_primary']:
+
+            _, primary_field = _caracal.obtain_by_intent(field_intents_dict, "fluxcal")
+
+            task_image_primary = task(image_primary, name="image_primary")
+            task_image_primary(
+                check_calibrator_options,
+                primary_field=primary_field,
+                working_dir=check_calibrator_workdir,
+                casa_container=casa_container,
+                lofar_container=lofar_container,
+                bind_dirs = [
+                    check_calibrator_options['crosscal_ms'].parent, # input MS location
+                    check_calibrator_workdir # output MS location
+                ] + casa_additional_bind # any additional bindings
+            )
+
 
     else:
         logger.warning("Check calibrator step is disabled, skipping checking of polarisation calibrator.")
