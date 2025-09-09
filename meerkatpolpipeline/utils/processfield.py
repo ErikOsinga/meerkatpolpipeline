@@ -827,7 +827,6 @@ def processfield(
             models=models,
             logger=logger,
             unc=unc,
-            integrated=integrated,
             flagchan=flagchan,
             plotmodel=plotmodel,
             plotdir=plotdir,
