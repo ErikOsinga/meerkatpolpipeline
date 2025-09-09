@@ -302,6 +302,8 @@ def main():
     gaincal(vis=calms, caltable=Ttab_sec, solint='inf', field=gcal,
             refant=ref_ant, gaintype='T', calmode='ap', solnorm=True,
             uvrange='>150lambda', gaintable=[ktab, gtab_sec_p, gtab_a, btab, ptab_df])
+    #### frequency dependence not conserved. 
+
     applycal(vis=calms, field=gcal,
              gaintable=[ktab, gtab_sec_p, gtab_a, btab, Ttab_sec, ptab_df])
     # check calibration of secondary
@@ -360,6 +362,10 @@ def main():
     polcal(vis=calms, caltable=ptab_xf, solint='inf,20MHz', field=xcal,
            combine='scan', scan=scan_xcal, refant=ref_ant, poltype='Xf',
            gaintable=[ktab, gtab_pol_p, gtab_a, btab, ptab_df, kxtab])
+    
+
+    # why no gaincal with ap on 3c286 after we did pol calib?
+
     applycal(vis=calms, scan=scan_xcal, field=xcal,
              gaintable=[ktab, gtab_pol_p, gtab_a, btab, Ttab_sec, ptab_df, kxtab, ptab_xf],
              parang=True)

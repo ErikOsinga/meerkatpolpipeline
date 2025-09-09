@@ -29,7 +29,7 @@ CARACAL_SINGULARITIES = {
 }
 
 class CrossCalOptions(BaseOptions):
-    """A basic class to handle caracal options for meerkatpolpipeline. """
+    """A basic class to handle crosscal options for meerkatpolpipeline. """
     
     enable: bool
     """enable this step? Required parameter"""
@@ -39,9 +39,9 @@ class CrossCalOptions(BaseOptions):
     """name of targetfield"""
     caracal_template_strategy: Path | None = None
     """path to the template polcal-strategy.yml for caracal. A copy will be made with updated parameters"""
-    msdir: Path | None = None
+    msdir_caracal: Path | None = None
     """Path to the directory where uncalibrated MS is stored"""
-    dataid: str | None = None
+    dataid_caracal: str | None = None
     """Name of the measurement set without .ms extension"""
     prefix: str = "caracalpipelinerun"
     """prefix"""
@@ -69,6 +69,8 @@ class CrossCalOptions(BaseOptions):
     """frequency averaging (factor) to apply after calibrating with casa"""
     timebin_casa: str = '16s'
     """time averaging (width of tartget time step) after calibrating with casa"""
+    cal_ms_for_casa: Path | None = None
+    """Path to the calibrator MS to use for casa cross-calibration, if None will use the preprocessed MS"""
 
 
 class CaracalConfigFile(BaseOptions):

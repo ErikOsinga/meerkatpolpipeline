@@ -120,18 +120,25 @@ def do_casa_crosscal(
 
     logger.info(f"Using calibrators: {calibrators}, with fcal: {fcal}, bpcal: {bpcal}, gcal: {gcal}, xcal: {xcal}")
 
-    logger.info(f"Splitting off calibrator and target into separate MS in {crosscal_dir}")
+    if crosscal_options['cal_ms_for_casa'] is not None:
+        logger.info("Using user-supplied calibrator MS for caracal reduction")
+        cal_ms = crosscal_options['cal_ms_for_casa']
+        if not cal_ms.exists():
+            raise FileNotFoundError(f"User-supplied calibrator MS {cal_ms} does not exist.")
 
-    # Split calibrator, will be skipped if already exists
-    cal_ms = split_field(
-        ms_path=preprocessed_ms,
-        field=','.join(calibrators), # casa stringlist
-        casa_container=casa_container,
-        output_ms=crosscal_dir / (preprocessed_ms.stem + "-cal.ms"),
-        bind_dirs=bind_dirs,
-        chanbin=1,
-        datacolumn="DATA"
-    )
+    else:
+        logger.info(f"Splitting off calibrator and target into separate MS in {crosscal_dir}")
+
+        # Split calibrator, will be skipped if already exists
+        cal_ms = split_field(
+            ms_path=preprocessed_ms,
+            field=','.join(calibrators), # casa stringlist
+            casa_container=casa_container,
+            output_ms=crosscal_dir / (preprocessed_ms.stem + "-cal.ms"),
+            bind_dirs=bind_dirs,
+            chanbin=1,
+            datacolumn="DATA"
+        )
 
     targetfield = crosscal_options['targetfield']
 
