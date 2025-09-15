@@ -333,18 +333,19 @@ def do_facetselfcal_preprocess(
         logger.info(f"Out of the {len(all_preprocessed_mses)} mses, {np.sum(bad_ntimes)} have less than {20} timesteps and will not be used.")
 
         return all_preprocessed_mses[~bad_ntimes]
+    
+    # Otherwise, start preprocessing
 
-    # Otherwise, build and start preprocess command
+    # before running facetselfcal, make sure we get rid of timesteps with less baselines than expected.
+    # this fixes the DP3 error e.g. " Table array conformance error (shape=[4, 894, 2016], expected [4, 894, 1953]) "
+    logger.info("Checking measurement set for missing baseline timesteps, which can cause DP3 to fail.")
+    ms = remove_missing_baseline_timesteps(ms, out_ms=None, keep_temp=True, show_bad=5, logger=logger)
+
+    #  build and start preprocess command
     facetselfcal_options = get_options_facetselfcal_preprocess(selfcal_options)
 
     # note the difference between selfcal_options (from user via .yaml file) and facetselfcal_options (hardcoded mostly)
     facetselfcal_cmd = create_facetselfcal_command(facetselfcal_options, ms, selfcal_options['facetselfcal_directory'])
-
-    # before running facetselfcal, make sure we get rid of timesteps with less baselines than expected.
-    # this fixes the DP3 error e.g. " Table array conformance error (shape=[4, 894, 2016], expected [4, 894, 1953]) "
-
-    logger.info("Checking measurement set for missing baseline timesteps, which can cause DP3 to fail.")
-    ms = remove_missing_baseline_timesteps(ms, out_ms=None, keep_temp=True, show_bad=5, logger=logger)
 
     # all arguments should be given as kwargs to not confuse singularity wrapper
     run_facetselfcal_command(
