@@ -20,6 +20,16 @@ import numpy as np
 from casacore.tables import table, taql
 
 
+class PrintLogger:
+    """Custom logger that prints to stdout."""
+    def info(self, msg):
+        print(msg)
+    def warning(self, msg):
+        print("WARNING:", msg)
+    def error(self, msg):
+        print("ERROR:", msg)
+
+
 def compute_uniform_count(ms: Path) -> tuple[int, int]:
     """
     Return (ntimes_total, nmax, nmin) where 
@@ -120,7 +130,7 @@ def preview_bad_examples(bad_tab: Path, limit: int = 10) -> list[tuple[float, in
     return [(float(times[i]), int(counts[i])) for i in range(n)]
 
 
-def remove_missing_baseline_timesteps(ms: Path, out_ms: Path | None, keep_temp: bool = False, show_bad: int = 0) -> Path:
+def remove_missing_baseline_timesteps(ms: Path, out_ms: Path | None, keep_temp: bool = False, show_bad: int = 0, logger = None) -> Path:
     """
     Main function to remove timesteps with missing baselines from an MS.
 
@@ -139,6 +149,8 @@ def remove_missing_baseline_timesteps(ms: Path, out_ms: Path | None, keep_temp: 
     -------
     Path to the output MeasurementSet with uniform number of baselines. (same as input if no changes made).
     """
+    if logger is None:
+        logger = PrintLogger()
     
     if not ms.exists():
         raise FileNotFoundError(f"MS not found: {ms}")
@@ -163,20 +175,20 @@ def remove_missing_baseline_timesteps(ms: Path, out_ms: Path | None, keep_temp: 
     ngood = materialize_good_times(ms, nmax, good_tab)
     nbad = materialize_bad_times(ms, nmax, bad_tab)
 
-    print(f"Total TIME bins considered: {ntimes_total}")
-    print(f"Uniform baseline count (max per TIME): {nmax}")
-    print(f"Good TIME bins: {ngood}")
-    print(f"Bad  TIME bins: {nbad}")
+    logger.info(f"Total TIME bins considered: {ntimes_total}")
+    logger.info(f"Uniform baseline count (max per TIME): {nmax}")
+    logger.info(f"Good TIME bins: {ngood}")
+    logger.info(f"Bad  TIME bins: {nbad}")
 
     if nbad > 0 and show_bad > 0:
         examples = preview_bad_examples(bad_tab, limit=show_bad)
         if examples:
-            print("Examples of bad timesteps (TIME [s], baseline_count):")
+            logger.info("Examples of bad timesteps (TIME [s], baseline_count):")
             for tval, cnt in examples:
-                print(f"  {tval:.3f}  {cnt}")
+                logger.info(f"  {tval:.3f}  {cnt}")
 
     if nbad == 0:
-        print("No bad timesteps detected. Not writing a new MS.")
+        logger.info("No bad timesteps detected. Not writing a new MS.")
         if not keep_temp:
             for tmp in (good_tab, bad_tab):
                 if tmp.exists():
@@ -184,12 +196,12 @@ def remove_missing_baseline_timesteps(ms: Path, out_ms: Path | None, keep_temp: 
         return ms
     
     if ngood < nbad:
-        print(f"WARNING: More bad timesteps ({nbad}) than good ({ngood}); check selection.")
-        print("Not writing fixed MS")
+        logger.warning(f"More bad timesteps ({nbad}) than good ({ngood}); check selection.")
+        logger.warning("Not writing fixed MS")
         return ms
 
     # 3) Write fixed MS
-    print(f"Writing fixed MS to: {out_ms}")
+    logger.info(f"Writing fixed MS to: {out_ms}")
     write_fixed_ms(ms, good_tab, out_ms)
 
     # 4) Cleanup
@@ -201,13 +213,13 @@ def remove_missing_baseline_timesteps(ms: Path, out_ms: Path | None, keep_temp: 
     # 5) Sanity check: confirm uniformity on the output
     ntimes_fixed, nmax_fixed, nmin_fixed = compute_uniform_count(out_ms)
 
-    print(f"Fixed MS TIME bins: {ntimes_fixed}  |  per-TIME baselines min/max: {nmin_fixed}/{nmax_fixed}")
+    logger.info(f"Fixed MS TIME bins: {ntimes_fixed}  |  per-TIME baselines min/max: {nmin_fixed}/{nmax_fixed}")
 
     if nmin_fixed != nmax_fixed:
-        print("WARNING: per-TIME baseline counts are still non-uniform!")
+        logger.warning("per-TIME baseline counts are still non-uniform! Something went wrong.")
         raise ValueError("Fixed MS has non-uniform per-TIME baseline counts.")
     else:
-        print("Success: per-TIME baseline counts are uniform.")
+        logger.info("Success: per-TIME baseline counts are uniform.")
     
     return out_ms
 
