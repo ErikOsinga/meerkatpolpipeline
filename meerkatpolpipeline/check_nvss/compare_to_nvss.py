@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from meerkatpolpipeline.options import BaseOptions
+from meerkatpolpipeline.wsclean.wsclean import ImageSet
 
 
 class CompareNVSSOptions(BaseOptions):
@@ -19,12 +20,16 @@ class CompareNVSSOptions(BaseOptions):
 def compare_to_nvss(
         compare_nvss_options: dict | CompareNVSSOptions,
         working_dir: Path,
+        imageset_I: ImageSet,
+        imageset_Q: ImageSet,
+        imageset_U: ImageSet,
     ) -> None:
     """Compare sources in the field to NVSS catalogue
     
     args:
         compare_nvss_options (dict | CompareNVSSOptions): Dictionary storing CompareNVSSOptions for this step
         working_dir (Path): The working directory for the compare_to_nvss step
+        imageset_I/Q/U (ImageSet): The ImageSet containing the target field coarse cubes for Stokes I, Q and U respectively.
     
     Returns:
         None: plots are made in the working_dir

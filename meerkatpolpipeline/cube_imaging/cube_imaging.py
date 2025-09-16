@@ -9,7 +9,7 @@ from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, WSCleanOptions, run_wsclean
 
 
-class SmallCubeImagingOptions(BaseOptions):
+class CoarseCubeImagingOptions(BaseOptions):
     """A basic class to handle options for cube imaging. """
     
     enable: bool
@@ -22,11 +22,11 @@ class SmallCubeImagingOptions(BaseOptions):
     """ disable the -fit-rm flag in wsclean, since its only available in the newest versions."""
 
 
-def go_wsclean_smallcubes_target(
+def go_wsclean_coarsecubes_target(
     ms: Path,
     working_dir: Path,
     lofar_container: Path,
-    cube_imaging_options: dict | SmallCubeImagingOptions
+    cube_imaging_options: dict | CoarseCubeImagingOptions
 ) -> tuple[ImageSet, ImageSet, ImageSet]:
     """
     Image the TARGET field in I + Q + U using some default settings.
@@ -86,7 +86,7 @@ def go_wsclean_smallcubes_target(
         expected_pols=["i"],
     )
 
-    imageset_I = pbcor_smallcubes_target(imageset_I, working_dir / "pbcor_images", pol='i')
+    imageset_I = pbcor_coarsecubes_target(imageset_I, working_dir / "pbcor_images", pol='i')
 
     # ----- Stokes QU (multiscale OFF) -----
     # Build fresh options to avoid inheriting multiscale from I.
@@ -113,15 +113,15 @@ def go_wsclean_smallcubes_target(
     )
     imageset_Q, imageset_U = imagesets_QU
 
-    imageset_Q = pbcor_smallcubes_target(imageset_Q, working_dir / "pbcor_images", pol='q')
-    imageset_U = pbcor_smallcubes_target(imageset_U, working_dir / "pbcor_images", pol='u')
+    imageset_Q = pbcor_coarsecubes_target(imageset_Q, working_dir / "pbcor_images", pol='q')
+    imageset_U = pbcor_coarsecubes_target(imageset_U, working_dir / "pbcor_images", pol='u')
 
     return imageset_I, imageset_Q, imageset_U
 
 
-def pbcor_smallcubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> ImageSet:
+def pbcor_coarsecubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> ImageSet:
     """
-    Do PB correction for cubes made in go_wsclean_smallcubes_target.
+    Do PB correction for cubes made in go_wsclean_coarsecubes_target.
     """
     outdir_pbcor_images.mkdir(parents=True, exist_ok=True)
 

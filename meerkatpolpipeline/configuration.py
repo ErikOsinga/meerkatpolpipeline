@@ -11,7 +11,7 @@ import yaml
 
 from meerkatpolpipeline.caracal._caracal import CrossCalOptions
 from meerkatpolpipeline.check_calibrator.check_calibrator import CheckCalibratorOptions
-from meerkatpolpipeline.cube_imaging.cube_imaging import SmallCubeImagingOptions
+from meerkatpolpipeline.cube_imaging.cube_imaging import CoarseCubeImagingOptions
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions
@@ -52,7 +52,7 @@ STRATEGY_OPTIONS_MAPPING = {
     "crosscal": CrossCalOptions,
     "check_calibrator": CheckCalibratorOptions,
     "selfcal": SelfCalOptions,
-    "small_cube_imaging": SmallCubeImagingOptions,
+    "small_cube_imaging": CoarseCubeImagingOptions,
     # TODO
 }
 

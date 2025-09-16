@@ -26,7 +26,7 @@ from meerkatpolpipeline.configuration import (
     load_and_copy_strategy,
     log_enabled_operations,
 )
-from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_smallcubes_target
+from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_coarsecubes_target
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
@@ -422,12 +422,12 @@ def process_science_fields(
 
 
     ########## step 5: IQUV cube image 12 channel ##########
-    cube_imaging_workdir = working_dir / "small_cube_imaging"
+    cube_imaging_workdir = working_dir / "coarse_cube_imaging"
     cube_imaging_workdir.mkdir(exist_ok=True)
 
-    cube_imaging_options = get_options_from_strategy(strategy, operation="small_cube_imaging")
+    cube_imaging_options = get_options_from_strategy(strategy, operation="coarse_cube_imaging")
 
-    if 'small_cube_imaging' in enabled_operations:
+    if 'coarse_cube_imaging' in enabled_operations:
         # Make a 12 channel cube of the target in IQU, from the extracted dataset for a quick look
 
         # check for user overwrite
@@ -435,7 +435,7 @@ def process_science_fields(
             cube_imaging_options['corrected_extracted_mses'] = corrected_extracted_mses
 
         # Make quicklook 12-channel cubes in IQU of the target field, with pb correction.
-        task_image_smallcubes = task(go_wsclean_smallcubes_target, name="wsclean_smallcubes_target")
+        task_image_smallcubes = task(go_wsclean_coarsecubes_target, name="wsclean_smallcubes_target")
         imageset_I, imageset_Q, imageset_U = task_image_smallcubes(
             ms = corrected_extracted_mses,
             working_dir = cube_imaging_workdir,
@@ -455,7 +455,7 @@ def process_science_fields(
             validate=True,
             chanout=12, # default
             pbcor_done=True, # default
-            can_be_pbcor = ["image"] # default, small_cube_imaging only does pbcor for 'image' files.
+            can_be_pbcor = ["image"] # default, coarse_cube_imaging only does pbcor for 'image' files.
         )
 
         full_prefix = str(wsclean_output_dir / ( cube_imaging_options['targetfield']+'_stokesQU') )
@@ -466,7 +466,7 @@ def process_science_fields(
             validate=True,
             chanout=12, # default
             pbcor_done=True, # default
-            can_be_pbcor = ["image"] # default, small_cube_imaging only does pbcor for 'image' files.
+            can_be_pbcor = ["image"] # default, coarse_cube_imaging only does pbcor for 'image' files.
         )
         
         imageset_U = get_imset_from_prefix(
@@ -475,7 +475,7 @@ def process_science_fields(
             validate=True,
             chanout=12, # default
             pbcor_done=True, # default
-            can_be_pbcor = ["image"] # default, small_cube_imaging only does pbcor for 'image' files.
+            can_be_pbcor = ["image"] # default, coarse_cube_imaging only does pbcor for 'image' files.
         )
 
     
@@ -483,7 +483,8 @@ def process_science_fields(
     if "compare_to_nvss" in enabled_operations:
         nvss_comparison_workdir = working_dir / "nvss_comparison"
         nvss_comparison_workdir.mkdir(exist_ok=True)
-        logger.info("TODO: implement compare_to_nvss step")
+        
+        logger.info("Starting compare_to_nvss step")
 
         nvss_comparison_options = get_options_from_strategy(strategy, operation="compare_to_nvss")
 
@@ -492,6 +493,9 @@ def process_science_fields(
         task_compare_nvss(
             nvss_comparison_options,
             nvss_comparison_workdir,
+            imageset_I=imageset_I,
+            imageset_Q=imageset_Q,
+            imageset_U=imageset_U
         )
 
     
