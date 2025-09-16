@@ -248,7 +248,8 @@ def get_imset_from_prefix(
         pol: str = "i",
         validate: bool = True,
         chanout: int | None = None,
-        pbcor_done: bool = False
+        pbcor_done: bool = False,
+        can_be_pbcor = ["image", "model", "residual"],
     ) -> ImageSet:
     """
     Get an ImageSet from a given prefix, i.e. wsclean '-name' argument or globstring pattern.
@@ -258,6 +259,8 @@ def get_imset_from_prefix(
         pol (str): The polarisation to extract. Defaults to 'i' for Stokes I.
         validate (bool): Check whether all 'chanout' images are present? Defaults to True.
         chanout (int | None): Number of channels out, used for validation. If None, validate must be False
+        pbcor_done: (bool): Assume pbcor is done thus should be 2x the amount of files (except mfs). Defaults to False.
+        can_be_pbcor (list): List of products that can have pbcor applied. Default ['image', 'model', 'residual']
     
     returns:
         ImageSet: An ImageSet object containing the matched files.
@@ -302,7 +305,7 @@ def get_imset_from_prefix(
     if validate:
         if chanout is None:
             raise ValueError("chanout must be specified if validate is True")
-        validate_imset(imset, chanout, pbcor_done=pbcor_done)
+        validate_imset(imset, chanout, pbcor_done=pbcor_done, can_be_pbcor = can_be_pbcor)
 
     return imset
 
@@ -346,7 +349,12 @@ def get_wsclean_output(
 
     return imset
 
-def validate_imset(imset: ImageSet, nchan: int, pbcor_done: bool = False) -> None:
+def validate_imset(
+    imset: ImageSet,
+    nchan: int,
+    pbcor_done: bool = False,
+    can_be_pbcor = ["image", "model", "residual"] 
+) -> None:
     """
     Validate that for each product (image, dirty, model, residual),
     there are nchan + 1 files (including MFS).
@@ -360,7 +368,7 @@ def validate_imset(imset: ImageSet, nchan: int, pbcor_done: bool = False) -> Non
     }
 
     # if pbcor was done, these images will have 2x expected number of files
-    can_be_pbcor = ["image", "model", "residual"] 
+    
 
     for kind, files in products.items():
         count = len(files) if files is not None else 0

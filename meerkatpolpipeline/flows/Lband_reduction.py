@@ -454,7 +454,8 @@ def process_science_fields(
             pol="i",
             validate=True,
             chanout=12, # default
-            pbcor_done=True # default
+            pbcor_done=True, # default
+            can_be_pbcor = ["image"] # default, small_cube_imaging only does pbcor for 'image' files.
         )
 
         imageset_Q = get_imset_from_prefix(
@@ -462,7 +463,8 @@ def process_science_fields(
             pol="q",
             validate=True,
             chanout=12, # default
-            pbcor_done=True # default
+            pbcor_done=True, # default
+            can_be_pbcor = ["image"] # default, small_cube_imaging only does pbcor for 'image' files.
         )
         
         imageset_U = get_imset_from_prefix(
@@ -470,7 +472,8 @@ def process_science_fields(
             pol="u",
             validate=True,
             chanout=12, # default
-            pbcor_done=True # default
+            pbcor_done=True, # default
+            can_be_pbcor = ["image"] # default, small_cube_imaging only does pbcor for 'image' files.
         )
 
     
