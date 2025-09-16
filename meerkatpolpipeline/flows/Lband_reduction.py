@@ -447,7 +447,7 @@ def process_science_fields(
         wsclean_output_dir = cube_imaging_workdir / "IQUimages"
         logger.warning(f"Small cube imaging step is disabled, skipping small cube imaging. Looking for IQU cubes in {wsclean_output_dir}...")
 
-        full_prefix =  str(wsclean_output_dir / ( cube_imaging_options['targetfield']+'_stokesI') )
+        full_prefix = str(wsclean_output_dir / ( cube_imaging_options['targetfield']+'_stokesI') )
 
         imageset_I = get_imset_from_prefix(
             prefix=full_prefix,
@@ -457,6 +457,8 @@ def process_science_fields(
             pbcor_done=True, # default
             can_be_pbcor = ["image"] # default, small_cube_imaging only does pbcor for 'image' files.
         )
+
+        full_prefix = str(wsclean_output_dir / ( cube_imaging_options['targetfield']+'_stokesQU') )
 
         imageset_Q = get_imset_from_prefix(
             prefix=full_prefix,
