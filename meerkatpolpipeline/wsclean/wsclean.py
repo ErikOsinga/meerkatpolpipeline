@@ -366,8 +366,8 @@ def validate_imset(imset: ImageSet, nchan: int, pbcor_done: bool = False) -> Non
         count = len(files) if files is not None else 0
 
         if kind in can_be_pbcor and pbcor_done:
-            # If pbcor was done, expect 2x the number of files
-            count //= 2
+            # If pbcor was done, expect 2x the number of files per channel
+            count //= 2 + 1 # plus one for MFS
 
         if count != expected:
             raise ValueError(

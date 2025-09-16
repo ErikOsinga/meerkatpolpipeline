@@ -19,6 +19,7 @@ from meerkatpolpipeline.check_calibrator.check_calibrator import (
     image_gaincal,
     image_primary,
 )
+from meerkatpolpipeline.check_nvss.target_vs_nvss import compare_to_nvss
 from meerkatpolpipeline.configuration import (
     Strategy,
     get_options_from_strategy,
@@ -446,7 +447,7 @@ def process_science_fields(
         wsclean_output_dir = cube_imaging_workdir / "IQUimages"
         logger.warning(f"Small cube imaging step is disabled, skipping small cube imaging. Looking for IQU cubes in {wsclean_output_dir}...")
 
-        full_prefix =  str(wsclean_output_dir / cube_imaging_options['targetfield']+'_stokesI')
+        full_prefix =  str(wsclean_output_dir / ( cube_imaging_options['targetfield']+'_stokesI') )
 
         imageset_I = get_imset_from_prefix(
             prefix=full_prefix,
@@ -463,7 +464,7 @@ def process_science_fields(
             chanout=12, # default
             pbcor_done=True # default
         )
-
+        
         imageset_U = get_imset_from_prefix(
             prefix=full_prefix,
             pol="u",
@@ -479,7 +480,14 @@ def process_science_fields(
         nvss_comparison_workdir.mkdir(exist_ok=True)
         logger.info("TODO: implement compare_to_nvss step")
 
+        nvss_comparison_options = get_options_from_strategy(strategy, operation="compare_to_nvss")
 
+        # compare to NVSS
+        task_compare_nvss = task(compare_to_nvss, name="compare_to_nvss")
+        task_compare_nvss(
+            nvss_comparison_options,
+            nvss_comparison_workdir,
+        )
 
     
 
