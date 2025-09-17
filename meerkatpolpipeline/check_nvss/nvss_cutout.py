@@ -190,6 +190,8 @@ def write_nvss_cutouts(cutouts: dict[str, tuple[np.ndarray, WCS]], outfile_fits_
         hdu.header['CDELT3'] = 1.000000000E+08
         hdu.header['CRPIX3'] = 1.000000000E+00
         hdu.header['CROTA3'] = 0.000000000E+00
+        # set correct number of WCSAXES
+        hdu.header['WCSAXES'] = 3
 
         hdu.writeto(outfn, overwrite=True)
         print(f"Saved Stokes {st} FITS to {outfn}")

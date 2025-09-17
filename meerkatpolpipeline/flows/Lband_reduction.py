@@ -19,7 +19,7 @@ from meerkatpolpipeline.check_calibrator.check_calibrator import (
     image_gaincal,
     image_primary,
 )
-from meerkatpolpipeline.check_nvss.target_vs_nvss import compare_to_nvss
+from meerkatpolpipeline.check_nvss.compare_to_nvss import compare_to_nvss
 from meerkatpolpipeline.configuration import (
     Strategy,
     get_options_from_strategy,
@@ -499,28 +499,29 @@ def process_science_fields(
         )
 
     
+    ########## step 7: run PYBDSF on small cube, check spectra of brightest sources ##########
 
 
 
-    ########## step 7: Resample the frequency axis if requested (required for L-band + UHF imaging) ##########
+    ########## step 8: Resample the frequency axis if requested (required for L-band + UHF imaging) ##########
 
 
-    ########## step 8: Many-channel IQU imaging ##########
+    ########## step 9: Many-channel IQU imaging ##########
 
 
-    ########## step 9: RM synthesis 1D ##########
+    ########## step 10: RM synthesis 1D ##########
 
 
-    ########## step 10: Verify RMSynth1D ##########
+    ########## step 11: Verify RMSynth1D ##########
 
 
-    ########## step 11: RM synthesis 3D ##########
+    ########## step 12: RM synthesis 3D ##########
 
 
-    ########## step 12: Verify RMSynth3D ##########
+    ########## step 13: Verify RMSynth3D ##########
 
 
-    ########## step 13: Science plots ##########
+    ########## step 14: Science plots ##########
 
     
 def setup_run(

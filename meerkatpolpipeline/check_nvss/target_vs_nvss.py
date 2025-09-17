@@ -243,9 +243,9 @@ def get_nvss_fluxes(
     ra, dec = float(centers[region_index].ra.deg), float(centers[region_index].dec.deg)
     cutouts = get_nvss_cutouts(ra, dec, nvss_size, nvss_dir)
 
-    nvss_dir = output_dir / "nvsscutouts"
-    nvss_dir.mkdir(parents=True, exist_ok=True)
-    base = nvss_dir / f"{prefix}_nvsscutout_r{region_index+1}.fits"
+    nvss_dir_cutout = output_dir / "nvsscutouts"
+    nvss_dir_cutout.mkdir(parents=True, exist_ok=True)
+    base = nvss_dir_cutout / f"{prefix}_nvsscutout_r{region_index+1}.fits"
 
     write_nvss_cutouts(cutouts, base)
     ifn, qfn, ufn, pfn = base.with_suffix(".I.fits"), base.with_suffix(".Q.fits"), base.with_suffix(".U.fits"), base.with_suffix(".p.fits")
@@ -712,6 +712,7 @@ def _start_compare_nvss_from_cmd(args) -> None:
         qfiles=qfiles,
         ufiles=ufiles,
         pb_files=pb_files,
+        output_dir=args.output_dir,
         comparenvssdirect=args.comparenvssdirect,
         nvss_size=args.nvss_size,
         nvss_dir=Path(args.nvss_dir) if args.nvss_dir is not None else None,
@@ -721,6 +722,8 @@ def _start_compare_nvss_from_cmd(args) -> None:
         output_dir_data=args.output_dir_data,
         flag_by_noise=args.flag_by_noise,
     )
+
+    return
 
 
 def main() -> None:
