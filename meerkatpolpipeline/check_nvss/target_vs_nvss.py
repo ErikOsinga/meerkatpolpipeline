@@ -11,7 +11,10 @@ import numpy as np
 from astropy.constants import c
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.nddata import Cutout2D
+from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
+from matplotlib.gridspec import GridSpec
 from regions import Regions
 from uncertainties import unumpy as unp
 
@@ -207,6 +210,27 @@ def get_channel_frequencies(q_files: list[str]) -> np.ndarray:
     return np.asarray(freqs, dtype=float)
 
 
+def _make_sky_cutout(data: np.ndarray, header: fits.Header | None, center: SkyCoord,
+                     size_arcmin: float) -> tuple[np.ndarray, WCS | None]:
+    """
+    Make a sky-aligned cutout using Cutout2D. Falls back to full image if WCS missing.
+    """
+    if header is None:
+        return data, None
+    try:
+        wcs = WCS(header).celestial
+        size = (size_arcmin * u.arcmin, size_arcmin * u.arcmin)
+        co = Cutout2D(data=data, position=center, size=size, wcs=wcs, mode="trim")
+        return co.data, co.wcs
+    except Exception:
+        # If anything goes wrong, return original
+        try:
+            wcs = WCS(header).celestial
+        except Exception:
+            wcs = None
+        return data, wcs
+    
+
 def get_nvss_fluxes(
     ds9reg: Path,
     nvss_size: float,
@@ -260,6 +284,7 @@ def get_nvss_fluxes(
         "flux_Q": _flux_first(qfn),
         "flux_U": _flux_first(ufn),
         "flux_P": _flux_first(pfn),
+        "cutout_I_path": ifn,
     }
 
 
@@ -391,6 +416,50 @@ def save_data(
     return outpath
 
 
+def _load_fits_for_display(fpath: Path) -> tuple[np.ndarray, fits.Header | None]:
+    """
+    Load the primary 2D image and its header from a FITS file for display.
+
+    Returns
+    -------
+    data : np.ndarray
+        2D image array (first two axes).
+    header : fits.Header | None
+        Header for WCS; None if unavailable.
+    """
+    with fits.open(fpath) as hdul:
+        # Prefer first HDU with 2D or higher dimensional image data
+        hdu = next((h for h in hdul if h.data is not None), None)
+        if hdu is None:
+            raise ValueError(f"No image data found in FITS: {fpath}")
+        data = np.asarray(hdu.data)
+        # Squeeze and take the last two axes for display if needed
+        data = np.squeeze(data)
+        if data.ndim > 2:
+            data = data.reshape((-1, *data.shape[-2:]))[0]
+        if data.ndim != 2:
+            raise ValueError(f"Could not obtain a 2D image from FITS: {fpath}")
+        header = getattr(hdu, "header", None)
+
+    return data, header
+
+
+def _plot_region_overlay(ax, region, wcs_obj: WCS | None) -> None:
+    """
+    Plot a single region onto an axes, projecting if needed.
+    """
+    try:
+        # If region is sky-based and WCS is present, project to pixel
+        if hasattr(region, "to_pixel") and wcs_obj is not None:
+            pixreg = region.to_pixel(wcs_obj)
+            pixreg.plot(ax=ax, lw=1.5)
+        else:
+            # Pixel region or no WCS available
+            region.plot(ax=ax, lw=1.5)
+    except Exception as e:
+        ax.text(0.02, 0.02, f"Region overlay failed: {e}", transform=ax.transAxes,
+                ha="left", va="bottom", fontsize=8, bbox=dict(facecolor="white", alpha=0.6, edgecolor="none"))
+
 def plot_flux_vs_nvss(
     prefix: str,
     output_dir: Path,
@@ -409,34 +478,35 @@ def plot_flux_vs_nvss(
     polang_err: np.ndarray,
     comp: dict | None = None,
     nvss: dict | None = None,
-    title_str: str | None = None
+    title_str: str | None = None,
+    *,
+    # more optional (keyword-only) args below:
+    cutout_fits: Path | None = None,          # NVSS (or other) comparison cutout to show (lower-right)
+    input_data_fits: Path | None = None,      # Input science image to cut/display (upper-right)
+    cutout_size: float | None = None,         # arcmin; if provided and region given, cut input image around region center
+    region_file: Path | None = None,
+    region_idx: int | None = None,
 ) -> Path:
     """
     Plot Stokes I/Q/U, P, and polarisation angle vs frequency or lambda^2.
+    Optionally append right-hand panels: upper-right shows an input data cutout,
+    lower-right shows the NVSS (or other comparison) cutout.
 
     Parameters
     ----------
-    prefix : str
-        Output prefix for plot filename.
-    output_dir : Path
-        Directory to save the plot.
-    freqs, lam2, channels : np.ndarray
-        Frequency (Hz), lambda^2 (m^2), channel indices.
-    flux_I, flux_Q, flux_U : np.ndarray
-        Integrated fluxes (Jy).
-    unc_I, unc_Q, unc_U : np.ndarray
-        Uncertainties (Jy).
-    polint, polint_err : np.ndarray
-        Polarised intensity and uncertainty (Jy).
-    polang, polang_err : np.ndarray
-        Polarisation angle and uncertainty (rad).
-    comp : dict | None
-        Optional comparison dictionary with keys:
-        reffreq_I, stokesI, stokesI_err, lam2_pol, polint, polint_err, rm.
-    nvss : dict | None
-        Optional NVSS dictionary from `get_nvss_fluxes`.
-    title_str: str | None
-        Optional title string for the plots.
+    ...
+    input_data_fits : Path | None
+        Optional path to the input science FITS. If provided and both a region
+        and cutout_size (in arcmin) are given, a Cutout2D centred on the region
+        is displayed in the upper-right panel. Otherwise the full input image is shown.
+    cutout_size : float | None
+        Cutout size in arcmin (square). Used only if input_data_fits and a region are provided.
+    cutout_fits : Path | None
+        Optional NVSS (or other comparison) FITS cutout to show in the lower-right panel.
+    region_file : Path | None
+        Optional region file readable by `regions`.
+    region_idx : int | None
+        Index of the region to overlay and (if applicable) to centre the input-data cutout on.
 
     Returns
     -------
@@ -446,23 +516,41 @@ def plot_flux_vs_nvss(
     if output_dir is None:
         raise ValueError("output_dir must be provided when plotting flux vs NVSS")
 
+    # Decide whether to extend layout
+    have_nvss_img = cutout_fits is not None and Path(cutout_fits).exists()
+    have_input_img = input_data_fits is not None and Path(input_data_fits).exists()
+    extend = have_nvss_img or have_input_img
+
     output_dir.mkdir(parents=True, exist_ok=True)
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
-    ax1, ax2, ax3, ax4 = axes.flat
+    figsize = (16, 9) if extend else (12, 9)
+
+    if extend:
+        fig = plt.figure(figsize=figsize)
+        # 2 rows x 3 cols; rightmost col split into two: top=input, bottom=NVSS
+        gs = GridSpec(2, 3, figure=fig, width_ratios=[1, 1, 1.2], wspace=0.35, hspace=0.3)
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax3 = fig.add_subplot(gs[1, 0])
+        ax4 = fig.add_subplot(gs[1, 1])
+        ax_in = fig.add_subplot(gs[0, 2])  # will reproject if WCS available
+        ax_nv = fig.add_subplot(gs[1, 2])  # will reproject if WCS available
+    else:
+        fig, axes = plt.subplots(2, 2, figsize=figsize)
+        ax1, ax2, ax3, ax4 = axes.flat
+        ax_in = None
+        ax_nv = None
 
     panel_title = title_str if title_str is not None else "Stokes I"
 
-    # Stokes I
+    # ---- Stokes I
     ax1.errorbar(freqs, flux_I, yerr=unc_I, fmt="o", linestyle="none", label="measured")
     if comp and np.isfinite(comp.get("reffreq_I", np.nan)) and np.isfinite(comp.get("stokesI", np.nan)):
-        ax1.errorbar(
-            comp["reffreq_I"], comp["stokesI"], yerr=comp["stokesI_err"], fmt="D", mfc="none", mec="r", label="table"
-        )
+        ax1.errorbar(comp["reffreq_I"], comp["stokesI"], yerr=comp["stokesI_err"],
+                     fmt="D", mfc="none", mec="r", label="table")
     if nvss:
         ax1.errorbar(nvss["freq"], nvss["flux_I"], fmt="x", label="NVSS")
     ax1.set_ylabel("Integrated Stokes I flux [Jy]")
-    
-    ax1.set_title(panel_title)  # replaces "Stokes I"
+    ax1.set_title(panel_title)
     ax1.grid(True)
     ax1_top = ax1.twiny()
     ax1_top.set_xlim(ax1.get_xlim())
@@ -471,12 +559,11 @@ def plot_flux_vs_nvss(
     ax1_top.set_xlabel("Channel #")
     ax1.legend()
 
-    # Polarised intensity
+    # ---- Polarised intensity
     ax2.errorbar(lam2, polint, yerr=polint_err, fmt="o", linestyle="none", label="measured")
     if comp and np.isfinite(comp.get("lam2_pol", np.nan)) and np.isfinite(comp.get("polint", np.nan)):
-        ax2.errorbar(
-            comp["lam2_pol"], comp["polint"], yerr=comp["polint_err"], fmt="D", mfc="none", mec="r", label="table"
-        )
+        ax2.errorbar(comp["lam2_pol"], comp["polint"], yerr=comp["polint_err"],
+                     fmt="D", mfc="none", mec="r", label="table")
     if nvss:
         lam2_nvss = (c.value / 1.4e9) ** 2
         ax2.errorbar(lam2_nvss, nvss["flux_P"], fmt="x", label="NVSS")
@@ -490,7 +577,7 @@ def plot_flux_vs_nvss(
     ax2_top.set_xlabel("Channel #")
     ax2.legend()
 
-    # Stokes Q & U
+    # ---- Stokes Q & U
     ax3.errorbar(freqs, flux_Q, yerr=unc_Q, fmt="s", linestyle="none", label="Q")
     ax3.errorbar(freqs, flux_U, yerr=unc_U, fmt="^", linestyle="none", label="U")
     if nvss:
@@ -507,14 +594,14 @@ def plot_flux_vs_nvss(
     ax3.set_xlabel("Frequency [Hz]")
     ax3.legend()
 
-    # Polarisation angle (degrees) and simple RM fit
+    # ---- Polarisation angle (degrees) with simple RM fit
     polang_deg = np.degrees(polang)
     polang_err_deg = np.degrees(polang_err)
     ax4.errorbar(lam2, polang_deg, yerr=polang_err_deg, fmt="s", linestyle="none", label="measured")
     rad_unw = np.unwrap(polang)
     RM_fit, chi0_fit = np.polyfit(lam2, rad_unw, 1)
     fitdeg = np.degrees(RM_fit * lam2 + chi0_fit)
-    ax4.plot(lam2, fitdeg, color="k", ls="--", label=f"fit: RM={RM_fit:.1f} rad/m^2, chi0={chi0_fit:.2f} rad")
+    ax4.plot(lam2, fitdeg, ls="--", label=f"fit: RM={RM_fit:.1f} rad/m^2, chi0={chi0_fit:.2f} rad")
     if comp and np.isfinite(comp.get("rm", np.nan)):
         chi0_comp = float(np.mean(rad_unw - comp["rm"] * lam2))
         tabdeg = np.degrees(comp["rm"] * lam2 + chi0_comp)
@@ -534,16 +621,106 @@ def plot_flux_vs_nvss(
     ax4.set_xlabel("Wavelength^2 [m^2]")
     ax4.legend()
 
+    # ---- Regions (load once if provided)
+    region = None
+    if region_file is not None and region_idx is not None:
+        try:
+            regions = Regions.read(region_file)
+            region = regions[region_idx]
+        except Exception:
+            region = None
 
-    print("TODO: add cutout image of NVSS and region file")
+    # ---- Upper-right: INPUT DATA (cutout if possible)
+    if extend and have_input_img and ax_in is not None:
+        try:
+            in_data, in_hdr = _load_fits_for_display(Path(input_data_fits))
+            in_wcs = None
+            if in_hdr is not None:
+                try:
+                    in_wcs = WCS(in_hdr).celestial
+                except Exception:
+                    in_wcs = None
+
+            # If we can determine a sky center and size, make a cutout; else show full image
+            if region is not None and cutout_size is not None and in_wcs is not None:
+                centers = parse_region_centers(region_file)
+                ra, dec = float(centers[region_idx].ra.deg), float(centers[region_idx].dec.deg)
+                # sky_ctr = _sky_center_from_region(region, in_wcs)
+                sky_ctr = SkyCoord(ra=ra * u.deg, dec=dec * u.deg) 
+                
+                if sky_ctr is not None:
+                    cut_data, cut_wcs = _make_sky_cutout(in_data, in_hdr, sky_ctr, float(cutout_size))
+                    # Rebuild axes with WCS if available
+                    ax_in.remove()
+                    if cut_wcs is not None:
+                        ax_in = fig.add_subplot(gs[0, 2], projection=cut_wcs)
+                    else:
+                        ax_in = fig.add_subplot(gs[0, 2])
+                    data_to_show = cut_data
+                    wcs_for_overlay = cut_wcs
+                else:
+                    data_to_show = in_data
+                    wcs_for_overlay = in_wcs
+            else:
+                data_to_show = in_data
+                wcs_for_overlay = in_wcs
+
+            norm = ImageNormalize(data_to_show, interval=ZScaleInterval())
+            ax_in.imshow(data_to_show, origin="lower", norm=norm, cmap="gray")
+            ax_in.set_title("Input image" + ("" if cutout_size is None else " (cutout)"))
+            if region is not None:
+                _plot_region_overlay(ax_in, region, wcs_for_overlay)
+            if wcs_for_overlay is not None:
+                ax_in.set_xlabel("RA")
+                ax_in.set_ylabel("Dec")
+            else:
+                ax_in.set_xlabel("x [pix]")
+                ax_in.set_ylabel("y [pix]")
+
+        except Exception as e:
+            ax_in.text(0.5, 0.5, f"Failed to display input FITS: {e}", ha="center", va="center")
+            ax_in.set_axis_off()
+
+    # ---- Lower-right: NVSS (comparison) cutout
+    if extend and have_nvss_img and ax_nv is not None:
+        try:
+            nv_data, nv_hdr = _load_fits_for_display(Path(cutout_fits))
+            nv_wcs = None
+            if nv_hdr is not None:
+                try:
+                    nv_wcs = WCS(nv_hdr).celestial
+                except Exception:
+                    nv_wcs = None
+
+            # Rebuild axes with WCS if available
+            ax_nv.remove()
+            if nv_wcs is not None:
+                ax_nv = fig.add_subplot(gs[1, 2], projection=nv_wcs)
+            else:
+                ax_nv = fig.add_subplot(gs[1, 2])
+
+            norm = ImageNormalize(nv_data, interval=ZScaleInterval())
+            ax_nv.imshow(nv_data, origin="lower", norm=norm, cmap="gray")
+            ax_nv.set_title("NVSS (comparison)")
+            if region is not None:
+                _plot_region_overlay(ax_nv, region, nv_wcs)
+            if nv_wcs is not None:
+                ax_nv.set_xlabel("RA")
+                ax_nv.set_ylabel("Dec")
+            else:
+                ax_nv.set_xlabel("x [pix]")
+                ax_nv.set_ylabel("y [pix]")
+
+        except Exception as e:
+            ax_nv.text(0.5, 0.5, f"Failed to display NVSS FITS: {e}", ha="center", va="center")
+            ax_nv.set_axis_off()
 
     fig.tight_layout()
     out = output_dir / f"{prefix}_integratedflux.png"
-    fig.savefig(out)
-    print(f"Plot saved to {out}")
-    # plt.show()
+    fig.savefig(out, dpi=150)
     plt.close(fig)
     return out
+
 
 def _compare_to_nvss(
     ds9reg: Path,
@@ -683,6 +860,12 @@ def _compare_to_nvss(
             comp=comp,
             nvss=nvss_fluxes,
             title_str=title_str,
+            cutout_fits=nvss_fluxes["cutout_I_path"] if nvss_fluxes else None,
+            region_file=ds9reg,
+            region_idx=r_idx,
+            # hardcoded for testing
+            input_data_fits=Path("/net/rijn9/data2/osinga/meerkatBfields/newest_version/Abell754/Lband/2023-03/small_cube_imaging/IQUimages/A754_stokesI-MFS-image.fits"),
+            cutout_size=nvss_size/60. # in arcmin
         )
 
 
