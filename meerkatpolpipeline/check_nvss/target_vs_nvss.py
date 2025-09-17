@@ -106,7 +106,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--nvss_dir",
-        type=str,
+        type=Path,
         default=None,
         help="NVSS data directory. Required if comparenvssdirect is set.",
     )
@@ -207,15 +207,43 @@ def get_channel_frequencies(q_files: list[str]) -> np.ndarray:
     return np.asarray(freqs, dtype=float)
 
 
-def get_nvss_fluxes(args: argparse.Namespace, prefix: str, region_index: int) -> dict[str, float]:
+def get_nvss_fluxes(
+    ds9reg: Path,
+    nvss_size: float,
+    nvss_dir: Path,
+    output_dir: Path,
+    prefix: str,
+    region_index: int,
+
+) -> dict[str, float]:
     """
     Produce NVSS I/Q/U/p cutouts and compute integrated fluxes for a given region.
-    """
-    centers = parse_region_centers(args.ds9reg)
-    ra, dec = float(centers[region_index].ra.deg), float(centers[region_index].dec.deg)
-    cutouts = get_nvss_cutouts(ra, dec, args.nvss_size, args.nvss_dir)
 
-    nvss_dir = args.output_dir / "nvsscutouts"
+    Parameters
+    ----------
+    ds9reg : Path
+        DS9 region file with one or more regions.
+    nvss_size : float
+        NVSS cutout size in arcsec.
+    nvss_dir : Path
+        Directory with NVSS FITS files.
+    output_dir : Path
+        Directory to save NVSS cutouts.
+    prefix : str
+        Prefix for output filenames.
+    region_index : int
+        Index of the region in ds9reg to process (0-based).
+    
+    Returns
+    -------
+    dict[str, float]
+        Dictionary with keys: freq (Hz), flux_I, flux_Q, flux_U, flux_P (Jy).
+    """
+    centers = parse_region_centers(ds9reg)
+    ra, dec = float(centers[region_index].ra.deg), float(centers[region_index].dec.deg)
+    cutouts = get_nvss_cutouts(ra, dec, nvss_size, nvss_dir)
+
+    nvss_dir = output_dir / "nvsscutouts"
     nvss_dir.mkdir(parents=True, exist_ok=True)
     base = nvss_dir / f"{prefix}_nvsscutout_r{region_index+1}.fits"
 
@@ -223,7 +251,7 @@ def get_nvss_fluxes(args: argparse.Namespace, prefix: str, region_index: int) ->
     ifn, qfn, ufn, pfn = base.with_suffix(".I.fits"), base.with_suffix(".Q.fits"), base.with_suffix(".U.fits"), base.with_suffix(".p.fits")
 
     def _flux_first(fpath: Path) -> float:
-        fluxes, _, _, _ = calculate_flux_and_peak_flux(fpath, args.ds9reg)
+        fluxes, _, _, _ = calculate_flux_and_peak_flux(fpath, ds9reg)
         return float(fluxes[region_index])
 
     return {
@@ -415,6 +443,9 @@ def plot_flux_vs_nvss(
     Path
         Path to saved PNG.
     """
+    if output_dir is None:
+        raise ValueError("output_dir must be provided when plotting flux vs NVSS")
+
     output_dir.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(2, 2, figsize=(12, 9))
     ax1, ax2, ax3, ax4 = axes.flat
@@ -511,8 +542,23 @@ def plot_flux_vs_nvss(
     plt.close(fig)
     return out
 
-
-def compare_to_nvss(args: argparse.Namespace) -> None:
+def _compare_to_nvss(
+    ds9reg: Path,
+    flag_chans: list[int],
+    ifiles: list[str],
+    qfiles: list[str],
+    ufiles: list[str],
+    pb_files: list[str],
+    comparenvssdirect: bool,
+    comparetable: bool,
+    nvss_size: float | None,
+    nvss_dir: Path | None,
+    comparetable_idx: int | None,
+    chan_unc_center: float | None,
+    output_dir_data: Path | None,
+    output_dir: Path | None,
+    flag_by_noise: float | None,
+) -> None:
     """
     Main pipeline:
     - Collect files
@@ -524,26 +570,11 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
 
     Parameters
     ----------
-    args : argparse.Namespace
-        Parsed CLI arguments.
+
+    
+
     """
-    prefix_base = args.ds9reg.stem
-
-    # parse flags once
-    try:
-        flag_chans: list[int] = ast.literal_eval(args.flag_chans)
-        if not isinstance(flag_chans, list):
-            raise ValueError
-    except Exception:
-        raise ValueError("--flag-chans must be a Python list literal like [4,5,6]")
-
-    # collect lists once
-    ifiles, qfiles, ufiles = collect_files(args.i_glob, args.q_glob)
-    pb_files = sorted(glob.glob(args.pbcor_glob))
-    if not (len(pb_files) == len(qfiles) == len(ifiles)):
-        raise AssertionError(
-            f"pbcor files count must match Q and I files count. Instead len(pb)={len(pb_files)}, len(Q)={len(qfiles)}, len(I)={len(ifiles)}"
-        )
+    prefix_base = ds9reg.stem
 
     # channel properties (same for all regions)
     freqs = get_channel_frequencies(qfiles)
@@ -551,11 +582,11 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
     lam2 = (c.value / freqs) ** 2
 
     # read centers for all regions
-    centers = parse_region_centers(args.ds9reg)
+    centers = parse_region_centers(ds9reg)
 
     # optional comparison-table placeholder
     comp = None
-    if args.comparetable and args.comparetable_idx is not None:
+    if comparetable and comparetable_idx is not None:
         print("TODO: implement comparison to table")
 
     # iterate over regions
@@ -565,13 +596,13 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
 
         # integrated fluxes
         flux_I, flux_Q, flux_U, beams_I, beams_Q, beams_U = compute_fluxes(
-            ifiles, qfiles, ufiles, args.ds9reg, r_idx
+            ifiles, qfiles, ufiles, ds9reg, r_idx
         )
 
         # uncertainties (PB-scaled if provided)
-        if args.chan_unc_center is not None:
+        if chan_unc_center is not None:
             ra, dec = float(sky.ra.deg), float(sky.dec.deg)
-            unc0 = float(args.chan_unc_center)
+            unc0 = float(chan_unc_center)
             unc_I = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
             unc_Q = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
             unc_U = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
@@ -593,9 +624,9 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
         polang_err = unp.std_devs(psi_u)
 
         # save per-region data if requested
-        if args.output_dir_data is not None:
+        if output_dir_data is not None:
             save_data(
-                region_tag, args.output_dir_data,
+                region_tag, output_dir_data,
                 freqs, flux_I, flux_Q, flux_U,
                 unc_I, unc_Q, unc_U,
                 beams_I, beams_Q, beams_U,
@@ -612,7 +643,7 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
         high_mask = (np.abs(flux_I) > threshold) | (np.abs(flux_Q) > threshold) | (np.abs(flux_U) > threshold)
         print(f"[{region_tag}] Flagged high: {np.sum(high_mask)}/{len(mask)}")
 
-        if args.flag_by_noise is not None:
+        if flag_by_noise is not None:
             raise NotImplementedError("Flag by noise not yet implemented")
         else:
             mask &= ~(nan_mask | high_mask)
@@ -620,12 +651,19 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
         print(f"[{region_tag}] Final good channels: {np.sum(mask)}/{len(mask)}")
 
         # optional NVSS for this region
-        nvss_fluxes = get_nvss_fluxes(args, region_tag, r_idx) if args.comparenvssdirect else None
+        nvss_fluxes = get_nvss_fluxes(
+            ds9reg=ds9reg,
+            nvss_size=nvss_size,
+            nvss_dir=nvss_dir,
+            output_dir=output_dir,
+            prefix=region_tag,
+            region_index=r_idx,
+        ) if comparenvssdirect else None
 
         # plot, with per-region prefix and title
         plot_flux_vs_nvss(
             region_tag,
-            args.output_dir,
+            output_dir,
             freqs[mask],
             flux_I[mask],
             flux_Q[mask],
@@ -645,12 +683,52 @@ def compare_to_nvss(args: argparse.Namespace) -> None:
         )
 
 
+def _start_compare_nvss_from_cmd(args) -> None:
+    """
+    Wrapper to start comparison from command-line args.
+    """
+
+    # parse flags parameter
+    try:
+        flag_chans: list[int] = ast.literal_eval(args.flag_chans)
+        if not isinstance(flag_chans, list):
+            raise ValueError
+    except Exception:
+        raise ValueError("--flag-chans must be a Python list literal like [4,5,6]")
+
+
+    # collect lists for iqu files 
+    ifiles, qfiles, ufiles = collect_files(args.i_glob, args.q_glob)
+    pb_files = sorted(glob.glob(args.pbcor_glob))
+    if not (len(pb_files) == len(qfiles) == len(ifiles)):
+        raise AssertionError(
+            f"pbcor files count must match Q and I files count. Instead len(pb)={len(pb_files)}, len(Q)={len(qfiles)}, len(I)={len(ifiles)}"
+        )
+
+    _compare_to_nvss(
+        ds9reg=args.ds9reg,
+        flag_chans=flag_chans,
+        ifiles=ifiles,
+        qfiles=qfiles,
+        ufiles=ufiles,
+        pb_files=pb_files,
+        comparenvssdirect=args.comparenvssdirect,
+        nvss_size=args.nvss_size,
+        nvss_dir=Path(args.nvss_dir) if args.nvss_dir is not None else None,
+        comparetable=args.comparetable,
+        comparetable_idx=args.comparetable_idx,
+        chan_unc_center=args.chan_unc_center,
+        output_dir_data=args.output_dir_data,
+        flag_by_noise=args.flag_by_noise,
+    )
+
+
 def main() -> None:
     """
     Entry point for CLI execution.
     """
     args = parse_args()
-    compare_to_nvss(args)
+    _start_compare_nvss_from_cmd(args)
 
 
 if __name__ == "__main__":
