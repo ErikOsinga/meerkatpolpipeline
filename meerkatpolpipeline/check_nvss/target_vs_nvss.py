@@ -534,6 +534,9 @@ def plot_flux_vs_nvss(
     ax4.set_xlabel("Wavelength^2 [m^2]")
     ax4.legend()
 
+
+    print("TODO: add cutout image of NVSS and region file")
+
     fig.tight_layout()
     out = output_dir / f"{prefix}_integratedflux.png"
     fig.savefig(out)

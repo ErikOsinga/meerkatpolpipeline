@@ -147,7 +147,12 @@ def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.
         # Mask the data and isolate the source
         masked_data = rmask.cutout(data)
         if masked_data is None:
-            continue  # If the region is outside the image
+            # If the region is outside the image
+            total_fluxes.append(np.nan)
+            peak_fluxes.append(np.nan)
+            Nbeams.append(np.nan)
+            continue
+        
         ellipsemask = np.array(rmask.data, dtype=bool)
         masked_data[np.invert(ellipsemask)] = 0  # Set outside of ellipse to 0
         
