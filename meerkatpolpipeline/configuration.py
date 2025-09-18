@@ -52,7 +52,7 @@ STRATEGY_OPTIONS_MAPPING = {
     "crosscal": CrossCalOptions,
     "check_calibrator": CheckCalibratorOptions,
     "selfcal": SelfCalOptions,
-    "small_cube_imaging": CoarseCubeImagingOptions,
+    "coarse_cube_imaging": CoarseCubeImagingOptions,
     # TODO
 }
 
