@@ -141,8 +141,8 @@ def pbcor_coarsecubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: st
 
     globstr_pbcor = f"{outdir_pbcor_images}/*-I-pb_model.fits"
 
-    all_corrected = pbcor_allchan(globstr, globstr_pbcor, verbose=False)
+    all_corrected, all_pbcor = pbcor_allchan(globstr, globstr_pbcor, verbose=False)
 
-    imset = imset.with_options(image_pbcor=all_corrected)
+    imset = imset.with_options(image_pbcor=all_corrected, pbcor_model_images=all_pbcor)
 
     return imset

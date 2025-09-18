@@ -12,51 +12,17 @@ class CompareNVSSOptions(BaseOptions):
     
     enable: bool
     """enable this step? Required parameter"""
+    nvss_dir: Path
+    """Path to directory containing NVSS catalog and FITS files. Required."""
     targetfield: str | None = None
     """name of targetfield. Propagated to all steps."""
+    flux_extraction_regions: Path | None = None
+    """Path to a ds9 region file containing flux extraction regions. If not given, will attempt to find regions from bright NVSS sources."""
+    nvss_max_regions: None | int = 10
+    """Maximum number of regions to extract fluxes from. Used when flux_extraction_regions is None"""
+    nvss_cutout_size: float = 500.0
+    """Size of NVSS cutout in arcseconds. Default 500.0"""
 
-
-class PlaceholderArgs:
-    pass
-
-def create_args_compare_nvss(
-        compare_nvss_options: dict | CompareNVSSOptions,
-        working_dir: Path,
-        imageset_I: ImageSet,
-        imageset_Q: ImageSet,
-        imageset_U: ImageSet,
-    ) -> PlaceholderArgs:
-    """
-    Create args for the _compare_to_nvss function
-    """
-
-    args = PlaceholderArgs()
-    
-    print("TODO: probably want to change target_vs_nvss.py to take an ImageSet instead of globs / optionally instead of globs")
-
-    args.i_glob = "./small_cube_imaging/IQUimages/*stokesI-00*-image.pbcor.fits"
-    args.q_glob = "./small_cube_imaging/IQUimages/*stokesQU-00*-Q-image.pbcor.fits"
-    args.pbcor_glob  = "./small_cube_imaging/pbcor_images/*fits"
-    # args.ds9reg = Path('/net/rijn9/data2/osinga/meerkatBfields/Abell754/Lband_combined/source11.reg')
-    args.ds9reg = Path('/net/rijn9/data2/osinga/meerkatBfields/Abell754/Lband_combined/veck_sources_in_field.reg')
-    args.output_dir = Path("./small_cube_imaging/nvss_comparison/")
-
-    args.chan_unc_center = 1.25e-5
-    args.nvss_size = 500.0
-
-    args.flag_chans = "[]"
-    args.flag_by_noise = None
-    args.flag_by_noise_factor = 2
-
-    args.comparetable = None
-    args.comparetable_idx = None
-    args.comparenvssdirect = True
-    # only possible if users have access to this data.. 
-    args.nvss_dir = "/net/rijn9/data2/osinga/meerkatBfields/NVSS/NVSS_IQUp_catalog/"
-
-    args.output_dir_data = Path("./small_cube_imaging/nvss_comparison/data")
-
-    return args
 
 def compare_to_nvss(
         compare_nvss_options: dict | CompareNVSSOptions,
@@ -76,12 +42,22 @@ def compare_to_nvss(
         None: plots are made in the working_dir
     """
 
-    args = create_args_compare_nvss(
-        compare_nvss_options=compare_nvss_options,
-        working_dir=working_dir,
-        imageset_I=imageset_I,
-        imageset_Q=imageset_Q,
-        imageset_U=imageset_U,
+    _compare_to_nvss(
+        ds9reg = compare_nvss_options['flux_extraction_regions'],
+        flag_chans = compare_nvss_options['flag_chans'],
+        ifiles = imageset_I.image_pbcor,
+        qfiles = imageset_Q.image_pbcor,
+        ufiles = imageset_U.image_pbcor,
+        pb_files = imageset_I.pbcor_model_images,
+        output_dir = working_dir,
+        comparenvssdirect = True,
+        nvss_size = compare_nvss_options['nvss_cutout_size'],
+        nvss_dir = compare_nvss_options['nvss_dir'],
+        comparetable = None, # TODO: implement comparison to a table instead of NVSS fits files?
+        comparetable_idx = None,
+        chan_unc_center = None,
+        output_dir_data = working_dir / "data",
+        flag_by_noise=None,
     )
 
-    _compare_to_nvss(args)
+    return None

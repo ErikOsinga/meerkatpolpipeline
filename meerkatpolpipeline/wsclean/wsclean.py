@@ -35,6 +35,8 @@ class ImageSet(BaseOptions):
     """Path to a source list that accompanies the image data"""
     image_pbcor: list[Path] | None = None
     """Primary beam corrected images, if primary beam correction was applied."""
+    pbcor_model_images: list[Path] | None = None
+    """Primary beam model images. These should store the PB correction values, i.e. not the CLEAN model."""
 
 
 class WSCleanOptions(BaseOptions):
@@ -302,6 +304,9 @@ def get_imset_from_prefix(
         source_list=source_list,
     )
 
+    if can_be_pbcor:
+        imset = imset.with_options(image_pbcor = find_pol_files("image.pbcor"))
+
     if validate:
         if chanout is None:
             raise ValueError("chanout must be specified if validate is True")
@@ -360,6 +365,7 @@ def validate_imset(
     there are nchan + 1 files (including MFS).
     """
     expected = nchan + 1
+    # if pbcor was done, these images might have 2x expected number of files
     products = {
         "image": imset.image,
         "dirty": imset.dirty,
@@ -367,8 +373,6 @@ def validate_imset(
         "residual": imset.residual,
     }
 
-    # if pbcor was done, these images will have 2x expected number of files
-    
 
     for kind, files in products.items():
         count = len(files) if files is not None else 0
@@ -382,6 +386,18 @@ def validate_imset(
             raise ValueError(
                 f"Expected {expected} '{kind}' files, but found {count}."
             )
+        
+    if pbcor_done:
+        # if pbcor was done, should have image_pbcor files in the imset separately as well
+        products["image_pbcor"] = imset.image_pbcor
+        # TODO: currently this doesnt contain MFS-pbcor.fits
+
+        count = len(imset.image_pbcor) if imset.image_pbcor is not None else 0
+        if count != nchan: # no +1 since no MFS
+            raise ValueError(
+                f"Expected {expected} 'image_pbcor' files, but found {count}."
+            )
+
     return
 
 

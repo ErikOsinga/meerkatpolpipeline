@@ -149,7 +149,7 @@ def extract_last_four_digits(filepath: str) -> str:
         raise ValueError(f"No four-digit channel number found in '{filepath}'")
     return matches[-1]
 
-def pbcor_allchan(globstr_original, globstr_pbcor, verbose=False) -> list[Path]:
+def pbcor_allchan(globstr_original: str, globstr_pbcor: str, verbose: bool = False) -> tuple[list[Path], list[Path]]:
     """
     Call pbcor many times
     """
@@ -161,6 +161,7 @@ def pbcor_allchan(globstr_original, globstr_pbcor, verbose=False) -> list[Path]:
         print(f"original_files={pbcor_files[:10]}")
 
     all_corrected = []
+    all_pbcor = []
     for i, (original, pbcor) in enumerate(zip(original_files,pbcor_files)):
         if "MFS" in original:
             if verbose:
@@ -174,11 +175,12 @@ def pbcor_allchan(globstr_original, globstr_pbcor, verbose=False) -> list[Path]:
 
         pbcorrected_file = do_pbcor(original, pbcor, verbose=verbose)
         all_corrected.append(Path(pbcorrected_file))
+        all_pbcor.append(Path(pbcor))
 
-    return all_corrected
+    return all_corrected, all_pbcor
 
 
-def do_pbcor(original, pbcor, verbose=False):
+def do_pbcor(original: str, pbcor: str, verbose=False) -> str:
     """
     Given an original fits image and a pbcor image, create a new image
     .pbcor.fits that is original/pbcor. I.e. creates pbcorrected image.

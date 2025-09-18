@@ -92,16 +92,7 @@ def parse_args() -> argparse.Namespace:
         type=float,
     )
 
-    # optional args related to comparing NVSS or a fits table
-    parser.add_argument(
-        "--comparetable", default=None, help="FITS table for comparison (optional)"
-    )
-    parser.add_argument(
-        "--comparetable_idx",
-        default=None,
-        help="Row index in comparison table (optional)",
-        type=int,
-    )
+    # optional args related to comparing NVSS    (TODO: or a fits table)
     parser.add_argument(
         "--comparenvssdirect",
         action="store_true",
@@ -112,6 +103,16 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="NVSS data directory. Required if comparenvssdirect is set.",
+    )
+    # TODO
+    parser.add_argument(
+        "--comparetable", type=Path, default=None, help="FITS table for comparison (optional)"
+    )
+    parser.add_argument(
+        "--comparetable_idx",
+        default=None,
+        help="Row index in comparison table (optional)",
+        type=int,
     )
 
     # optional args related to saving nvss processed data
@@ -152,7 +153,7 @@ def parse_region_centers(regfile: Path) -> list[SkyCoord]:
     return centers
 
 
-def collect_files(glob_stokesI: str, glob_stokesQ: str | None = None) -> list[str] | tuple[list[str], list[str], list[str]]:
+def collect_files(glob_stokesI: str, glob_stokesQ: str | None = None) -> list[Path] | tuple[list[Path], list[Path], list[Path]]:
     """
     Collect Stokes I (and optionally Q/U) file lists from globs.
 
@@ -166,25 +167,25 @@ def collect_files(glob_stokesI: str, glob_stokesQ: str | None = None) -> list[st
 
     Returns
     -------
-    list[str] | tuple[list[str], list[str], list[str]]
+    list[Path] | tuple[list[Path], list[Path], list[Path]]
         If only I is requested: list of I files.
         If Q provided: (I_files, Q_files, U_files).
     """
     ifiles = sorted(glob.glob(glob_stokesI))
     if glob_stokesQ is None:
-        return ifiles
+        return [Path(i) for i in ifiles]
     qfiles = sorted(glob.glob(glob_stokesQ))
     ufiles = [q.replace("-Q-image", "-U-image") for q in qfiles]
-    return ifiles, qfiles, ufiles
+    return [Path(i) for i in ifiles], [Path(q) for q in qfiles], [Path(u) for u in ufiles]
 
 
-def get_channel_frequencies(q_files: list[str]) -> np.ndarray:
+def get_channel_frequencies(q_files: list[Path]) -> np.ndarray:
     """
     Extract per-channel frequencies (Hz) from FITS headers.
 
     Parameters
     ----------
-    q_files : list[str]
+    q_files : list[Path]
         List of Stokes Q FITS files, one per channel.
 
     Returns
@@ -288,7 +289,7 @@ def get_nvss_fluxes(
     }
 
 
-def compute_uncertainty_pbcor(unc0: float, pb_files: list[str], ra: float, dec: float) -> np.ndarray:
+def compute_uncertainty_pbcor(unc0: float, pb_files: list[Path], ra: float, dec: float) -> np.ndarray:
     """
     Scale a central-channel uncertainty by primary-beam gain at a sky position.
 
@@ -296,7 +297,7 @@ def compute_uncertainty_pbcor(unc0: float, pb_files: list[str], ra: float, dec: 
     ----------
     unc0 : float
         Uncertainty at field center for a single channel (same units as desired output).
-    pb_files : list[str]
+    pb_files : list[Path]
         List of primary-beam correction FITS files (one per channel).
     ra, dec : float
         Sky position in deg.
@@ -346,7 +347,7 @@ def _region_flux_and_beams(fpath: str, region_file: Path, region_index: int) -> 
 
 
 def compute_fluxes(
-    ifiles: list[str], qfiles: list[str], ufiles: list[str], region_file: Path, region_index: int
+    ifiles: list[Path], qfiles: list[Path], ufiles: list[Path], region_file: Path, region_index: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute integrated fluxes and beam counts for I, Q, U over channels
@@ -725,12 +726,12 @@ def plot_flux_vs_nvss(
 def _compare_to_nvss(
     ds9reg: Path,
     flag_chans: list[int],
-    ifiles: list[str],
-    qfiles: list[str],
-    ufiles: list[str],
-    pb_files: list[str],
+    ifiles: list[Path],
+    qfiles: list[Path],
+    ufiles: list[Path],
+    pb_files: list[Path],
     comparenvssdirect: bool,
-    comparetable: bool,
+    comparetable: Path | None,
     nvss_size: float | None,
     nvss_dir: Path | None,
     comparetable_idx: int | None,
@@ -863,7 +864,7 @@ def _compare_to_nvss(
             cutout_fits=nvss_fluxes["cutout_I_path"] if nvss_fluxes else None,
             region_file=ds9reg,
             region_idx=r_idx,
-            # hardcoded for testing
+            # hardcoded for testing: TODO
             input_data_fits=Path("/net/rijn9/data2/osinga/meerkatBfields/newest_version/Abell754/Lband/2023-03/small_cube_imaging/IQUimages/A754_stokesI-MFS-image.fits"),
             cutout_size=nvss_size/60. # in arcmin
         )
