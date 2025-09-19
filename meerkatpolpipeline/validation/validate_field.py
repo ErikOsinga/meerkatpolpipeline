@@ -436,7 +436,7 @@ def plot_all_I_spectra(
     ax_bot = fig.add_subplot(gs[1, 0], sharex=ax_top)
 
     # --- Top: Stokes I spectra ---
-    for name, series in named_series:
+    for (name, series, idx) in named_series:
         nu_ghz = series.nu_hz / 1e9
         m = np.isfinite(nu_ghz) & np.isfinite(series.I) & (series.I > 0)
         if not np.any(m):
@@ -459,7 +459,7 @@ def plot_all_I_spectra(
         ax_top.plot(xx, yy, color="black", linestyle="--", label="Reference: α = -0.7")
 
     # --- Bottom: fractional residuals per source ---
-    for name, series in named_series:
+    for (name, series, idx) in named_series:
         nu_hz, _, frac = compute_fractional_residuals(series)
         if frac.size == 0:
             continue
