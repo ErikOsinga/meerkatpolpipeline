@@ -7,7 +7,6 @@ This script calculates the primary beam corrections for each channel.
 """
 from __future__ import annotations
 
-import os
 import re
 from glob import glob
 from pathlib import Path

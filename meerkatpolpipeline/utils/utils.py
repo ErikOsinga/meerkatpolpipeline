@@ -17,6 +17,15 @@ from prefect.logging import get_run_logger
 # Suppress FITSFixedWarning from astropy when opening FITS files
 warnings.filterwarnings('ignore', category=FITSFixedWarning)
 
+class PrintLogger:
+    """Custom logger that prints to stdout."""
+    def info(self, msg):
+        print(msg)
+    def warning(self, msg):
+        print("WARNING:", msg)
+    def error(self, msg):
+        print("ERROR:", msg)
+
 
 def str2bool(v: str) -> bool:
     """Convert a string representation of truth to a boolean value."""

@@ -19,15 +19,7 @@ from pathlib import Path
 import numpy as np
 from casacore.tables import table, taql
 
-
-class PrintLogger:
-    """Custom logger that prints to stdout."""
-    def info(self, msg):
-        print(msg)
-    def warning(self, msg):
-        print("WARNING:", msg)
-    def error(self, msg):
-        print("ERROR:", msg)
+from meerkatpolpipeline.utils.utils import PrintLogger
 
 
 def compute_uniform_count(ms: Path) -> tuple[int, int]:

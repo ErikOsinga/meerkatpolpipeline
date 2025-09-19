@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import os
-import sys
 from pathlib import Path
 
 import bdsf
 from astropy import units as u
 from astropy.io import fits
+
+from meerkatpolpipeline.utils.utils import PrintLogger
 
 
 def parse_args():
@@ -59,7 +59,8 @@ def _runpybdsf(
     filename: Path,
     adaptive_rms_box: bool,
     rms_box_bright: tuple[int] = [60, 15],
-    verbose: bool = False
+    verbose: bool = False,
+    logger=None,
 ) -> tuple[Path, Path, Path]:
     """
     run PyBDSF on a Stokes I FITS image to extract source catalogues.
@@ -71,7 +72,18 @@ def _runpybdsf(
     Returns:
         tuple: (sourcelist_fits, sourcelist_reg, rmsmap) paths.
     """
+    if logger is None:
+        logger = PrintLogger()
+
     outdir.mkdir(exist_ok=True)
+    # --- prepare output paths ---
+    sourcelist_fits = outdir / 'sourcelist.srl.fits'
+    sourcelist_reg = outdir / 'sourcelist.srl.reg'
+    rmsmap = outdir / 'rms_map.fits'
+
+    if sourcelist_fits.exists() and sourcelist_reg.exists() and rmsmap.exists():
+        logger.info(f"Output files already exist in {outdir}, skipping PyBDSF run.")
+        return sourcelist_fits, sourcelist_reg, rmsmap
 
     # --- open FITS and compute beam major axis in arcsec ---
     with fits.open(str(filename)) as hdul:
@@ -79,13 +91,13 @@ def _runpybdsf(
         bmaj = (head['BMAJ'] * u.deg).to(u.arcsec).value
     
     if verbose:
-        print(f'Beam major axis: {bmaj:.2f} arcsec')
+        logger.info(f'Beam major axis: {bmaj:.2f} arcsec')
     if bmaj == 0:
         raise ValueError(f"Invalid value for {bmaj=} in {filename}")
 
     # --- run PyBDSF ---
     if verbose:
-        print(f"====> Running PYBDSF on the image {filename} to get source locations and RMS map.")
+        logger.info(f"====> Running PYBDSF on the image {filename} to get source locations and RMS map.")
 
     img = bdsf.process_image(
         filename,
@@ -97,11 +109,6 @@ def _runpybdsf(
         thresh_pix=5.0,
         thresh_isl=3.0,
     )
-
-    # --- prepare output paths ---
-    sourcelist_fits = outdir / 'sourcelist.srl.fits'
-    sourcelist_reg = outdir / 'sourcelist.srl.reg'
-    rmsmap = outdir / 'rms_map.fits'
     
     img.write_catalog(outfile=sourcelist_fits,
                       catalog_type='srl',
@@ -114,8 +121,7 @@ def _runpybdsf(
 
     img.export_image(img_type='rms', outfile=rmsmap)
 
-    if verbose:
-        print(f'Catalogs written to {outdir}')
+    logger.info(f'PYBDSF Catalogs written to {outdir}')
     
     return sourcelist_fits, sourcelist_reg, rmsmap
 

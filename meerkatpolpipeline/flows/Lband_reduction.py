@@ -34,7 +34,10 @@ from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
 from meerkatpolpipeline.utils.runpybdsf import _runpybdsf
 from meerkatpolpipeline.utils.utils import find_calibrated_ms
-from meerkatpolpipeline.wsclean.wsclean import get_imset_from_prefix, get_pbcor_mfs_image_from_imset
+from meerkatpolpipeline.wsclean.wsclean import (
+    get_imset_from_prefix,
+    get_pbcor_mfs_image_from_imset,
+)
 
 
 @flow(name="MeerKAT pipeline", log_prints=True)
@@ -449,9 +452,12 @@ def process_science_fields(
             # run PYBDSF on the MFS image
             MFS_image = get_pbcor_mfs_image_from_imset(imageset_I_mfs)
 
-            sourcelist_fits, sourcelist_reg, rmsmap = _runpybdsf(outdir=cube_imaging_workdir,
+            task_pybdsf = task(_runpybdsf, name="run_pybdsf_on_mfs")
+
+            sourcelist_fits, sourcelist_reg, rmsmap = task_pybdsf(outdir=cube_imaging_workdir,
                        filename=MFS_image,
                        adaptive_rms_box=True,
+                       logger=logger
             )
 
 
