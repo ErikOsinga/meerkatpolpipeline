@@ -386,14 +386,13 @@ def validate_imset(
             raise ValueError(
                 f"Expected {expected} '{kind}' files, but found {count}."
             )
-        
+
     if pbcor_done:
         # if pbcor was done, should have image_pbcor files in the imset separately as well
         products["image_pbcor"] = imset.image_pbcor
-        # TODO: currently this doesnt contain MFS-pbcor.fits
 
         count = len(imset.image_pbcor) if imset.image_pbcor is not None else 0
-        if count != nchan: # no +1 since no MFS
+        if count != expected:
             raise ValueError(
                 f"Expected {expected} 'image_pbcor' files, but found {count}."
             )

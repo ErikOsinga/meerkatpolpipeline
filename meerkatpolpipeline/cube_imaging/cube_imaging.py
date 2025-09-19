@@ -20,10 +20,14 @@ class CoarseCubeImagingOptions(BaseOptions):
     """list of Paths to extracted MSes that contains the corrected data. If None, will be determined automatically"""
     no_fit_rm: bool = False
     """ disable the -fit-rm flag in wsclean, since its only available in the newest versions."""
+    also_image_for_mfs: bool = False
+    """ also make MFS images in addition to the coarse cubes. This is a separate imaging step with no_mf_weighting"""
+
+    # TODO: add size, scale, channels_out etc parameters
 
 
 def go_wsclean_coarsecubes_target(
-    ms: Path,
+    ms: Path | list[Path],
     working_dir: Path,
     lofar_container: Path,
     cube_imaging_options: dict | CoarseCubeImagingOptions
@@ -116,7 +120,29 @@ def go_wsclean_coarsecubes_target(
     imageset_Q = pbcor_coarsecubes_target(imageset_Q, working_dir / "pbcor_images", pol='q')
     imageset_U = pbcor_coarsecubes_target(imageset_U, working_dir / "pbcor_images", pol='u')
 
-    return imageset_I, imageset_Q, imageset_U
+
+    if cube_imaging_options['also_image_for_mfs']:
+        working_dir_mfs = working_dir / "MFSimaging"
+        working_dir_mfs.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Also making MFS images for target field {cube_imaging_options['targetfield']} in {working_dir_mfs}")
+
+        # MFS imaging run is exactly the same but with optimal weighting for MFS
+        opts_I_mfs = opts_I.with_options(no_mf_weighting=False)
+
+        [imageset_I_mfs] = run_wsclean(
+            ms=ms,
+            working_dir=working_dir_mfs,
+            lofar_container=lofar_container,
+            prefix=cube_imaging_options['targetfield']+'_stokesI',
+            options=opts_I_mfs,
+            expected_pols=["i"],
+        )
+
+    else:
+        imageset_I_mfs = None
+
+    return imageset_I, imageset_Q, imageset_U, imageset_I_mfs
 
 
 def pbcor_coarsecubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> ImageSet:

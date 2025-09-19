@@ -19,9 +19,9 @@ from astropy.io import fits
 from katbeam import JimBeam
 
 
-def showbeam(beam,freqMHz,pol,beam_extend, i, size, hdul, outdir='./'):
+def calculate_and_write_primary_beam(beam, freqMHz, pol, beam_extend, i, size, hdul, outfile=None):
     """
-    showbeam: This function makes the primary beam per channel using JimBeam
+    calculate_and_write_primary_beam: This function makes the primary beam per channel using JimBeam
     INPUTS:
         beam: Standard beam package from JimBeam.
         sourcename: Name of the data block of interest.
@@ -44,15 +44,15 @@ def showbeam(beam,freqMHz,pol,beam_extend, i, size, hdul, outdir='./'):
     elif pol =="I":
         beampixels=beam.I(x,y,freqMHz)
 
-
     # Save output
-    outfile = f"{outdir}/{i:04d}-{pol}-pb_model.fits"
-    # print(f"Saving output file {outfile}")
-    hdulshape = hdul[0].data.shape
-    # Make sure its same shape
-    beampixels = np.reshape(beampixels, hdulshape)
-    hdul[0].data = beampixels
-    hdul.writeto(outfile, overwrite=True)
+    if outfile is not None:
+        # print(f"Saving output file {outfile}")
+        hdulshape = hdul[0].data.shape
+        # Make sure its same shape
+        beampixels = np.reshape(beampixels, hdulshape)
+        hdul[0].data = beampixels
+        hdul.writeto(outfile, overwrite=True)
+
     return beampixels
 
 def calculate_pb(globstr, band='L', outdir='./', verbose=False):
@@ -71,7 +71,7 @@ def calculate_pb(globstr, band='L', outdir='./', verbose=False):
     else:
         raise ValueError(f"Band {band} beam not implemented")
 
-    filenames = sorted(glob(globstr))
+    filenames = sorted(glob(globstr)) # sorted makes sure channels are sorted and MFS is last one
 
     # Get image parameters from first file 
     with fits.open(filenames[0]) as hdul1:
@@ -92,9 +92,15 @@ def calculate_pb(globstr, band='L', outdir='./', verbose=False):
 
         for i, i_filename in enumerate(filenames):
             if "MFS" in i_filename:
-                if verbose:
-                    print(f"Skipping MFS image {i_filename}")
-                continue
+                assert i == nchannels-1, f"MFS image should be last in the list. Please check list of files: {filenames}"
+
+                i="MFS" # string for MFS image
+
+                outfile = f"{outdir}/MFS-I-pb_model.fits"
+
+            else:
+
+                outfile = f"{outdir}/{i:04d}-I-pb_model.fits"
 
             # print(f'Calculating the primary beam corrections on channel {i}')
             I_hdr = fits.getheader(i_filename)
@@ -114,10 +120,10 @@ def calculate_pb(globstr, band='L', outdir='./', verbose=False):
                 else:
                     raise ValueError("please update script or set 3rd axis as freq")
 
-                if not os.path.exists(f"{i:04d}-I-pb_model.fits"):
-
-                    # Shape (1,1,8192,8192)
-                    showbeam(beammodel,freq,'I',beam_extend, i, size, hdul, outdir)
+                
+                if not os.path.exists(outfile):
+                    # Shape (1,1,DEC,RA)
+                    calculate_and_write_primary_beam(beammodel,freq,'I',beam_extend, i, size, hdul, outfile)
 
     if verbose:
         print('primary beam corrections calculated, apply the corrections with the apply script')
@@ -164,14 +170,13 @@ def pbcor_allchan(globstr_original: str, globstr_pbcor: str, verbose: bool = Fal
     all_pbcor = []
     for i, (original, pbcor) in enumerate(zip(original_files,pbcor_files)):
         if "MFS" in original:
-            if verbose:
-                print(f"Skipping MFS image {original}")
-            continue
-
-        # Make sure we are correcting the same channel number
-        channum_original = extract_last_four_digits(original)
-        channum_pbcor = extract_last_four_digits(pbcor)
-        assert channum_original == channum_pbcor, f"Found channel {channum_original} vs pbcor channel {channum_pbcor}"
+            # Make sure we are correcting at the same frequency
+            assert "MFS" in pbcor, f"Expected MFS in pbcor filename {pbcor} for original {original}"
+        else:
+            # Make sure we are correcting the same channel number
+            channum_original = extract_last_four_digits(original)
+            channum_pbcor = extract_last_four_digits(pbcor)
+            assert channum_original == channum_pbcor, f"Found channel {channum_original} vs pbcor channel {channum_pbcor}"
 
         pbcorrected_file = do_pbcor(original, pbcor, verbose=verbose)
         all_corrected.append(Path(pbcorrected_file))
