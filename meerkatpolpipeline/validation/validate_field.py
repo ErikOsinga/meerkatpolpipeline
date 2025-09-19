@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -151,6 +152,25 @@ def assert_region_matches_catalog(
         )
 
 
+def format_frequency_axes_ghz(axes: list[plt.Axes]) -> None:
+    """
+    Apply log x-scale in GHz with fixed-point tick labels to a list of axes.
+    """
+    for ax in axes:
+        ax.set_xscale("log")
+
+        # Major ticks: keep default LogFormatter
+        ax.xaxis.set_major_formatter(mticker.LogFormatter(base=10))
+
+        # Minor ticks: use same formatter but shrink font size
+        ax.xaxis.set_minor_formatter(mticker.LogFormatter(base=10, labelOnlyBase=False)) # subs=[2,3,5]
+
+        for tick in ax.xaxis.get_minor_ticks():
+            tick.label1.set_fontsize(9)   # smaller size for minor ticks
+
+        ax.set_xlabel("Frequency (GHz)")
+
+
 # -------------------- fluxes & spectra --------------------
 
 @dataclass
@@ -227,6 +247,25 @@ def fit_power_law_alpha(nu_hz: np.ndarray, S: np.ndarray) -> tuple[float, float]
     return alpha, S0
 
 
+def compute_fractional_residuals(series: SpectralSeries) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Returns (nu_hz_valid, S_valid, frac_residuals) where
+    frac_residuals = (S - S_fit) / S_fit   with S_fit from the per-source power-law fit.
+    """
+    nu = series.nu_hz
+    S  = series.I
+    m  = np.isfinite(nu) & np.isfinite(S) & (S > 0)
+    if np.count_nonzero(m) < 2:
+        return nu[m], S[m], np.array([])
+    alpha, S0 = fit_power_law_alpha(nu[m], S[m])
+    if not np.isfinite(alpha) or not np.isfinite(S0):
+        return nu[m], S[m], np.array([])
+    nu0 = np.median(nu[m])
+    Sfit = S0 * (nu[m] / nu0) ** alpha
+    frac = (S[m] - Sfit) / Sfit
+    return nu[m], S[m], frac
+
+
 # -------------------- plotting --------------------
 
 def add_inset_cutouts(
@@ -272,7 +311,7 @@ def add_inset_cutouts(
             Pimg = np.sqrt(cutQ.data**2 + cutU.data**2)
             ax = ax_grid["inset_P"]
             norm = ImageNormalize(vmin=VMIN_HARDCODED, vmax=np.nanmax(Pimg.data), stretch=AsinhStretch())
-            ax.imshow(Pimg, origin="lower", norm=norm)
+            im = ax.imshow(Pimg, origin="lower", norm=norm)
             cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
             cbar.set_label("[Jy/beam]", fontsize=8)
             ax.set_title("Polarized Intensity", fontsize=8)
@@ -293,7 +332,7 @@ def make_summary_figure(
     """
     Make a 3x3 summary figure for one source.
     """
-    fig = plt.figure(figsize=(9.0, 9.0), constrained_layout=True)
+    fig = plt.figure(figsize=(12.0, 12.0), constrained_layout=True)
     gs = fig.add_gridspec(3, 3)
 
     ax_I = fig.add_subplot(gs[0, 0])
@@ -313,11 +352,14 @@ def make_summary_figure(
 
     # Stokes I with power-law fit
     ax_I.scatter(ghz, series.I, s=10)
-    ax_I.set_xscale("log")
     ax_I.set_yscale("log")
     ax_I.set_xlabel("Frequency (GHz)")
     ax_I.set_ylabel("Flux (Jy)")
     ax_I.set_title("Stokes I", fontsize=9)
+    ax_I.set_xscale("log")
+
+
+
 
     alpha, S0 = fit_power_law_alpha(nu, series.I)
     if np.isfinite(alpha):
@@ -365,6 +407,10 @@ def make_summary_figure(
     ax_pfrac.set_ylabel("P/I (scalar)")
     ax_pfrac.set_title("Polarized fraction", fontsize=9)
 
+    # Apply log-x GHz formatting to all frequency-x panels at once
+    # i.e. no scientific notation but simple scalar formatting. Requires all plots to be in GHz!
+    format_frequency_axes_ghz([ax_I, ax_Q, ax_U, ax_P, ax_pfrac])
+
     # Insets (I MFS and P from Q,U MFS) with center marker
     add_inset_cutouts(
         {"inset_I": ax_inset_I, "inset_P": ax_inset_P},
@@ -380,45 +426,56 @@ def plot_all_I_spectra(
     named_series: list[tuple[str, SpectralSeries]],
     output_path: Path,
 ) -> Path:
-    """
-    Plot Stokes I spectra for multiple sources in a single figure.
-
-    Parameters
-    ----------
-    named_series : list of (name, SpectralSeries)
-        The name is what you want shown in the legend (e.g., "Rank 1 | index 42").
-    output_path : Path
-        Where to write the PNG.
-
-    Returns
-    -------
-    Path
-        The written PNG path.
-    """
     import matplotlib.pyplot as plt
+    import matplotlib.ticker as mticker
 
-    fig, ax = plt.subplots(figsize=(8.5, 6.0), constrained_layout=True)
+    fig = plt.figure(figsize=(9.0, 8.0), constrained_layout=True)
+    gs  = fig.add_gridspec(2, 1, height_ratios=[2.0, 1.0])
+
+    ax_top = fig.add_subplot(gs[0, 0])
+    ax_bot = fig.add_subplot(gs[1, 0], sharex=ax_top)
+
+    # --- Top: Stokes I spectra ---
     for name, series in named_series:
-        # frequency in GHz
         nu_ghz = series.nu_hz / 1e9
         m = np.isfinite(nu_ghz) & np.isfinite(series.I) & (series.I > 0)
         if not np.any(m):
             continue
-        # scatter + light line for readability
-        ax.scatter(nu_ghz[m], series.I[m], s=10, label=name)
-        ax.plot(nu_ghz[m], series.I[m], lw=0.8, alpha=0.6)
+        ax_top.scatter(nu_ghz[m], series.I[m], s=10, label=name)
+        ax_top.plot(nu_ghz[m], series.I[m], lw=0.8, alpha=0.6)
 
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Frequency (GHz)")
-    ax.set_ylabel("Flux (Jy)")
-    ax.set_title(f"Top {len(named_series)} sources: Stokes I spectra")
-    # ax.legend(fontsize=8, ncols=2, loc="best")
+    ax_top.set_xscale("log")
+    ax_top.set_yscale("log")
+    ax_top.set_ylabel("Flux (Jy)")
+    ax_top.set_title("Top sources: Stokes I spectra")
+    ax_top.legend(fontsize=8, ncols=2, loc="best")
+
+    # Plot a reference line with a spectral index of -0.7 at the mean flux density
+    mean_flux = np.mean([series.I[m].mean() for _, series in named_series if np.any(m)])
+    if np.isfinite(mean_flux):
+        nu0 = np.median([series.nu_hz[m].mean()/1e9 for _, series in named_series if np.any(m)])
+        xx = np.linspace(nu_ghz.min()*0.9, nu_ghz.max()*1.1, 200)  # GHz range for the reference line
+        yy = mean_flux * (xx / nu0) ** -0.7
+        ax_top.plot(xx, yy, color="black", linestyle="--", label="Reference: α = -0.7")
+
+    # --- Bottom: fractional residuals per source ---
+    for name, series in named_series:
+        nu_hz, _, frac = compute_fractional_residuals(series)
+        if frac.size == 0:
+            continue
+        ax_bot.scatter(nu_hz / 1e9, frac, s=10, label=name, alpha=0.8)
+
+    ax_bot.set_xscale("log")
+    ax_bot.axhline(0.0, color="k", lw=0.8, alpha=0.5)
+    ax_bot.set_xlabel("Frequency (GHz)")
+    ax_bot.set_ylabel("(S - S_fit) / S_fit")
+
+    # format axis ticks to 2 decimal places and scalar values instead of scientific notation
+    format_frequency_axes_ghz([ax_bot])
 
     fig.savefig(output_path, dpi=200)
     plt.close(fig)
     return output_path
-
 
 # -------------------- top-N driver --------------------
 
@@ -435,7 +492,7 @@ def plot_top_n_source_spectra(
     """
     Plot top N source spectra summaries, by Total_flux from a PYBDSF catalog, using regions for flux extraction.
     """
-    named_series: list[tuple[str, SpectralSeries]] = []
+    named_series: list[tuple[str, SpectralSeries, int]] = []
 
     if logger is None:
         logger = PrintLogger()
@@ -478,7 +535,7 @@ def plot_top_n_source_spectra(
         )
 
         name = f"Rank {rank} | index {int(idx)} | Total_flux = {1000*table['Total_flux'][idx]:.3f} mJy"
-        named_series.append((name, series))
+        named_series.append((name, series, int(idx)))
 
         region = regions[int(idx)]
         # Major axis in degrees
@@ -508,7 +565,69 @@ def plot_top_n_source_spectra(
     plot_all_I_spectra(named_series, combined_png)
     out_paths.append(combined_png)
 
+    # Residual sum vs major axis
+    # Rebuild the regions list in the *same* order as named_series:
+    all_regions = Regions.read(str(ds9_regions))
+    regions_in_order = regions_in_order = [all_regions[i] for _, _, i in named_series]
+    
+    res_png = Path(f"{output_prefix}_residual-sum_vs_majoraxis_top{len(named_series)}.png")
+    plot_sum_residuals_vs_major(named_series, regions_in_order, res_png)
+    out_paths.append(res_png)
+
     return out_paths
+
+
+def plot_sum_residuals_vs_major(
+    named_series: list[tuple[str, SpectralSeries]],
+    regions: list,  # Regions from regions.read(...)
+    output_path: Path,
+) -> Path:
+    """
+    For each source, compute sum over channels of |(S - S_fit)/S_fit| and plot vs region major axis.
+    Major axis is max(width, height); units on x-axis are arcsec.
+    """
+    import matplotlib.pyplot as plt
+    from astropy import units as u
+
+    majors_arcsec: list[float] = []
+    sums_abs_frac: list[float] = []
+    labels: list[str] = []
+
+    for (name, series), reg in zip(named_series, regions):
+        # Major axis (arcsec)
+        if not (hasattr(reg, "width") and hasattr(reg, "height")):
+            continue
+        major = max(reg.width.to(u.arcsec).value, reg.height.to(u.arcsec).value)
+        nu_hz, _, frac = compute_fractional_residuals(series)
+        if frac.size == 0:
+            continue
+        majors_arcsec.append(float(major))
+        sums_abs_frac.append(float(np.nansum(np.abs(frac))))
+        labels.append(name)
+
+    if not majors_arcsec:
+        # Nothing to plot
+        return output_path
+
+    fig, ax = plt.subplots(figsize=(7.5, 5.5), constrained_layout=True)
+    sc = ax.scatter(majors_arcsec, sums_abs_frac, s=25)
+
+    ax.set_xlabel("Region major axis (arcsec)")
+    ax.set_ylabel("Sum |(S - S_fit) / S_fit|")
+    ax.set_title("Spectral fit residual sum vs source size")
+
+    # Optional: annotate a few largest outliers for quick triage
+    try:
+        idx = np.argsort(sums_abs_frac)[-3:]
+        for i in idx:
+            ax.annotate(labels[i], (majors_arcsec[i], sums_abs_frac[i]),
+                        xytext=(5, 5), textcoords="offset points", fontsize=8)
+    except Exception:
+        pass
+
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+    return output_path
 
 
 # -------------------- CLI --------------------
