@@ -17,6 +17,7 @@ from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions
 from meerkatpolpipeline.utils.utils import add_timestamp_to_path
+from meerkatpolpipeline.validation.validate_field import ValidateFieldOptions
 
 # Known headers must **always** be present in the strategy file
 KNOWN_HEADERS = (
@@ -38,6 +39,7 @@ KNOWN_OPERATIONS = (
     "selfcal",
     "coarse_cube_imaging",
     "compare_to_nvss",
+    "validation",
     "grid_freq_axis",
     "create_iqu_cubes",
     "rmsynth1d",
@@ -55,6 +57,7 @@ STRATEGY_OPTIONS_MAPPING = {
     "selfcal": SelfCalOptions,
     "coarse_cube_imaging": CoarseCubeImagingOptions,
     "compare_to_nvss": CompareNVSSOptions,
+    "validation": ValidateFieldOptions,
     # TODO
 }
 

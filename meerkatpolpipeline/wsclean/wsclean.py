@@ -380,7 +380,6 @@ def validate_imset(
         if kind in can_be_pbcor and pbcor_done:
             # If pbcor was done, expect 2x the number of files per channel
             count //= 2 
-            count += 1 # plus one for MFS
 
         if count != expected:
             raise ValueError(

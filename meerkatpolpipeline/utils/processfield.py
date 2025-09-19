@@ -114,12 +114,13 @@ def get_Nbeams_for_region(head: fits.Header, ellipsemask: np.ndarray) -> float:
     return Nbeams
 
 
-def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.ndarray, np.ndarray, float, np.ndarray]:
+def calculate_flux_and_peak_flux(filename: Path, region_file: Path, region_index=None) -> tuple[np.ndarray, np.ndarray, float, np.ndarray]:
     """Calculate total flux and peak flux for a source in a FITS file using a DS9 region file.
     
     Args:
         filename (Path): Path to the FITS file containing the image data.
         region_file (Path): Path to the DS9 region file defining the source region(s)
+        region_index (int, optional): If specified, only process the region at this index.
     Returns:
         tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple containing:
             - total_fluxes: Total flux density in Jy for each region in the region file.
@@ -139,7 +140,13 @@ def calculate_flux_and_peak_flux(filename: Path, region_file: Path) -> tuple[np.
     peak_fluxes = []
     Nbeams = []
 
-    for r in regions:
+    for region_indx, r in enumerate(regions):
+        if region_index is not None and region_indx != region_index:
+            total_fluxes.append(np.nan)
+            peak_fluxes.append(np.nan)
+            Nbeams.append(np.nan)
+            continue
+        
         # Convert region to pixel coordinates
         rpix = r.to_pixel(wcs.celestial)
         rmask = rpix.to_mask()

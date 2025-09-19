@@ -34,6 +34,7 @@ from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
 from meerkatpolpipeline.utils.runpybdsf import _runpybdsf
 from meerkatpolpipeline.utils.utils import find_calibrated_ms
+from meerkatpolpipeline.validation import validate_field
 from meerkatpolpipeline.wsclean.wsclean import (
     get_imset_from_prefix,
     get_pbcor_mfs_image_from_imset,
@@ -272,6 +273,7 @@ def process_science_fields(
         crosscal_dir = None
 
     if crosscal_dir is None:
+        crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
         logger.warning(f"No cross-calibration step was performed, checking for calibrated MS in {crosscal_base_dir} subdirectories")
         
         calibrated_cal_ms = find_calibrated_ms(
@@ -427,8 +429,8 @@ def process_science_fields(
 
 
     ########## step 5: IQUV cube image 12 channel ##########
+    cube_imaging_workdir = working_dir / "coarse_cube_imaging"
     if 'coarse_cube_imaging' in enabled_operations:
-        cube_imaging_workdir = working_dir / "coarse_cube_imaging"
         cube_imaging_workdir.mkdir(exist_ok=True)
 
         cube_imaging_options = get_options_from_strategy(strategy, operation="coarse_cube_imaging")
@@ -454,10 +456,11 @@ def process_science_fields(
 
             task_pybdsf = task(_runpybdsf, name="run_pybdsf_on_mfs")
 
-            sourcelist_fits, sourcelist_reg, rmsmap = task_pybdsf(outdir=cube_imaging_workdir,
-                       filename=MFS_image,
-                       adaptive_rms_box=True,
-                       logger=logger
+            sourcelist_fits, sourcelist_reg, rmsmap = task_pybdsf(
+                        outdir=cube_imaging_workdir,
+                        filename=MFS_image,
+                        adaptive_rms_box=True,
+                        logger=logger
             )
 
 
@@ -496,6 +499,11 @@ def process_science_fields(
             can_be_pbcor = ["image"] # default, coarse_cube_imaging only does pbcor for 'image' files.
         )
 
+        # Assuming pybdsf results in these files
+        sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
+        sourcelist_reg = cube_imaging_workdir / 'sourcelist.srl.reg'
+        rmsmap = cube_imaging_workdir / 'rms_map.fits'
+
     
     ########## step 6: preliminary check of IQUV cubes vs NVSS ##########
     if "compare_to_nvss" in enabled_operations:
@@ -517,7 +525,29 @@ def process_science_fields(
         )
 
     
-    ########## step 7: run PYBDSF on small cube, check spectra of brightest sources ##########
+    ########## step 7: after we've run PYBDSF on small cube, can check spectra of brightest sources ##########
+    if "validation" in enabled_operations:
+        validate_field_workdir = working_dir / "validation"
+        validate_field_workdir.mkdir(exist_ok=True)
+
+        validation_options = get_options_from_strategy(strategy, operation="validation")
+
+        logger.info("Starting validate field step")
+
+        check_spectra_task = task(validate_field.plot_top_n_source_spectra)
+        spectra_check_workdir = validate_field_workdir / "spectra_check"
+        spectra_check_workdir.mkdir(exist_ok=True)
+
+        check_spectra_task(
+            imageset_I,
+            imageset_Q,
+            imageset_U,
+            sourcelist_reg,
+            sourcelist_fits,
+            output_prefix=spectra_check_workdir / "top_n_spectra",
+            top_n=validation_options['top_n_spectra'],
+            logger=logger
+        )
 
 
 

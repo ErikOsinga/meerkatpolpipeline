@@ -342,7 +342,9 @@ def _region_flux_and_beams(fpath: str, region_file: Path, region_index: int) -> 
     tuple[float, float]
         (flux, nbeams) for the specified region.
     """
-    fluxes, _, _, nbeams = calculate_flux_and_peak_flux(fpath, region_file)
+    # TODO: this is a bit roundabout, because it always returns the a list of all regions,
+    # although i've now set it to return np.nan and skip the calculation if the index is not region_index
+    fluxes, peaks, freq, nbeams = calculate_flux_and_peak_flux(fpath, region_file, region_index)
     return float(fluxes[region_index]), float(nbeams[region_index])
 
 
