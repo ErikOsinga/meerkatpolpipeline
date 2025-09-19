@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from meerkatpolpipeline.check_nvss.target_vs_nvss import _compare_to_nvss
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.wsclean.wsclean import ImageSet
 
+
+def parse_flags_parameter(flag_chans: str) -> list[int]:
+    """Parse the flag_chans parameter, which should be a Python list literal like [4,5,6]"""
+    try:
+        flag_chans: list[int] = ast.literal_eval(flag_chans)
+        if not isinstance(flag_chans, list):
+            raise ValueError
+    except Exception:
+        raise ValueError("--flag-chans must be a Python list literal like [4,5,6]")
+    return flag_chans
 
 class CompareNVSSOptions(BaseOptions):
     """A basic class to handle NVSS comparison options for meerkatpolpipeline. """
@@ -22,6 +33,9 @@ class CompareNVSSOptions(BaseOptions):
     """Maximum number of regions to extract fluxes from. Used when flux_extraction_regions is None"""
     nvss_cutout_size: float = 500.0
     """Size of NVSS cutout in arcseconds. Default 500.0"""
+    flag_chans: str = "[]"
+    """Flag these channels when comparing. Should be given as a Python list literal like [4,5,6]"""
+
 
 
 def compare_to_nvss(
@@ -41,10 +55,11 @@ def compare_to_nvss(
     Returns:
         None: plots are made in the working_dir
     """
+    flag_chans = parse_flags_parameter(compare_nvss_options['flag_chans'])
 
     _compare_to_nvss(
         ds9reg = compare_nvss_options['flux_extraction_regions'],
-        flag_chans = compare_nvss_options['flag_chans'],
+        flag_chans = flag_chans,
         ifiles = imageset_I.image_pbcor,
         qfiles = imageset_Q.image_pbcor,
         ufiles = imageset_U.image_pbcor,
