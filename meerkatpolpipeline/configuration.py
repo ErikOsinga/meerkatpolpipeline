@@ -177,6 +177,14 @@ def verify_configuration(input_strategy: Strategy, raise_on_error: bool = True) 
                         assert options["obsconf_fcal"] is not None, "obsconf_fcal should be set if 'auto_determine_obsconf is False"
                 except Exception as exception:
                     errors.append(f"{exception}")
+
+            if operation == "coarse_cube_imaging":
+                # double check that if run_pybdsf is set, also_image_for_mfs is set
+                try:
+                    if options["run_pybdsf"]:
+                        assert options["also_image_for_mfs"], "Error in coarse_cube_imaging settings: If run_pybdsf is True, also_image_for_mfs must be True as well."
+                except Exception as exception:
+                    errors.append(f"{exception}")
     
 
     valid_config = len(errors) == 0

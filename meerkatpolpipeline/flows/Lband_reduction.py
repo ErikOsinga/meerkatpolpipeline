@@ -32,8 +32,9 @@ from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
+from meerkatpolpipeline.utils.runpybdsf import _runpybdsf
 from meerkatpolpipeline.utils.utils import find_calibrated_ms
-from meerkatpolpipeline.wsclean.wsclean import get_imset_from_prefix
+from meerkatpolpipeline.wsclean.wsclean import get_imset_from_prefix, get_pbcor_mfs_image_from_imset
 
 
 @flow(name="MeerKAT pipeline", log_prints=True)
@@ -64,9 +65,10 @@ def process_science_fields(
         casa_additional_bind = []
 
     ########## step 1: download & clip channels ##########
-    download_options = get_options_from_strategy(strategy, operation="download_preprocess")
-    download_workdir = working_dir / "download"
     if "download_preprocess" in enabled_operations:
+        download_options = get_options_from_strategy(strategy, operation="download_preprocess")
+        download_workdir = working_dir / "download"
+
         # create subdirectory 'download'
         download_workdir.mkdir(exist_ok=True) # runs can be repeated
 
@@ -138,12 +140,12 @@ def process_science_fields(
 
 
     ########## step 2: cross-calibration with either casa or caracal ##########
-    crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
-    crosscal_base_dir.mkdir(exist_ok=True) # runs can be repeated
-
-    field_intents_csv = crosscal_base_dir / "field_intents.csv"
-
     if "crosscal" in enabled_operations:
+        crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
+        crosscal_base_dir.mkdir(exist_ok=True) # runs can be repeated
+
+        field_intents_csv = crosscal_base_dir / "field_intents.csv"
+
         logger.info("Cross-calibration step is enabled, starting cross-calibration.")
 
         crosscal_options = get_options_from_strategy(strategy, operation="crosscal")
@@ -422,12 +424,12 @@ def process_science_fields(
 
 
     ########## step 5: IQUV cube image 12 channel ##########
-    cube_imaging_workdir = working_dir / "coarse_cube_imaging"
-    cube_imaging_workdir.mkdir(exist_ok=True)
-
-    cube_imaging_options = get_options_from_strategy(strategy, operation="coarse_cube_imaging")
-
     if 'coarse_cube_imaging' in enabled_operations:
+        cube_imaging_workdir = working_dir / "coarse_cube_imaging"
+        cube_imaging_workdir.mkdir(exist_ok=True)
+
+        cube_imaging_options = get_options_from_strategy(strategy, operation="coarse_cube_imaging")
+
         # Make a 12 channel cube of the target in IQU, from the extracted dataset for a quick look
 
         # check for user overwrite
@@ -442,6 +444,16 @@ def process_science_fields(
             lofar_container=lofar_container,
             cube_imaging_options=cube_imaging_options
         )
+
+        if cube_imaging_options['run_pybdsf']:
+            # run PYBDSF on the MFS image
+            MFS_image = get_pbcor_mfs_image_from_imset(imageset_I_mfs)
+
+            sourcelist_fits, sourcelist_reg, rmsmap = _runpybdsf(outdir=cube_imaging_workdir,
+                       filename=MFS_image,
+                       adaptive_rms_box=True,
+            )
+
 
     else:
         wsclean_output_dir = cube_imaging_workdir / "IQUimages"

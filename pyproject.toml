@@ -27,7 +27,8 @@ dependencies = [
     "tables",
     "katbeam",
     "uncertainties",
-    "shadems"
+    "shadems",
+    "bdsf"
 ]
 
 classifiers = [

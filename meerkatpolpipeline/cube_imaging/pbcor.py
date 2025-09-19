@@ -55,14 +55,26 @@ def calculate_and_write_primary_beam(beam, freqMHz, pol, beam_extend, i, size, h
 
     return beampixels
 
-def calculate_pb(globstr, band='L', outdir='./', verbose=False):
+def count_n_channels(filenames: list[Path]) -> int:
+    """Count number of channels in a list of filenames from a globstr"""
+    nchannels = 0
+    for f in filenames:
+        if "MFS" in f.name:
+            continue
+        else:
+            nchannels += 1
+    return nchannels
+
+
+def calculate_pb(globstr: str, band: str ='L', outdir: Path = Path('./'), verbose: bool = False) -> None:
     """
     calculate_pb: Calculate the primary beam per channel
     INPUTS:
         globstr -- str -- filename of the channel images
         band    -- str -- "L" or "UHF"
+        outdir  -- path -- directory to save the pb modelss
 
-    NOTE THAT DIFFERENT CHANNELS-OUT WILL REQUIRE RE-RUNNING THIS SCRIPT
+    NOTE THAT DIFFERENT CHANNELS-OUT WILL REQUIRE RE-RUNNING THIS SCRIPT BECAUSE CHANNEL NUMBERS WILL BE DIFFERENT
     """
     if band == "L":
         beammodel=JimBeam('MKAT-AA-L-JIM-2020') # model for L-band
@@ -72,15 +84,19 @@ def calculate_pb(globstr, band='L', outdir='./', verbose=False):
         raise ValueError(f"Band {band} beam not implemented")
 
     filenames = sorted(glob(globstr)) # sorted makes sure channels are sorted and MFS is last one
+    filenames = [Path(f) for f in filenames]
+    nchannels = count_n_channels(filenames)
+
+    if nchannels == 0:
+        raise ValueError(f"Did not find any files with glob {globstr}")
+
 
     # Get image parameters from first file 
     with fits.open(filenames[0]) as hdul1:
         I_hdr = hdul1[0].header
         size = I_hdr['NAXIS1']# assumes square
         scale = np.abs(I_hdr['CDELT1']) # assumes square
-        nchannels = len(filenames)
         beam_extend = size*scale # width of image in degrees
-
 
         if verbose:
             print(f"Calculating the primary beam for {nchannels} channels")
@@ -90,46 +106,47 @@ def calculate_pb(globstr, band='L', outdir='./', verbose=False):
             print(f"image width = {beam_extend:.2f} deg")
             print(f"{nchannels=}")
 
-        for i, i_filename in enumerate(filenames):
-            if "MFS" in i_filename:
-                assert i == nchannels-1, f"MFS image should be last in the list. Please check list of files: {filenames}"
+    for i, i_filename in enumerate(filenames):
+        if "MFS" in i_filename.name:
+            assert i == nchannels, f"MFS image should be last in the list. Please check list of files: {filenames}"
 
-                i="MFS" # string for MFS image
+            i="MFS" # string for MFS image
 
-                outfile = f"{outdir}/MFS-I-pb_model.fits"
+            outfile = outdir / "MFS-I-pb_model.fits"
+
+        else:
+
+            outfile = outdir / f"{i:04d}-I-pb_model.fits"
+
+        # print(f'Calculating the primary beam corrections on channel {i}')
+        I_hdr = fits.getheader(str(i_filename))
+        # also use hdul as template for writing PB images (same freq)
+        with fits.open(str(i_filename)) as hdul:
+
+            if "FREQ" in I_hdr["CTYPE3"]:
+                freq = I_hdr['CRVAL3']/1e6 #convert to MHz
+
+                if band == "L":
+                    if not (900 <= freq <= 1670):
+                        raise ValueError(f"Frequency {freq} MHz outside L-band range")
+                elif band == "UHF":
+                    if not (580 <= freq <= 1015):
+                        raise ValueError(f"Frequency {freq} MHz outside UHF-band range")
 
             else:
+                raise ValueError("please update script or set 3rd axis as freq")
 
-                outfile = f"{outdir}/{i:04d}-I-pb_model.fits"
-
-            # print(f'Calculating the primary beam corrections on channel {i}')
-            I_hdr = fits.getheader(i_filename)
-            # also use hdul as template for writing PB images (same freq)
-            with fits.open(i_filename) as hdul:
-
-                if "FREQ" in I_hdr["CTYPE3"]:
-                    freq = I_hdr['CRVAL3']/1e6 #convert to MHz
-
-                    if band == "L":
-                        if not (900 <= freq <= 1670):
-                            raise ValueError(f"Frequency {freq} MHz outside L-band range")
-                    elif band == "UHF":
-                        if not (580 <= freq <= 1015):
-                            raise ValueError(f"Frequency {freq} MHz outside UHF-band range")
-
-                else:
-                    raise ValueError("please update script or set 3rd axis as freq")
-
-                
-                if not os.path.exists(outfile):
-                    # Shape (1,1,DEC,RA)
-                    calculate_and_write_primary_beam(beammodel,freq,'I',beam_extend, i, size, hdul, outfile)
+            
+            calculate_and_write_primary_beam(beammodel,freq,'I',beam_extend, i, size, hdul, outfile)
 
     if verbose:
         print('primary beam corrections calculated, apply the corrections with the apply script')
         print(f"Saved in {outdir}/*-I-pb_model.fits")
 
-def extract_last_four_digits(filepath: str) -> str:
+    return None
+
+
+def extract_last_four_digits(filepath: Path) -> str:
     """
     Extract the last occurrence of a four-digit sequence from the filename.
 
@@ -148,7 +165,7 @@ def extract_last_four_digits(filepath: str) -> str:
     ValueError
         If no four-digit sequence is found.
     """
-    filename = os.path.basename(filepath)
+    filename = filepath.name
     # Find all non-overlapping 4-digit sequences
     matches = re.findall(r'\d{4}', filename)
     if not matches:
@@ -162,6 +179,11 @@ def pbcor_allchan(globstr_original: str, globstr_pbcor: str, verbose: bool = Fal
     original_files = sorted(glob(globstr_original))
     pbcor_files = sorted(glob(globstr_pbcor))
 
+    original_files = [Path(f) for f in original_files]
+    pbcor_files = [Path(f) for f in pbcor_files]
+    if len(original_files) != len(pbcor_files):
+        raise ValueError(f"Found {len(original_files)} original files but {len(pbcor_files)} pbcor files. Make sure you have the corresponding pbcor images.")
+
     if verbose:
         print(f"original_files={original_files[:10]}")
         print(f"original_files={pbcor_files[:10]}")
@@ -169,9 +191,9 @@ def pbcor_allchan(globstr_original: str, globstr_pbcor: str, verbose: bool = Fal
     all_corrected = []
     all_pbcor = []
     for i, (original, pbcor) in enumerate(zip(original_files,pbcor_files)):
-        if "MFS" in original:
+        if "MFS" in original.name:
             # Make sure we are correcting at the same frequency
-            assert "MFS" in pbcor, f"Expected MFS in pbcor filename {pbcor} for original {original}"
+            assert "MFS" in pbcor.name, f"Expected MFS in pbcor filename {pbcor} for original {original}"
         else:
             # Make sure we are correcting the same channel number
             channum_original = extract_last_four_digits(original)
@@ -203,7 +225,7 @@ def do_pbcor(original: str, pbcor: str, verbose=False) -> str:
         if verbose:
             print(f"Found image size to be {size}")
 
-        outfile = original.replace(".fits",".pbcor.fits")
+        outfile = original.with_suffix(".pbcor.fits")
 
         with fits.open(pbcor) as pbcorhdu:
             # Make sure we are correcting at the same frequency
@@ -224,17 +246,15 @@ def do_pbcor(original: str, pbcor: str, verbose=False) -> str:
 
 
 if __name__ == '__main__':
-
+    # example usage
 
     # path to channel images
     imagedir = "/path/to/IQU_combined/"
     globstr = f"{imagedir}/Abell754-combined-I_imaging-0*image.fits"
     # path to save pb models
-    outdir = './pbcor170chan/'
+    outdir = Path('./pbcor170chan/')
 
-    if not os.path.exists(f"{outdir}"):
-        print(f"mkdir {outdir}")
-        os.system(f"mkdir -p {outdir}")
+    outdir.mkdirs(exist_ok=True)
 
     calculate_pb(globstr, band='L', outdir=outdir)
 

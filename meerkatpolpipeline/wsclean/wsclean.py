@@ -448,3 +448,17 @@ def run_wsclean(
     else:
         logger.info(f"WSClean output for pol(s) {expected_pols} already exists, skipping run.")
         return pre
+
+
+def get_pbcor_mfs_image_from_imset(imset: ImageSet) -> Path:
+    """
+    Get the pbcor MFS image from an ImageSet
+    """
+    if imset.image_pbcor is None:
+        raise ValueError("ImageSet does not have pbcor images")
+
+    for img in imset.image_pbcor:
+        if "MFS" in img.name:
+            return img
+
+    raise ValueError("No MFS pbcor image found in ImageSet")

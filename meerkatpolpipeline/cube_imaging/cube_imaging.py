@@ -22,8 +22,10 @@ class CoarseCubeImagingOptions(BaseOptions):
     """ disable the -fit-rm flag in wsclean, since its only available in the newest versions."""
     also_image_for_mfs: bool = False
     """ also make MFS images in addition to the coarse cubes. This is a separate imaging step with no_mf_weighting"""
+    run_pybdsf: bool = False
+    """ also run pybdsf on the Stokes I MFS image to create a source catalogue. Requires also_image_for_mfs=True"""
 
-    # TODO: add size, scale, channels_out etc parameters
+    # TODO: add size, scale, channels_out etc parameters for wsclean
 
 
 def go_wsclean_coarsecubes_target(
@@ -138,6 +140,9 @@ def go_wsclean_coarsecubes_target(
             options=opts_I_mfs,
             expected_pols=["i"],
         )
+
+        # can put pbcor images in same directory as coarse cubes
+        imageset_I_mfs = pbcor_coarsecubes_target(imageset_I_mfs, working_dir / "pbcor_images", pol='i')
 
     else:
         imageset_I_mfs = None
