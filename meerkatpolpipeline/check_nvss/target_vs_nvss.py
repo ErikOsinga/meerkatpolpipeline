@@ -333,7 +333,7 @@ def _first_region_flux_and_beams(fpath: str, region_file: Path) -> tuple[float, 
     return float(fluxes[0]), float(nbeams[0])
 
 
-def _region_flux_and_beams(fpath: str, region_file: Path, region_index: int) -> tuple[float, float]:
+def _region_flux_and_beams(fpath: str, region: Path | Regions, region_index: int) -> tuple[float, float]:
     """
     Compute integrated flux and Nbeams for a specific region index.
 
@@ -344,12 +344,12 @@ def _region_flux_and_beams(fpath: str, region_file: Path, region_index: int) -> 
     """
     # TODO: this is a bit roundabout, because it always returns the a list of all regions,
     # although i've now set it to return np.nan and skip the calculation if the index is not region_index
-    fluxes, peaks, freq, nbeams = calculate_flux_and_peak_flux(fpath, region_file, region_index)
+    fluxes, peaks, freq, nbeams = calculate_flux_and_peak_flux(fpath, region, region_index)
     return float(fluxes[region_index]), float(nbeams[region_index])
 
 
 def compute_fluxes(
-    ifiles: list[Path], qfiles: list[Path], ufiles: list[Path], region_file: Path, region_index: int
+    ifiles: list[Path], qfiles: list[Path], ufiles: list[Path], region: Path | Regions, region_index: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute integrated fluxes and beam counts for I, Q, U over channels
@@ -358,9 +358,9 @@ def compute_fluxes(
     flux_I, flux_Q, flux_U = [], [], []
     beams_I, beams_Q, beams_U = [], [], []
     for i_f, q_f, u_f in zip(ifiles, qfiles, ufiles):
-        fI, bI = _region_flux_and_beams(i_f, region_file, region_index)
-        fQ, bQ = _region_flux_and_beams(q_f, region_file, region_index)
-        fU, bU = _region_flux_and_beams(u_f, region_file, region_index)
+        fI, bI = _region_flux_and_beams(i_f, region, region_index)
+        fQ, bQ = _region_flux_and_beams(q_f, region, region_index)
+        fU, bU = _region_flux_and_beams(u_f, region, region_index)
         flux_I.append(fI)
         beams_I.append(bI)
         flux_Q.append(fQ)

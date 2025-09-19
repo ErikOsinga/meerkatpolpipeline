@@ -190,10 +190,12 @@ def gather_flux_series(
     qfiles = [qfiles_all[i] for i in kept]
     ufiles = [ufiles_all[i] for i in kept]
 
+    region_object = Regions.read(ds9reg)
+
     # Integrated fluxes, compute_fluxes is assumed to return integrated in Jy)
     logger.info(f"Gathering fluxes for {region_index=}")
     flux_I, flux_Q, flux_U, _, _, _ = compute_fluxes(
-        ifiles, qfiles, ufiles, Path(ds9reg), region_index
+        ifiles, qfiles, ufiles, region_object, region_index
     )
 
     nu = np.asarray(nu_I, dtype=float)
@@ -322,7 +324,7 @@ def make_summary_figure(
         nu0 = np.median(nu)
         xx = np.linspace(nu.min(), nu.max(), 200)
         yy = S0 * (xx / nu0) ** alpha
-        ax_I.plot(xx, yy, lw=1)
+        ax_I.plot(xx/1e9, yy, lw=1)
         txt = f"I( nu0 ) = {S0:.3g} Jy\nnu0 = {nu0/1e9:.3f} GHz\nalpha(fit) = {alpha:.2f}"
         ax_I.text(0.02, 0.02, txt, transform=ax_I.transAxes, fontsize=8, va="bottom")
 
@@ -374,6 +376,50 @@ def make_summary_figure(
     return fig
 
 
+def plot_all_I_spectra(
+    named_series: list[tuple[str, SpectralSeries]],
+    output_path: Path,
+) -> Path:
+    """
+    Plot Stokes I spectra for multiple sources in a single figure.
+
+    Parameters
+    ----------
+    named_series : list of (name, SpectralSeries)
+        The name is what you want shown in the legend (e.g., "Rank 1 | index 42").
+    output_path : Path
+        Where to write the PNG.
+
+    Returns
+    -------
+    Path
+        The written PNG path.
+    """
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(8.5, 6.0), constrained_layout=True)
+    for name, series in named_series:
+        # frequency in GHz
+        nu_ghz = series.nu_hz / 1e9
+        m = np.isfinite(nu_ghz) & np.isfinite(series.I) & (series.I > 0)
+        if not np.any(m):
+            continue
+        # scatter + light line for readability
+        ax.scatter(nu_ghz[m], series.I[m], s=10, label=name)
+        ax.plot(nu_ghz[m], series.I[m], lw=0.8, alpha=0.6)
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Frequency (GHz)")
+    ax.set_ylabel("Flux (Jy)")
+    ax.set_title(f"Top {len(named_series)} sources: Stokes I spectra")
+    # ax.legend(fontsize=8, ncols=2, loc="best")
+
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+    return output_path
+
+
 # -------------------- top-N driver --------------------
 
 def plot_top_n_source_spectra(
@@ -389,6 +435,8 @@ def plot_top_n_source_spectra(
     """
     Plot top N source spectra summaries, by Total_flux from a PYBDSF catalog, using regions for flux extraction.
     """
+    named_series: list[tuple[str, SpectralSeries]] = []
+
     if logger is None:
         logger = PrintLogger()
 
@@ -430,6 +478,8 @@ def plot_top_n_source_spectra(
         )
 
         name = f"Rank {rank} | index {int(idx)} | Total_flux = {1000*table['Total_flux'][idx]:.3f} mJy"
+        named_series.append((name, series))
+
         region = regions[int(idx)]
         # Major axis in degrees
         if hasattr(region, "width") and hasattr(region, "height"):
@@ -452,6 +502,11 @@ def plot_top_n_source_spectra(
         fig.savefig(out_png, dpi=200)
         plt.close(fig)
         out_paths.append(out_png)
+
+    # --- one combined plot for all Stokes I spectra ---
+    combined_png = Path(f"{output_prefix}_spectral-summary-top{len(named_series)}.png")
+    plot_all_I_spectra(named_series, combined_png)
+    out_paths.append(combined_png)
 
     return out_paths
 

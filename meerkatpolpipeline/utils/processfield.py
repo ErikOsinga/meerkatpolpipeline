@@ -114,7 +114,7 @@ def get_Nbeams_for_region(head: fits.Header, ellipsemask: np.ndarray) -> float:
     return Nbeams
 
 
-def calculate_flux_and_peak_flux(filename: Path, region_file: Path, region_index=None) -> tuple[np.ndarray, np.ndarray, float, np.ndarray]:
+def calculate_flux_and_peak_flux(filename: Path, region: Path | Regions, region_index=None) -> tuple[np.ndarray, np.ndarray, float, np.ndarray]:
     """Calculate total flux and peak flux for a source in a FITS file using a DS9 region file.
     
     Args:
@@ -132,9 +132,13 @@ def calculate_flux_and_peak_flux(filename: Path, region_file: Path, region_index
     data, freq, wcs = read_fits_data_and_frequency(filename)
     
     header = fits.getheader(filename)
-    
-    # Load the DS9 region file
-    regions = Regions.read(region_file)
+
+    if isinstance(region, Path) or isinstance(region, str):
+        # Load the DS9 region file
+        regions = Regions.read(region)
+    else:
+        assert isinstance(region, Regions), "Expected region to be a Path/str or Regions object"
+        regions = region
     
     total_fluxes = []
     peak_fluxes = []
@@ -844,7 +848,6 @@ def processfield(
             plotdir=plotdir,
         )
 
-        rm_iono_rad_m2
 
 
 def get_parser() -> ArgumentParser:
