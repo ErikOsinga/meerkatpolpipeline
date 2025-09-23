@@ -193,7 +193,13 @@ def convolve_image_to_target_beam(
     Sigma_tgt_pix = beam_cov_in_pixels(target_header, target_wcs)
 
     Sigma_kernel_pix = Sigma_tgt_pix - Sigma_src_pix
-    kernel = kernel_from_covariance_pix(Sigma_kernel_pix)
+    try:
+        kernel = kernel_from_covariance_pix(Sigma_kernel_pix)
+    except ValueError as e:
+        print("Error computing convolution kernel:", e)
+        print("Perhaps data beam is too close to target beam?")
+        print("Not convolving, returning data")
+        return data, header
 
     out = convolve_fft(
         data,
