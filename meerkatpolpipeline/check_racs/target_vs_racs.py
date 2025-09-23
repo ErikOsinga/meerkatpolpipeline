@@ -3,24 +3,22 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Tuple, List, Dict, Optional
 
-import numpy as np
 import astropy.units as u
-from astropy.io import fits
-from astropy.wcs import WCS
-from astropy.nddata import Cutout2D
-from astropy.visualization import ZScaleInterval, ImageNormalize
-from astropy.convolution import Gaussian2DKernel, convolve_fft
 import matplotlib.pyplot as plt
+import numpy as np
+from astropy.convolution import Gaussian2DKernel, convolve_fft
+from astropy.io import fits
+from astropy.nddata import Cutout2D
+from astropy.visualization import ImageNormalize, ZScaleInterval
+from astropy.wcs import WCS
 from regions import Regions
 
 from meerkatpolpipeline.utils.processfield import calculate_flux_and_peak_flux
 
-
 # ------------------------------ WCS / FITS I/O ------------------------------ #
 
-def load_primary_image_2d(fpath: Path) -> Tuple[np.ndarray, fits.Header, WCS]:
+def load_primary_image_2d(fpath: Path) -> tuple[np.ndarray, fits.Header, WCS]:
     """
     Load the first available 2D slice of a FITS image and its celestial WCS.
     Crashes if WCS is invalid or missing (per user request).
@@ -68,7 +66,7 @@ def write_fits_like(out_path: Path, data: np.ndarray, header: fits.Header) -> No
 
 # ------------------------------ Beam handling ------------------------------- #
 
-def get_beam_from_header(header: fits.Header) -> Tuple[float, float, float]:
+def get_beam_from_header(header: fits.Header) -> tuple[float, float, float]:
     """
     Extract (BMAJ, BMIN, BPA) from header in degrees and degrees.
     Returns
@@ -179,7 +177,7 @@ def convolve_image_to_target_beam(
     wcs: WCS,
     target_header: fits.Header,
     target_wcs: WCS,
-) -> Tuple[np.ndarray, fits.Header]:
+) -> tuple[np.ndarray, fits.Header]:
     """
     Convolve an image to the target beam using covariance algebra:
     Σ_kernel_pix = Σ_target_pix - Σ_source_pix
@@ -220,7 +218,7 @@ def convolve_image_to_target_beam(
 
 # --------------------------- Flux / Regions / Plots -------------------------- #
 
-def compute_fluxes_and_nbeams(fits_path: Path, ds9reg: Path) -> Tuple[np.ndarray, np.ndarray]:
+def compute_fluxes_and_nbeams(fits_path: Path, ds9reg: Path) -> tuple[np.ndarray, np.ndarray]:
     """
     Use the pipeline helper to compute integrated flux and Nbeams per region.
     """
@@ -244,11 +242,11 @@ def estimate_sigma_from_rms(rms_jy_per_beam: float, nbeams: np.ndarray) -> np.nd
 def scatter_with_unity(
     x: np.ndarray,
     y: np.ndarray,
-    xerr: Optional[np.ndarray],
-    yerr: Optional[np.ndarray],
+    xerr: np.ndarray | None,
+    yerr: np.ndarray | None,
     out_png: Path,
     title: str,
-    subtitle: Optional[str],
+    subtitle: str | None,
 ) -> None:
     """
     Make a scatter plot comparing two flux sets, adding a 1:1 line.
@@ -407,6 +405,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--image_spiceracs", required=True, type=Path, help="Path to SPICE-RACS Stokes I FITS image.")
     p.add_argument("--ds9reg", required=True, type=Path, help="DS9 region file with one or more source regions.")
     p.add_argument("--output_dir", required=True, type=Path, help="Directory to save CSV and plots.")
+    p.add_argument("--noconvolve", action="store_true", help="If set, do not convolve either image.")
 
     p.add_argument("--rms_input", required=False, type=float, default=None,
                    help="Global rms of input image [Jy/beam] for sigma estimates.")
@@ -443,26 +442,34 @@ def main() -> None:
     spiceracs_for_flux = args.image_spiceracs
     target_header_for_default_size = hdr_sp if area_sp >= area_in else hdr_in
 
-    if area_in < area_sp:
-        # Input has higher resolution -> convolve input to SPICE-RACS beam
-        conv_data, conv_hdr = convolve_image_to_target_beam(
-            data_in, hdr_in, wcs_in, hdr_sp, wcs_sp
-        )
-        conv_path = temp_dir / f"{args.image_input.stem}_to_{args.image_spiceracs.stem}_beam.fits"
-        write_fits_like(conv_path, conv_data.astype(np.float32), conv_hdr)
-        input_for_flux = conv_path
-        print(f"Convolved INPUT -> target SPICE-RACS beam: {conv_path}")
-    elif area_sp < area_in:
-        # SPICE-RACS has higher resolution -> convolve SPICE-RACS to INPUT beam
-        conv_data, conv_hdr = convolve_image_to_target_beam(
-            data_sp, hdr_sp, wcs_sp, hdr_in, wcs_in
-        )
-        conv_path = temp_dir / f"{args.image_spiceracs.stem}_to_{args.image_input.stem}_beam.fits"
-        write_fits_like(conv_path, conv_data.astype(np.float32), conv_hdr)
-        spiceracs_for_flux = conv_path
-        print(f"Convolved SPICE-RACS -> target INPUT beam: {conv_path}")
+    if args.noconvolve:
+        print("Skipping convolution as per user request (--noconvolve).")
+
+        input_for_flux = args.image_input
+        spiceracs_for_flux = args.image_spiceracs
+
     else:
-        print("Beams appear equal in area; no convolution applied.")
+
+        if area_in < area_sp:
+            # Input has higher resolution -> convolve input to SPICE-RACS beam
+            conv_data, conv_hdr = convolve_image_to_target_beam(
+                data_in, hdr_in, wcs_in, hdr_sp, wcs_sp
+            )
+            conv_path = temp_dir / f"{args.image_input.stem}_to_{args.image_spiceracs.stem}_beam.fits"
+            write_fits_like(conv_path, conv_data.astype(np.float32), conv_hdr)
+            input_for_flux = conv_path
+            print(f"Convolved INPUT -> target SPICE-RACS beam: {conv_path}")
+        elif area_sp < area_in:
+            # SPICE-RACS has higher resolution -> convolve SPICE-RACS to INPUT beam
+            conv_data, conv_hdr = convolve_image_to_target_beam(
+                data_sp, hdr_sp, wcs_sp, hdr_in, wcs_in
+            )
+            conv_path = temp_dir / f"{args.image_spiceracs.stem}_to_{args.image_input.stem}_beam.fits"
+            write_fits_like(conv_path, conv_data.astype(np.float32), conv_hdr)
+            spiceracs_for_flux = conv_path
+            print(f"Convolved SPICE-RACS -> target INPUT beam: {conv_path}")
+        else:
+            print("Beams appear equal in area; no convolution applied.")
 
     # Compute region fluxes and Nbeams
     flux_in, nbeams_in = compute_fluxes_and_nbeams(input_for_flux, args.ds9reg)
@@ -474,7 +481,7 @@ def main() -> None:
 
     # Build table
     num = max(len(flux_in), len(flux_sp))
-    idx = np.arange(num, dtype=int)
+    # idx = np.arange(num, dtype=int)
 
     # Pad to same length if required (should not be necessary if helper returns per-region arrays)
     def _safe(a: np.ndarray, n: int) -> np.ndarray:
