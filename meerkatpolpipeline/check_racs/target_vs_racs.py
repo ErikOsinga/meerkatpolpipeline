@@ -139,6 +139,7 @@ def beam_cov_in_pixels(header: fits.Header, wcs: WCS) -> np.ndarray:
     Σ_pixel = S^{-1} Σ_sky S^{-T}, where S maps pixel -> deg.
     """
     bmaj, bmin, bpa = get_beam_from_header(header)
+    print(f" Beam: BMAJ={bmaj*3600:.2f}\" BMIN={bmin*3600:.2f}\" BPA={bpa:.1f} deg")
     Sigma_sky = beam_cov_sky_deg2(bmaj, bmin, bpa)  # deg^2
     S = cd_matrix_deg_per_pix(wcs)                  # deg / pix
     try:
@@ -186,7 +187,9 @@ def convolve_image_to_target_beam(
     -------
     convolved_data, new_header
     """
+    print("Computing data beam covariance...")
     Sigma_src_pix = beam_cov_in_pixels(header, wcs)
+    print("Computing target beam covariance...")
     Sigma_tgt_pix = beam_cov_in_pixels(target_header, target_wcs)
 
     Sigma_kernel_pix = Sigma_tgt_pix - Sigma_src_pix
