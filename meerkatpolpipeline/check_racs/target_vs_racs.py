@@ -1,24 +1,26 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Optional
+from typing import Tuple, List, Dict, Optional
 
-import astropy.units as u
-import matplotlib.pyplot as plt
 import numpy as np
-from astropy.convolution import Gaussian2DKernel, convolve_fft
+import astropy.units as u
 from astropy.io import fits
-from astropy.nddata import Cutout2D
-from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
+from astropy.nddata import Cutout2D
+from astropy.visualization import ZScaleInterval, ImageNormalize
+from astropy.convolution import Gaussian2DKernel, convolve_fft
+import matplotlib.pyplot as plt
 from regions import Regions
 
 from meerkatpolpipeline.utils.processfield import calculate_flux_and_peak_flux
 
+
 # ------------------------------ WCS / FITS I/O ------------------------------ #
 
-def load_primary_image_2d(fpath: Path) -> tuple[np.ndarray, fits.Header, WCS]:
+def load_primary_image_2d(fpath: Path) -> Tuple[np.ndarray, fits.Header, WCS]:
     """
     Load the first available 2D slice of a FITS image and its celestial WCS.
     Crashes if WCS is invalid or missing (per user request).
@@ -66,7 +68,7 @@ def write_fits_like(out_path: Path, data: np.ndarray, header: fits.Header) -> No
 
 # ------------------------------ Beam handling ------------------------------- #
 
-def get_beam_from_header(header: fits.Header) -> tuple[float, float, float]:
+def get_beam_from_header(header: fits.Header) -> Tuple[float, float, float]:
     """
     Extract (BMAJ, BMIN, BPA) from header in degrees and degrees.
     Returns
@@ -139,7 +141,6 @@ def beam_cov_in_pixels(header: fits.Header, wcs: WCS) -> np.ndarray:
     Σ_pixel = S^{-1} Σ_sky S^{-T}, where S maps pixel -> deg.
     """
     bmaj, bmin, bpa = get_beam_from_header(header)
-    print(f" Beam: BMAJ={bmaj*3600:.2f}\" BMIN={bmin*3600:.2f}\" BPA={bpa:.1f} deg")
     Sigma_sky = beam_cov_sky_deg2(bmaj, bmin, bpa)  # deg^2
     S = cd_matrix_deg_per_pix(wcs)                  # deg / pix
     try:
@@ -178,7 +179,7 @@ def convolve_image_to_target_beam(
     wcs: WCS,
     target_header: fits.Header,
     target_wcs: WCS,
-) -> tuple[np.ndarray, fits.Header]:
+) -> Tuple[np.ndarray, fits.Header]:
     """
     Convolve an image to the target beam using covariance algebra:
     Σ_kernel_pix = Σ_target_pix - Σ_source_pix
@@ -187,9 +188,7 @@ def convolve_image_to_target_beam(
     -------
     convolved_data, new_header
     """
-    print("Computing data beam covariance...")
     Sigma_src_pix = beam_cov_in_pixels(header, wcs)
-    print("Computing target beam covariance...")
     Sigma_tgt_pix = beam_cov_in_pixels(target_header, target_wcs)
 
     Sigma_kernel_pix = Sigma_tgt_pix - Sigma_src_pix
@@ -221,7 +220,7 @@ def convolve_image_to_target_beam(
 
 # --------------------------- Flux / Regions / Plots -------------------------- #
 
-def compute_fluxes_and_nbeams(fits_path: Path, ds9reg: Path) -> tuple[np.ndarray, np.ndarray]:
+def compute_fluxes_and_nbeams(fits_path: Path, ds9reg: Path) -> Tuple[np.ndarray, np.ndarray]:
     """
     Use the pipeline helper to compute integrated flux and Nbeams per region.
     """
@@ -295,88 +294,106 @@ def scatter_with_unity(
     plt.close(fig)
 
 
-def overlays_panel(
+def default_cutout_size_arcmin_from_beam(header: fits.Header) -> float:
+    """
+    If the user did not provide --cutout_size_arcmin, choose a sensible default based on
+    the lower-resolution beam. We use 6 * max(BMAJ, BMIN) converted to arcmin.
+    """
+    bmaj_deg, bmin_deg, _ = get_beam_from_header(header)
+    size_deg = 6.0 * max(bmaj_deg, bmin_deg)
+    return float(size_deg * 60.0)  # deg -> arcmin
+
+
+def overlays_per_region(
     img1_fits: Path,
     img2_fits: Path,
     ds9reg: Path,
-    out_png: Path,
-    cutout_size_arcmin: Optional[float] = None,
+    out_dir: Path,
+    flux_in: np.ndarray,
+    flux_sp: np.ndarray,
+    cutout_size_arcmin: float,
 ) -> None:
     """
-    Two-panel figure showing both images with the regions overlaid.
-    If cutout_size_arcmin provided and regions are present, shows a single
-    representative region (first region) cutout for both images, centered on the same sky position.
+    For each region, create a two-panel figure (input vs SPICE-RACS) with cutouts centered
+    on the region center, overlaying all regions, and include per-image flux in the titles.
+
+    Saves: target_vs_spiceracs_overlay_r{idx}.png
     """
     regs = Regions.read(str(ds9reg))
-    region_first = regs[0] if len(regs) > 0 else None
+    if len(regs) == 0:
+        raise ValueError("No regions found in ds9reg; cannot create overlays.")
 
-    def _load_for_display(fpath: Path) -> tuple[np.ndarray, Optional[WCS]]:
-        data, hdr, _w = load_primary_image_2d(fpath)
-        try:
-            w = WCS(hdr).celestial
-        except Exception:
-            w = None
-        return data, w
+    # Load both images for display and WCS (already validated upstream)
+    data1, hdr1, w1 = load_primary_image_2d(img1_fits)
+    data2, hdr2, w2 = load_primary_image_2d(img2_fits)
 
-    data1, w1 = _load_for_display(img1_fits)
-    data2, w2 = _load_for_display(img2_fits)
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 5))
-    axes = [ax1, ax2]
-    datas = [data1, data2]
-    wcss = [w1, w2]
-    titles = ["Input image", "SPICE-RACS image"]
-
-    # Optionally, determine a common sky center for cutouts
-    sky_center = None
-    if region_first is not None and hasattr(region_first, "center"):
-        ctr = region_first.center
+    for i, r in enumerate(regs, start=1):
+        if not hasattr(r, "center"):
+            raise ValueError(f"Region {i} has no center; cannot create cutout.")
+        ctr = r.center
         sky = ctr.to_skycoord() if hasattr(ctr, "to_skycoord") else ctr
-        sky_center = sky
 
-    for ax, data, w, tt in zip(axes, datas, wcss, titles):
-        if w is not None and cutout_size_arcmin is not None and sky_center is not None:
-            size = (cutout_size_arcmin * u.arcmin, cutout_size_arcmin * u.arcmin)
-            try:
-                co = Cutout2D(data=data, position=sky_center, size=size, wcs=w, mode="trim")
-                data_show = co.data
-                w_show = co.wcs
-                ax = plt.subplot(1, 2, 1 if tt == titles[0] else 2, projection=w_show)
-            except Exception:
-                data_show = data
-                w_show = w
-                ax = plt.subplot(1, 2, 1 if tt == titles[0] else 2, projection=w_show) if w_show is not None else ax
-        else:
-            data_show = data
-            w_show = w
-            ax = plt.subplot(1, 2, 1 if tt == titles[0] else 2, projection=w_show) if w_show is not None else ax
-
-        norm = ImageNormalize(data_show, interval=ZScaleInterval())
-        ax.imshow(data_show, origin="lower", norm=norm, cmap="gray")
-        ax.set_title(tt)
-
-        if w_show is not None:
-            ax.set_xlabel("RA")
-            ax.set_ylabel("Dec")
-        else:
-            ax.set_xlabel("x [pix]")
-            ax.set_ylabel("y [pix]")
-
-        # Overlay all regions
+        fig = plt.figure(figsize=(11, 5))
+        # Left panel (Input)
+        ax1 = fig.add_subplot(1, 2, 1, projection=w1)
         try:
-            for r in regs:
-                rr = r
-                if hasattr(r, "to_pixel") and w_show is not None:
-                    rr = r.to_pixel(w_show)
-                rr.plot(ax=ax, lw=1.0)
-        except Exception as e:
-            ax.text(0.02, 0.02, f"Region overlay failed: {e}", transform=ax.transAxes,
-                    ha="left", va="bottom", fontsize=8)
+            co1 = Cutout2D(data=data1, position=sky, size=(cutout_size_arcmin * u.arcmin,
+                                                           cutout_size_arcmin * u.arcmin),
+                           wcs=w1, mode="trim")
+            ax1.remove()
+            ax1 = fig.add_subplot(1, 2, 1, projection=co1.wcs)
+            data1_show = co1.data
+            w1_show = co1.wcs
+        except Exception:
+            # Should not happen unless WCS invalid; we fail anyway per top-level rule
+            data1_show = data1
+            w1_show = w1
 
-    fig.tight_layout()
-    out_png.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_png, dpi=150)
-    plt.close(fig)
+        norm1 = ImageNormalize(data1_show, interval=ZScaleInterval())
+        ax1.imshow(data1_show, origin="lower", norm=norm1, cmap="gray")
+        ax1.set_title(f"Input image — flux = {flux_in[i-1]:.6g} Jy")
+        ax1.set_xlabel("RA")
+        ax1.set_ylabel("Dec")
+        # Overlay all regions transformed to this cutout WCS
+        try:
+            for rr in regs:
+                pr = rr.to_pixel(w1_show) if hasattr(rr, "to_pixel") else rr
+                pr.plot(ax=ax1, lw=1.0)
+        except Exception as e:
+            ax1.text(0.02, 0.02, f"Overlay failed: {e}", transform=ax1.transAxes,
+                     ha="left", va="bottom", fontsize=8)
+
+        # Right panel (SPICE-RACS)
+        ax2 = fig.add_subplot(1, 2, 2, projection=w2)
+        try:
+            co2 = Cutout2D(data=data2, position=sky, size=(cutout_size_arcmin * u.arcmin,
+                                                           cutout_size_arcmin * u.arcmin),
+                           wcs=w2, mode="trim")
+            ax2.remove()
+            ax2 = fig.add_subplot(1, 2, 2, projection=co2.wcs)
+            data2_show = co2.data
+            w2_show = co2.wcs
+        except Exception:
+            data2_show = data2
+            w2_show = w2
+
+        norm2 = ImageNormalize(data2_show, interval=ZScaleInterval())
+        ax2.imshow(data2_show, origin="lower", norm=norm2, cmap="gray")
+        ax2.set_title(f"SPICE-RACS image — flux = {flux_sp[i-1]:.6g} Jy")
+        ax2.set_xlabel("RA")
+        ax2.set_ylabel("Dec")
+        try:
+            for rr in regs:
+                pr = rr.to_pixel(w2_show) if hasattr(rr, "to_pixel") else rr
+                pr.plot(ax=ax2, lw=1.0)
+        except Exception as e:
+            ax2.text(0.02, 0.02, f"Overlay failed: {e}", transform=ax2.transAxes,
+                     ha="left", va="bottom", fontsize=8)
+
+        fig.tight_layout()
+        out_png = out_dir / f"target_vs_spiceracs_overlay_r{i}.png"
+        fig.savefig(out_png, dpi=150)
+        plt.close(fig)
 
 
 # ------------------------------- Main pipeline ------------------------------ #
@@ -397,9 +414,9 @@ def parse_args() -> argparse.Namespace:
                    help="Global rms of SPICE-RACS image [Jy/beam] for sigma estimates.")
 
     p.add_argument("--show_overlays", action="store_true",
-                   help="If set, produce a two-panel overlay figure with DS9 regions.")
+                   help="If set, produce per-region two-panel cutout figures with DS9 regions and flux in titles.")
     p.add_argument("--cutout_size_arcmin", type=float, default=None,
-                   help="If overlays are requested, show cutouts of this size (arcmin) centered on the first region.")
+                   help="Cutout size (arcmin) centered on each region. If omitted, uses 6 * max(BMAJ,BMIN) of the lower-resolution beam.")
     return p.parse_args()
 
 
@@ -424,6 +441,7 @@ def main() -> None:
 
     input_for_flux = args.image_input
     spiceracs_for_flux = args.image_spiceracs
+    target_header_for_default_size = hdr_sp if area_sp >= area_in else hdr_in
 
     if area_in < area_sp:
         # Input has higher resolution -> convolve input to SPICE-RACS beam
@@ -531,11 +549,24 @@ def main() -> None:
         scatter_with_unity(x, y, xerr, yerr, png_path, title, subtitle)
         print(f"Wrote {png_path}")
 
-    # Optional overlays
+    # Per-region overlays (cutouts) with flux in titles
     if args.show_overlays:
-        ov_png = out_dir / "target_vs_spiceracs_overlays.png"
-        overlays_panel(Path(input_for_flux), Path(spiceracs_for_flux), args.ds9reg, ov_png, args.cutout_size_arcmin)
-        print(f"Wrote {ov_png}")
+        # If user did not provide a size, pick default from the lower-resolution beam
+        if args.cutout_size_arcmin is None:
+            cut_size_arcmin = default_cutout_size_arcmin_from_beam(target_header_for_default_size)
+        else:
+            cut_size_arcmin = float(args.cutout_size_arcmin)
+
+        overlays_per_region(
+            Path(input_for_flux),
+            Path(spiceracs_for_flux),
+            args.ds9reg,
+            out_dir,
+            flux_in,
+            flux_sp,
+            cut_size_arcmin,
+        )
+        print("Wrote per-region overlay cutouts with flux in titles.")
 
 
 if __name__ == "__main__":
