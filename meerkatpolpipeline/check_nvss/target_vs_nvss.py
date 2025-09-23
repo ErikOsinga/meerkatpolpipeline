@@ -51,9 +51,9 @@ def parse_args() -> argparse.Namespace:
     )
     # required args
     parser.add_argument("--i_glob", required=True, help="Glob for I images", type=str)
-    parser.add_argument("--q_glob", required=True, help="Glob for Q images", type=str)
+    parser.add_argument("--q_glob", required=False, help="Glob for Q images (optional)", type=str, default=None)
     parser.add_argument(
-        "--pbcor_glob", required=True, help="Glob for primary beam correction FITS", type=str
+        "--pbcor_glob", required=False, help="Glob for primary beam correction models as FITS files (optional)", type=str, default=None
     )
     parser.add_argument(
         "--ds9reg", required=True, help="DS9 region file defining the source", type=Path
@@ -173,7 +173,7 @@ def collect_files(glob_stokesI: str, glob_stokesQ: str | None = None) -> list[Pa
     """
     ifiles = sorted(glob.glob(glob_stokesI))
     if glob_stokesQ is None:
-        return [Path(i) for i in ifiles]
+        return [Path(i) for i in ifiles], None, None
     qfiles = sorted(glob.glob(glob_stokesQ))
     ufiles = [q.replace("-Q-image", "-U-image") for q in qfiles]
     return [Path(i) for i in ifiles], [Path(q) for q in qfiles], [Path(u) for u in ufiles]
@@ -349,7 +349,7 @@ def _region_flux_and_beams(fpath: str, region: Path | Regions, region_index: int
 
 
 def compute_fluxes(
-    ifiles: list[Path], qfiles: list[Path], ufiles: list[Path], region: Path | Regions, region_index: int
+    ifiles: list[Path], qfiles: list[Path] | None, ufiles: list[Path] | None, region: Path | Regions, region_index: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute integrated fluxes and beam counts for I, Q, U over channels
@@ -357,10 +357,20 @@ def compute_fluxes(
     """
     flux_I, flux_Q, flux_U = [], [], []
     beams_I, beams_Q, beams_U = [], [], []
+
+    if qfiles is None or ufiles is None:
+        qfiles = [None] * len(ifiles)
+        ufiles = [None] * len(ifiles)
+
     for i_f, q_f, u_f in zip(ifiles, qfiles, ufiles):
         fI, bI = _region_flux_and_beams(i_f, region, region_index)
-        fQ, bQ = _region_flux_and_beams(q_f, region, region_index)
-        fU, bU = _region_flux_and_beams(u_f, region, region_index)
+        if q_f is None or u_f is None:
+            fQ, bQ = np.nan, np.nan
+            fU, bU = np.nan, np.nan
+        else:
+            fQ, bQ = _region_flux_and_beams(q_f, region, region_index)
+            fU, bU = _region_flux_and_beams(u_f, region, region_index)
+        
         flux_I.append(fI)
         beams_I.append(bI)
         flux_Q.append(fQ)
@@ -563,66 +573,69 @@ def plot_flux_vs_nvss(
     ax1.legend()
 
     # ---- Polarised intensity
-    ax2.errorbar(lam2, polint, yerr=polint_err, fmt="o", linestyle="none", label="measured")
-    if comp and np.isfinite(comp.get("lam2_pol", np.nan)) and np.isfinite(comp.get("polint", np.nan)):
-        ax2.errorbar(comp["lam2_pol"], comp["polint"], yerr=comp["polint_err"],
-                     fmt="D", mfc="none", mec="r", label="table")
-    if nvss:
-        lam2_nvss = (c.value / 1.4e9) ** 2
-        ax2.errorbar(lam2_nvss, nvss["flux_P"], fmt="x", label="NVSS")
-    ax2.set_ylabel("Integrated flux [Jy]")
-    ax2.set_title("Polarised intensity")
-    ax2.grid(True)
-    ax2_top = ax2.twiny()
-    ax2_top.set_xlim(ax2.get_xlim())
-    ax2_top.set_xticks(lam2)
-    ax2_top.set_xticklabels(channels)
-    ax2_top.set_xlabel("Channel #")
-    ax2.legend()
+    if np.isnan(polint).all():
+        print("Warning: all polarised intensities are NaN; skipping polarisation plots")
+    else:
+        ax2.errorbar(lam2, polint, yerr=polint_err, fmt="o", linestyle="none", label="measured")
+        if comp and np.isfinite(comp.get("lam2_pol", np.nan)) and np.isfinite(comp.get("polint", np.nan)):
+            ax2.errorbar(comp["lam2_pol"], comp["polint"], yerr=comp["polint_err"],
+                        fmt="D", mfc="none", mec="r", label="table")
+        if nvss:
+            lam2_nvss = (c.value / 1.4e9) ** 2
+            ax2.errorbar(lam2_nvss, nvss["flux_P"], fmt="x", label="NVSS")
+        ax2.set_ylabel("Integrated flux [Jy]")
+        ax2.set_title("Polarised intensity")
+        ax2.grid(True)
+        ax2_top = ax2.twiny()
+        ax2_top.set_xlim(ax2.get_xlim())
+        ax2_top.set_xticks(lam2)
+        ax2_top.set_xticklabels(channels)
+        ax2_top.set_xlabel("Channel #")
+        ax2.legend()
 
-    # ---- Stokes Q & U
-    ax3.errorbar(freqs, flux_Q, yerr=unc_Q, fmt="s", linestyle="none", label="Q")
-    ax3.errorbar(freqs, flux_U, yerr=unc_U, fmt="^", linestyle="none", label="U")
-    if nvss:
-        ax3.errorbar(nvss["freq"], nvss["flux_Q"], fmt="x", label="NVSS Q")
-        ax3.errorbar(nvss["freq"], nvss["flux_U"], fmt="x", label="NVSS U")
-    ax3.set_ylabel("Integrated flux [Jy]")
-    ax3.set_title("Stokes Q & U")
-    ax3.grid(True)
-    ax3_top = ax3.twiny()
-    ax3_top.set_xlim(ax3.get_xlim())
-    ax3_top.set_xticks(freqs)
-    ax3_top.set_xticklabels(channels)
-    ax3_top.set_xlabel("Channel #")
-    ax3.set_xlabel("Frequency [Hz]")
-    ax3.legend()
+        # ---- Stokes Q & U
+        ax3.errorbar(freqs, flux_Q, yerr=unc_Q, fmt="s", linestyle="none", label="Q")
+        ax3.errorbar(freqs, flux_U, yerr=unc_U, fmt="^", linestyle="none", label="U")
+        if nvss:
+            ax3.errorbar(nvss["freq"], nvss["flux_Q"], fmt="x", label="NVSS Q")
+            ax3.errorbar(nvss["freq"], nvss["flux_U"], fmt="x", label="NVSS U")
+        ax3.set_ylabel("Integrated flux [Jy]")
+        ax3.set_title("Stokes Q & U")
+        ax3.grid(True)
+        ax3_top = ax3.twiny()
+        ax3_top.set_xlim(ax3.get_xlim())
+        ax3_top.set_xticks(freqs)
+        ax3_top.set_xticklabels(channels)
+        ax3_top.set_xlabel("Channel #")
+        ax3.set_xlabel("Frequency [Hz]")
+        ax3.legend()
 
-    # ---- Polarisation angle (degrees) with simple RM fit
-    polang_deg = np.degrees(polang)
-    polang_err_deg = np.degrees(polang_err)
-    ax4.errorbar(lam2, polang_deg, yerr=polang_err_deg, fmt="s", linestyle="none", label="measured")
-    rad_unw = np.unwrap(polang)
-    RM_fit, chi0_fit = np.polyfit(lam2, rad_unw, 1)
-    fitdeg = np.degrees(RM_fit * lam2 + chi0_fit)
-    ax4.plot(lam2, fitdeg, ls="--", label=f"fit: RM={RM_fit:.1f} rad/m^2, chi0={chi0_fit:.2f} rad")
-    if comp and np.isfinite(comp.get("rm", np.nan)):
-        chi0_comp = float(np.mean(rad_unw - comp["rm"] * lam2))
-        tabdeg = np.degrees(comp["rm"] * lam2 + chi0_comp)
-        ax4.plot(lam2, tabdeg, color="r", ls=":", label=f"table: RM={comp['rm']:.1f} rad/m^2, chi0={chi0_comp:.2f} rad")
-    if nvss:
-        nvss_angle = np.degrees(0.5 * np.arctan2(nvss["flux_U"], nvss["flux_Q"]))
-        ax4.scatter((c.value / 1.4e9) ** 2, nvss_angle, marker="x", label="NVSS angle")
-    ax4.set_ylabel("Polarisation angle [deg]")
-    ax4.set_title("Polarisation angle")
-    ax4.set_ylim(-110, 110)
-    ax4.grid(True)
-    ax4_top = ax4.twiny()
-    ax4_top.set_xlim(ax4.get_xlim())
-    ax4_top.set_xticks(lam2)
-    ax4_top.set_xticklabels(channels)
-    ax4_top.set_xlabel("Channel #")
-    ax4.set_xlabel("Wavelength^2 [m^2]")
-    ax4.legend()
+        # ---- Polarisation angle (degrees) with simple RM fit
+        polang_deg = np.degrees(polang)
+        polang_err_deg = np.degrees(polang_err)
+        ax4.errorbar(lam2, polang_deg, yerr=polang_err_deg, fmt="s", linestyle="none", label="measured")
+        rad_unw = np.unwrap(polang)
+        RM_fit, chi0_fit = np.polyfit(lam2, rad_unw, 1)
+        fitdeg = np.degrees(RM_fit * lam2 + chi0_fit)
+        ax4.plot(lam2, fitdeg, ls="--", label=f"fit: RM={RM_fit:.1f} rad/m^2, chi0={chi0_fit:.2f} rad")
+        if comp and np.isfinite(comp.get("rm", np.nan)):
+            chi0_comp = float(np.mean(rad_unw - comp["rm"] * lam2))
+            tabdeg = np.degrees(comp["rm"] * lam2 + chi0_comp)
+            ax4.plot(lam2, tabdeg, color="r", ls=":", label=f"table: RM={comp['rm']:.1f} rad/m^2, chi0={chi0_comp:.2f} rad")
+        if nvss:
+            nvss_angle = np.degrees(0.5 * np.arctan2(nvss["flux_U"], nvss["flux_Q"]))
+            ax4.scatter((c.value / 1.4e9) ** 2, nvss_angle, marker="x", label="NVSS angle")
+        ax4.set_ylabel("Polarisation angle [deg]")
+        ax4.set_title("Polarisation angle")
+        ax4.set_ylim(-110, 110)
+        ax4.grid(True)
+        ax4_top = ax4.twiny()
+        ax4_top.set_xlim(ax4.get_xlim())
+        ax4_top.set_xticks(lam2)
+        ax4_top.set_xticklabels(channels)
+        ax4_top.set_xlabel("Channel #")
+        ax4.set_xlabel("Wavelength^2 [m^2]")
+        ax4.legend()
 
     # ---- Regions (load once if provided)
     region = None
@@ -729,9 +742,9 @@ def _compare_to_nvss(
     ds9reg: Path,
     flag_chans: list[int],
     ifiles: list[Path],
-    qfiles: list[Path],
-    ufiles: list[Path],
-    pb_files: list[Path],
+    qfiles: list[Path] | None,
+    ufiles: list[Path] | None,
+    pb_files: list[Path] | None,
     comparenvssdirect: bool,
     comparetable: Path | None,
     nvss_size: float | None,
@@ -760,7 +773,7 @@ def _compare_to_nvss(
     prefix_base = ds9reg.stem
 
     # channel properties (same for all regions)
-    freqs = get_channel_frequencies(qfiles)
+    freqs = get_channel_frequencies(ifiles)
     channels = np.arange(len(freqs))
     lam2 = (c.value / freqs) ** 2
 
@@ -783,7 +796,7 @@ def _compare_to_nvss(
         )
 
         # uncertainties (PB-scaled if provided)
-        if chan_unc_center is not None:
+        if chan_unc_center is not None and pb_files is not None:
             ra, dec = float(sky.ra.deg), float(sky.dec.deg)
             unc0 = float(chan_unc_center)
             unc_I = compute_uncertainty_pbcor(unc0, pb_files, ra, dec)
@@ -796,15 +809,24 @@ def _compare_to_nvss(
 
         # propagate to P and psi
         I_u = unp.uarray(flux_I, unc_I)  # noqa: F841
-        Q_u = unp.uarray(flux_Q, unc_Q)
-        U_u = unp.uarray(flux_U, unc_U)
-        P_u = unp.sqrt(Q_u**2 + U_u**2)
-        psi_u = 0.5 * unp.arctan2(U_u, Q_u)
 
-        polint = unp.nominal_values(P_u)
-        polint_err = unp.std_devs(P_u)
-        polang = unp.nominal_values(psi_u)
-        polang_err = unp.std_devs(psi_u)
+        if qfiles is None or ufiles is None:
+            # no Q/U data: set everything to NaN
+            polint = np.full_like(flux_I, np.nan, dtype=float)
+            polint_err = np.full_like(flux_I, np.nan, dtype=float)
+            polang = np.full_like(flux_I, np.nan, dtype=float)
+            polang_err = np.full_like(flux_I, np.nan, dtype=float)
+
+        else:
+            Q_u = unp.uarray(flux_Q, unc_Q)
+            U_u = unp.uarray(flux_U, unc_U)
+            P_u = unp.sqrt(Q_u**2 + U_u**2)
+            psi_u = 0.5 * unp.arctan2(U_u, Q_u)
+
+            polint = unp.nominal_values(P_u)
+            polint_err = unp.std_devs(P_u)
+            polang = unp.nominal_values(psi_u)
+            polang_err = unp.std_devs(psi_u)
 
         # save per-region data if requested
         if output_dir_data is not None:
@@ -888,11 +910,17 @@ def _start_compare_nvss_from_cmd(args) -> None:
 
     # collect lists for iqu files 
     ifiles, qfiles, ufiles = collect_files(args.i_glob, args.q_glob)
-    pb_files = sorted(glob.glob(args.pbcor_glob))
-    if not (len(pb_files) == len(qfiles) == len(ifiles)):
-        raise AssertionError(
-            f"pbcor files count must match Q and I files count. Instead len(pb)={len(pb_files)}, len(Q)={len(qfiles)}, len(I)={len(ifiles)}"
-        )
+    if args.pbcor_glob is None:
+        pb_files = None
+    else:
+        pb_files = sorted(glob.glob(args.pbcor_glob))
+    
+    if pb_files is not None and qfiles is not None:
+
+        if not (len(pb_files) == len(qfiles) == len(ifiles)):
+            raise AssertionError(
+                f"pbcor files count must match Q and I files count. Instead len(pb)={len(pb_files)}, len(Q)={len(qfiles)}, len(I)={len(ifiles)}"
+            )
 
     _compare_to_nvss(
         ds9reg=args.ds9reg,
