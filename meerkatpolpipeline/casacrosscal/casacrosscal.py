@@ -200,6 +200,9 @@ def do_casa_crosscal(
         --leakcal {leakcal} \
     """
 
+    if crosscal_options['scan_xcal_casa'] is not None:
+        cmd_casa += f" --scan-xcal '{crosscal_options['scan_xcal_casa']}' "
+
     logger.info("Running casa crosscal script.")
 
     # run the casa crosscal script

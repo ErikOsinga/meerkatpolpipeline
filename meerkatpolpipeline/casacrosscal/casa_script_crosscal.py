@@ -21,6 +21,7 @@ TODO:  currently assumes only 1 fcal: J0408-6545
 from __future__ import annotations
 
 import argparse
+import ast
 import logging
 import os
 import sys
@@ -138,7 +139,9 @@ def main():
     logger = logging.getLogger(__name__)
 
     # scan and calibrators
-    scan_xcal = args.scan_xcal
+    scan_xcal = ast.literal_eval(args.scan_xcal) if args.scan_xcal else ''
+    if type(scan_xcal) is list:
+        scan_xcal = ','.join([str(s) for s in scan_xcal])
 
     fcal = args.fcal
     bpcal = args.bpcal

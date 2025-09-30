@@ -71,6 +71,8 @@ class CrossCalOptions(BaseOptions):
     """time averaging (width of tartget time step) after calibrating with casa"""
     cal_ms_for_casa: Path | None = None
     """Path to the calibrator MS to use for casa cross-calibration, if None will use the preprocessed MS"""
+    scan_xcal_casa: list[int] | None = None
+    """List of scans to use for polcal in casa cross-calibration, if None will use all scans. Should be casa-compliant list of scan numbers, e.g. [12,22]"""
 
 
 class CaracalConfigFile(BaseOptions):
