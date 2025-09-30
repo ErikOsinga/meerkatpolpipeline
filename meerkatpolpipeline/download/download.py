@@ -26,11 +26,11 @@ class DownloadOptions(BaseOptions):
     """amount of tries in wget call, integer or 'inf' for infinite tries."""
     waitretry_seconds: int = 2
     """amount of seconds to wait between downloads."""
-    clip_assumed_nchan: int = 4096
+    clip_assumed_nchan: None | int = 4096
     """double-check whether this is the number of channels before any clipping"""
-    clip_chan_start: int = 163
+    clip_chan_start: None | int = 163
     """clip channels from MS before this number"""
-    clip_chan_end: int = 3885
+    clip_chan_end: None | int = 3885
     """clip channels from MS after this number"""
 
 def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, test: bool = False) -> Path:
