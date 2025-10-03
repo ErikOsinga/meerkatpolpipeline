@@ -19,4 +19,7 @@ The pipeline uses Prefect (https://www.prefect.io/) to track task dependencies a
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   
+   installation
+   api/index
 
