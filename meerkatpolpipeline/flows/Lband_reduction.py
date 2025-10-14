@@ -430,10 +430,9 @@ def process_science_fields(
 
     ########## step 5: IQUV cube image 12 channel ##########
     cube_imaging_workdir = working_dir / "coarse_cube_imaging"
+    cube_imaging_options = get_options_from_strategy(strategy, operation="coarse_cube_imaging")
     if 'coarse_cube_imaging' in enabled_operations:
         cube_imaging_workdir.mkdir(exist_ok=True)
-
-        cube_imaging_options = get_options_from_strategy(strategy, operation="coarse_cube_imaging")
 
         # Make a 12 channel cube of the target in IQU, from the extracted dataset for a quick look
 
