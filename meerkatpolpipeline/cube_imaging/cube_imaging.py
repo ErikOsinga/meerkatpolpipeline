@@ -102,7 +102,7 @@ def go_wsclean_coarsecubes_target(
         mgain=0.7,
         join_polarizations=True,
         squared_channel_joining=True,
-        fit_rm=True,
+        fit_rm=not cube_imaging_options['no_fit_rm'],
         # Explicitly disable/remove multiscale-related flags
         multiscale=False,
         multiscale_scale_bias=None,
