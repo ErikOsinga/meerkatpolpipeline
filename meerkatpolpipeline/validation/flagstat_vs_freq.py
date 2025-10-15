@@ -226,37 +226,28 @@ def print_table(label: str,
         print(f"{f:.3f}, {p:.3f}, {int(fc)}, {int(tc)}")
 
 
-def parse_args(argv: list | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        description="Compute and plot flagging percentage vs. frequency from one or more Measurement Sets."
-    )
-    p.add_argument("ms", nargs="+", help="One or more Measurement Sets (.ms directories)")
-    p.add_argument("--bin-width-mhz", type=float, default=10.0,
-                   help="Frequency bin width in MHz (default: 10)")
-    p.add_argument("--figdir", type=str, default="./plots_flagstat/",
-                   help="Directory to save figures (default: ./plots_flagstat/)")
-    p.add_argument("--out", type=str, default=None,
-                   help="CSV output. If one MS, this is a file path. If multiple MS, this is treated as a directory.")
-    p.add_argument("--chunk-rows", type=int, default=4096,
-                   help="Row chunk size when reading FLAG/FLAG_ROW (default: 4096)")
-    return p.parse_args(argv)
+def compute_flagstat_vs_freq(ms_paths: list[Path], bin_width_mhz: float, chunk_rows: int = 4096) -> tuple[list[tuple[Path, np.ndarray, np.ndarray, np.ndarray]], tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """
+    Compute flagging percentage vs. frequency from one or more Measurement Sets.
 
+    args:
+        ms_paths: list of MS paths
+        bin_width_mhz: frequency bin width in MHz
+        chunk_rows: row chunk size when reading FLAG/FLAG_ROW
 
-def main(argv: list | None = None) -> int:
-    args = parse_args(argv)
-
-    ms_paths = [Path(p).resolve() for p in args.ms]
-    figdir = Path(args.figdir).resolve()
-
+    returns:
+        list of tuples per MS: (ms_path, centers_mhz, flag_percent, counts)
+        and the average (centers_mhz, avg_flag_percent, sum_counts)
+    """
     # 1) Build global binning across all MS
     all_spw_infos = [read_spw_info(ms) for ms in ms_paths]
-    edges_hz = global_freq_edges(all_spw_infos, args.bin_width_mhz)
+    edges_hz = global_freq_edges(all_spw_infos, bin_width_mhz)
     centers_mhz = (0.5 * (edges_hz[:-1] + edges_hz[1:]) * u.Hz).to_value(u.MHz)
 
     # 2) Per-MS computation
     per_ms_results = []
     for ms in ms_paths:
-        c_mhz, flag_pct, counts = compute_flag_vs_freq_single(ms, edges_hz, args.chunk_rows)
+        c_mhz, flag_pct, counts = compute_flag_vs_freq_single(ms, edges_hz, chunk_rows)
         per_ms_results.append((ms, c_mhz, flag_pct, counts))
 
     # 3) Average across all MS (sum counts, then fraction)
@@ -267,6 +258,20 @@ def main(argv: list | None = None) -> int:
         avg_flag_pct = np.where(sum_counts[:, 1] > 0,
                                 (sum_counts[:, 0] / sum_counts[:, 1]) * 100.0,
                                 np.nan)
+
+    return per_ms_results, (centers_mhz, avg_flag_pct, sum_counts)
+
+def main(argv: list | None = None) -> int:
+    args = parse_args(argv)
+
+    ms_paths = [Path(p).resolve() for p in args.ms]
+    figdir = Path(args.figdir).resolve()
+
+    per_ms_results, (centers_mhz, avg_flag_pct, sum_counts) = compute_flagstat_vs_freq(
+        ms_paths=ms_paths,
+        bin_width_mhz=args.bin_width_mhz,
+        chunk_rows=args.chunk_rows,
+    )
 
     # 4) Printing
     for ms, c_mhz, flag_pct, counts in per_ms_results:
@@ -300,6 +305,22 @@ def main(argv: list | None = None) -> int:
             write_csv(out_dir / "flag_vs_freq_avg.csv", centers_mhz, avg_flag_pct, sum_counts)
 
     return 0
+
+
+def parse_args(argv: list | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Compute and plot flagging percentage vs. frequency from one or more Measurement Sets."
+    )
+    p.add_argument("ms", nargs="+", help="One or more Measurement Sets (.ms directories)")
+    p.add_argument("--bin-width-mhz", type=float, default=10.0,
+                   help="Frequency bin width in MHz (default: 10)")
+    p.add_argument("--figdir", type=str, default="./plots_flagstat/",
+                   help="Directory to save figures (default: ./plots_flagstat/)")
+    p.add_argument("--out", type=str, default=None,
+                   help="CSV output. If one MS, this is a file path. If multiple MS, this is treated as a directory.")
+    p.add_argument("--chunk-rows", type=int, default=4096,
+                   help="Row chunk size when reading FLAG/FLAG_ROW (default: 4096)")
+    return p.parse_args(argv)
 
 
 if __name__ == "__main__":

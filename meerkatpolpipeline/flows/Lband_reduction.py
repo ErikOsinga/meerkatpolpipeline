@@ -34,7 +34,11 @@ from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
 from meerkatpolpipeline.utils.runpybdsf import _runpybdsf
 from meerkatpolpipeline.utils.utils import find_calibrated_ms
-from meerkatpolpipeline.validation import validate_field
+from meerkatpolpipeline.validation import (
+    flag_image_freqs,
+    flagstat_vs_freq,
+    validate_field,
+)
 from meerkatpolpipeline.wsclean.wsclean import (
     get_imset_from_prefix,
     get_pbcor_mfs_image_from_imset,
@@ -533,7 +537,7 @@ def process_science_fields(
 
         logger.info("Starting validate field step")
 
-        check_spectra_task = task(validate_field.plot_top_n_source_spectra)
+        check_spectra_task = task(validate_field.plot_top_n_source_spectra, name="check_spectra")
         spectra_check_workdir = validate_field_workdir / "spectra_check"
         spectra_check_workdir.mkdir(exist_ok=True)
 
@@ -545,6 +549,40 @@ def process_science_fields(
             sourcelist_fits,
             output_prefix=spectra_check_workdir / "top_n_spectra",
             top_n=validation_options['top_n_spectra'],
+            logger=logger
+        )
+
+        # check flagging percentage
+        compute_flagstat_task = task(flagstat_vs_freq.compute_flagstat_vs_freq, name="compute_flagstat_vs_freq")
+
+        # NOTE: 746 MHz bandwidth in L-band typically, 12 channels is roughly 60 MHz channel
+        flag_results_per_ms, (centers_mhz, avg_flag_pct, sum_counts) = compute_flagstat_task.submit(
+            ms_paths=corrected_extracted_mses,
+            bin_width_mhz=10, # MHz
+            chunk_rows=4096, # default 
+        )
+
+        # Plotting flagging percentage per MS
+        for ms, c_mhz, flag_pct, _ in flag_results_per_ms:
+            out_path = validate_field_workdir / "plots" / f"flag_vs_freq_{ms.name}.png"
+            flagstat_vs_freq.plot_flag_vs_freq(c_mhz, flag_pct, out_path, f"Flagging vs Frequency: {ms.name}")
+
+        # Plotting average flagging vs freq
+        avg_out = validate_field_workdir / "plots" / "flag_vs_freq_avg.png"
+        flagstat_vs_freq.plot_flag_vs_freq(centers_mhz, avg_flag_pct, avg_out, "Flagging vs Frequency: AVERAGE")
+
+        # Then check spectra with flagging above a certain threshold
+        check_spectra_task(
+            imageset_I,
+            imageset_Q,
+            imageset_U,
+            sourcelist_reg,
+            sourcelist_fits,
+            output_prefix=spectra_check_workdir / "top_n_spectra",
+            top_n=validation_options['top_n_spectra'],
+            centers_mhz=centers_mhz,
+            avg_flag_pct=avg_flag_pct,
+            flag_threshold_pct=validation_options['flag_threshold_pct'],
             logger=logger
         )
 

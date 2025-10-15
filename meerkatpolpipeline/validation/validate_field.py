@@ -43,6 +43,7 @@ from regions import Regions
 from meerkatpolpipeline.check_nvss.target_vs_nvss import compute_fluxes
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import PrintLogger
+from meerkatpolpipeline.validation import flag_image_freqs
 from meerkatpolpipeline.wsclean.wsclean import ImageSet
 
 # -------------------- I/O & helpers --------------------
@@ -54,6 +55,10 @@ class ValidateFieldOptions(BaseOptions):
     """enable this step? Required parameter"""
     targetfield: str | None = None
     """name of targetfield. Propagated to all steps."""
+    top_n_spectra: int = 10
+    """Number of brightest sources to plot."""
+    flag_threshold_pct: float | None = 20
+    """Flag channels where flag percentage >= this threshold."""
 
 def read_table(catalog_path: Path) -> Table:
     return Table.read(str(catalog_path))
@@ -198,7 +203,15 @@ def gather_flux_series(
     ds9reg: Path,
     region_index: int,
     logger: callable,
+    centers_mhz: np.ndarray | None = None,
+    avg_flag_pct: np.ndarray | None = None,
+    mask_above_flag_threshold: float | None = None,
 ) -> SpectralSeries:
+    """
+    Compute fluxes for one source (region_index) from I, Q, U ImageSets.
+
+    optionally masking channels with high flag percentages.
+    """
     # Sort per-channel files by frequency and apply the same channel subset to I, Q, U.
     ifiles_all = list(imageset_I.image_pbcor)
     qfiles_all = list(imageset_Q.image_pbcor)
@@ -225,6 +238,21 @@ def gather_flux_series(
 
     # Remove NaNs consistently
     m = np.isfinite(nu) & np.isfinite(I) & np.isfinite(Q) & np.isfinite(U)
+
+    if centers_mhz is None or avg_flag_pct is None or mask_above_flag_threshold is None:
+        # No flagging requested
+        return SpectralSeries(nu_hz=nu[m], I=I[m], Q=Q[m], U=U[m])
+
+
+    # Optional flagging based on avg_flag_pct
+    mask, interp = flag_image_freqs.flag_image_freqs(
+        centers_mhz, avg_flag_pct, nu,
+        threshold_pct=mask_above_flag_threshold,
+        outside="extend",          # try "nan" or "false" as well
+    )
+
+    m = m & (~mask)
+
     return SpectralSeries(nu_hz=nu[m], I=I[m], Q=Q[m], U=U[m])
 
 
@@ -487,6 +515,9 @@ def plot_top_n_source_spectra(
     catalog_path: Path,
     output_prefix: Path,
     top_n: int = 10,
+    centers_mhz: np.ndarray | None = None,
+    avg_flag_pct: np.ndarray | None = None,
+    mask_above_flag_threshold: float | None = None,
     logger: callable | None = None,
 ) -> list[Path]:
     """
@@ -532,6 +563,9 @@ def plot_top_n_source_spectra(
             ds9reg=ds9_regions,
             region_index=int(idx),
             logger=logger,
+            centers_mhz=centers_mhz,
+            avg_flag_pct=avg_flag_pct,
+            mask_above_flag_threshold=mask_above_flag_threshold,
         )
 
         name = f"Rank {rank} | index {int(idx)} | Total_flux = {1000*table['Total_flux'][idx]:.3f} mJy"
