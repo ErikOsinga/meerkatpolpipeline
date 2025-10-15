@@ -84,6 +84,8 @@ def _runpybdsf(
     if sourcelist_fits.exists() and sourcelist_reg.exists() and rmsmap.exists():
         logger.info(f"Output files already exist in {outdir}, skipping PyBDSF run.")
         return sourcelist_fits, sourcelist_reg, rmsmap
+    else:
+        logger.info(f"PYBDSF output files will be written to {outdir}.")
 
     # --- open FITS and compute beam major axis in arcsec ---
     with fits.open(str(filename)) as hdul:
