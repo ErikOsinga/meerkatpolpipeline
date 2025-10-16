@@ -464,7 +464,7 @@ def process_science_fields(
 
             pybdsf_script = Path(runpybdsf.__file__).parent / "runpybdsf.py"
             pybdsf_cmd = f"python {pybdsf_script} {MFS_image} --outdir {cube_imaging_workdir}"
-            execute_command(pybdsf_cmd, logfile={cube_imaging_workdir / 'pybdsf_logs.txt'})
+            execute_command(pybdsf_cmd, logfile=cube_imaging_workdir / 'pybdsf_logs.txt')
 
             sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
             sourcelist_reg = cube_imaging_workdir / 'sourcelist.srl.reg'
