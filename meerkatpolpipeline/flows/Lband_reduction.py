@@ -457,14 +457,23 @@ def process_science_fields(
             # run PYBDSF on the MFS image
             MFS_image = get_pbcor_mfs_image_from_imset(imageset_I_mfs)
 
-            task_pybdsf = task(_runpybdsf, name="run_pybdsf_on_mfs")
+            # pybdsf multiprocessing and prefect have some weird deadlock
+            # run pybdsf in a separate process
+            from meerkatpolpipeline.utils import runpybdsf
+            from meerkatpolpipeline.utils.utils import execute_command
 
-            sourcelist_fits, sourcelist_reg, rmsmap = task_pybdsf(
-                        outdir=cube_imaging_workdir,
-                        filename=MFS_image,
-                        adaptive_rms_box=True,
-                        logger=logger
-            )
+            pybdsf_script = Path(runpybdsf.__file__).parent / "runpybdsf.py"
+            pybdsf_cmd = f"python {pybdsf_script} {MFS_image}"
+            execute_command(pybdsf_cmd)
+
+            # task_pybdsf = task(_runpybdsf, name="run_pybdsf_on_mfs")
+
+            # sourcelist_fits, sourcelist_reg, rmsmap = task_pybdsf(
+            #             outdir=cube_imaging_workdir,
+            #             filename=MFS_image,
+            #             adaptive_rms_box=True,
+            #             logger=logger
+            # )
 
 
     else:
