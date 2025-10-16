@@ -259,7 +259,7 @@ def compute_flagstat_vs_freq(ms_paths: list[Path], bin_width_mhz: float, chunk_r
                                 (sum_counts[:, 0] / sum_counts[:, 1]) * 100.0,
                                 np.nan)
 
-    return per_ms_results, (centers_mhz, avg_flag_pct, sum_counts)
+    return per_ms_results, centers_mhz, avg_flag_pct, sum_counts
 
 def main(argv: list | None = None) -> int:
     args = parse_args(argv)
