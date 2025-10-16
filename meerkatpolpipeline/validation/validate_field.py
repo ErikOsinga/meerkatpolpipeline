@@ -628,7 +628,7 @@ def plot_sum_residuals_vs_major(
     sums_abs_frac: list[float] = []
     labels: list[str] = []
 
-    for (name, series), reg in zip(named_series, regions):
+    for (name, series, idx), reg in zip(named_series, regions):
         # Major axis (arcsec)
         if not (hasattr(reg, "width") and hasattr(reg, "height")):
             continue
