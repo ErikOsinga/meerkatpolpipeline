@@ -46,7 +46,6 @@ from meerkatpolpipeline.utils.utils import PrintLogger
 from meerkatpolpipeline.validation import flag_image_freqs
 from meerkatpolpipeline.wsclean.wsclean import ImageSet
 
-# -------------------- I/O & helpers --------------------
 
 class ValidateFieldOptions(BaseOptions):
     """A basic class to handle validation plots options for meerkatpolpipeline. """
@@ -175,8 +174,6 @@ def format_frequency_axes_ghz(axes: list[plt.Axes]) -> None:
 
         ax.set_xlabel("Frequency (GHz)")
 
-
-# -------------------- fluxes & spectra --------------------
 
 @dataclass
 class SpectralSeries:

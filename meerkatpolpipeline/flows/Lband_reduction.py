@@ -448,7 +448,7 @@ def process_science_fields(
         task_image_smallcubes = task(go_wsclean_coarsecubes_target, name="wsclean_smallcubes_target")
         imageset_I, imageset_Q, imageset_U, imageset_I_mfs = task_image_smallcubes(
             ms = corrected_extracted_mses,
-            working_ditask_image_smallcubesr = cube_imaging_workdir,
+            working_dir = cube_imaging_workdir,
             lofar_container=lofar_container,
             cube_imaging_options=cube_imaging_options
         )
