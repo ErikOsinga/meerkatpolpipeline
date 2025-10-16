@@ -458,16 +458,19 @@ def process_science_fields(
             MFS_image = get_pbcor_mfs_image_from_imset(imageset_I_mfs)
 
             # pybdsf multiprocessing and prefect have some weird deadlock
-            # run pybdsf in a separate process
+            # run pybdsf in a separate process instead of a task
             from meerkatpolpipeline.utils import runpybdsf
             from meerkatpolpipeline.utils.utils import execute_command
 
             pybdsf_script = Path(runpybdsf.__file__).parent / "runpybdsf.py"
-            pybdsf_cmd = f"python {pybdsf_script} {MFS_image}"
+            pybdsf_cmd = f"python {pybdsf_script} {MFS_image} --outdir {cube_imaging_workdir} 2>&1 | tee {cube_imaging_workdir / 'pybdsf_logs.txt'}"
             execute_command(pybdsf_cmd)
 
-            # task_pybdsf = task(_runpybdsf, name="run_pybdsf_on_mfs")
+            sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
+            sourcelist_reg = cube_imaging_workdir / 'sourcelist.srl.reg'
+            rmsmap = cube_imaging_workdir / 'rms_map.fits'
 
+            # task_pybdsf = task(_runpybdsf, name="run_pybdsf_on_mfs")
             # sourcelist_fits, sourcelist_reg, rmsmap = task_pybdsf(
             #             outdir=cube_imaging_workdir,
             #             filename=MFS_image,
