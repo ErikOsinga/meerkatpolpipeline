@@ -112,16 +112,16 @@ def _runpybdsf(
         thresh_isl=3.0,
     )
     
-    img.write_catalog(outfile=sourcelist_fits,
+    img.write_catalog(outfile=str(sourcelist_fits),
                       catalog_type='srl',
                       format='fits',
                       clobber=True)
-    img.write_catalog(outfile=sourcelist_reg,
+    img.write_catalog(outfile=str(sourcelist_reg),
                       catalog_type='srl',
                       format='ds9',
                       clobber=True)
 
-    img.export_image(img_type='rms', outfile=rmsmap)
+    img.export_image(img_type='rms', outfile=str(rmsmap))
 
     logger.info(f'PYBDSF Catalogs written to {outdir}')
     
