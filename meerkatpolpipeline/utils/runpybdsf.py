@@ -75,6 +75,13 @@ def _runpybdsf(
     if logger is None:
         logger = PrintLogger()
 
+    if isinstance(outdir, list):
+        # not sure why this happens, but fine
+        assert len(outdir) == 1, f"Found outdir with multiple values? {outdir}"
+        outdir = outdir[0]
+
+    assert isinstance(outdir, Path), f"outdir should be type Path, found {type(outdir)}"
+
     outdir.mkdir(exist_ok=True)
     # --- prepare output paths ---
     sourcelist_fits = outdir / 'sourcelist.srl.fits'
