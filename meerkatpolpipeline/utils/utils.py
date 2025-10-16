@@ -113,7 +113,8 @@ def add_timestamp_to_path(
 
 def execute_command(
     cmd: str | list[str],
-    test: bool = False
+    test: bool = False,
+    logfile: Path | None = None
 ) -> subprocess.CompletedProcess:
     """
     Run a command (always as a list) with error handling.
@@ -141,21 +142,45 @@ def execute_command(
             raise FileNotFoundError(
                 f"Script not found at {script_path!r}; please verify the path."
             )
+    
+    # Open logfile if requested
+    log_handle = None
+    if logfile is not None:
+        logfile.parent.mkdir(parents=True, exist_ok=True)
+        log_handle = open(logfile, "w", encoding="utf-8")
 
     try:
-        result = subprocess.run(
+        # Run command and stream output line by line
+        process = subprocess.Popen(
             cmd_list,
-            check=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True
         )
+
+        output_lines = []
+        for line in process.stdout:
+            print(line, end="")  # live terminal output
+            output_lines.append(line)
+            if log_handle:
+                log_handle.write(line)
+                log_handle.flush()
+
+        process.wait()
+
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, cmd_list)
+
+        result = subprocess.CompletedProcess(cmd_list, process.returncode, "".join(output_lines), "")
+        return result
+
     except subprocess.CalledProcessError as e:
-        logger.error("Command failed (exit %d): %s", e.returncode, e.stderr)
-        logger.info(e.stderr) #  or e.stdout or ""
-        logger.info(e.returncode)
+        logger.error("Command failed (exit %d)", e.returncode)
         raise
 
-    return result
+    finally:
+        if log_handle:
+            log_handle.close()
 
 def check_create_symlink(symlink: Path, original_path: Path) -> Path:
     """
