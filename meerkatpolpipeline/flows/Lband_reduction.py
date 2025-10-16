@@ -466,10 +466,6 @@ def process_science_fields(
             pybdsf_cmd = f"python {pybdsf_script} {MFS_image} --outdir {cube_imaging_workdir}"
             execute_command(pybdsf_cmd, logfile=cube_imaging_workdir / 'pybdsf_logs.txt')
 
-            sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
-            sourcelist_reg = cube_imaging_workdir / 'sourcelist.srl.reg'
-            rmsmap = cube_imaging_workdir / 'rms_map.fits'
-
             # task_pybdsf = task(_runpybdsf, name="run_pybdsf_on_mfs")
             # sourcelist_fits, sourcelist_reg, rmsmap = task_pybdsf(
             #             outdir=cube_imaging_workdir,
@@ -514,12 +510,16 @@ def process_science_fields(
             can_be_pbcor = ["image"] # default, coarse_cube_imaging only does pbcor for 'image' files.
         )
 
-        # Assuming pybdsf results in these files
-        sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
-        sourcelist_reg = cube_imaging_workdir / 'sourcelist.srl.reg'
-        rmsmap = cube_imaging_workdir / 'rms_map.fits'
+    # Assuming pybdsf results in these files
+    sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
+    sourcelist_reg = cube_imaging_workdir / 'sourcelist.srl.reg'
+    rmsmap = cube_imaging_workdir / 'rms_map.fits'
 
-    
+    if not sourcelist_fits.exists() or not sourcelist_reg.exists() or not rmsmap.exists():
+        msg = f"PYBDSF results not found in {cube_imaging_workdir}, please check if PYBDSF was run correctly. Expected {sourcelist_fits}"
+        logger.error(msg)
+        raise FileNotFoundError(msg)
+
     ########## step 6: preliminary check of IQUV cubes vs NVSS ##########
     if "compare_to_nvss" in enabled_operations:
         nvss_comparison_workdir = working_dir / "nvss_comparison"

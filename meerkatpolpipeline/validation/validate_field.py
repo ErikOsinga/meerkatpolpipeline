@@ -451,11 +451,12 @@ def make_summary_figure(
 
 
 def plot_all_I_spectra(
-    named_series: list[tuple[str, SpectralSeries]],
+    named_series: list[tuple[str, SpectralSeries, int]],
     output_path: Path,
 ) -> Path:
-    import matplotlib.pyplot as plt
-    import matplotlib.ticker as mticker
+    """
+    Plot stokes I spectra.
+    """
 
     fig = plt.figure(figsize=(9.0, 8.0), constrained_layout=True)
     gs  = fig.add_gridspec(2, 1, height_ratios=[2.0, 1.0])
@@ -479,9 +480,9 @@ def plot_all_I_spectra(
     ax_top.legend(fontsize=8, ncols=2, loc="best")
 
     # Plot a reference line with a spectral index of -0.7 at the mean flux density
-    mean_flux = np.mean([series.I[m].mean() for _, series in named_series if np.any(m)])
+    mean_flux = np.mean([series.I[m].mean() for _, series, _ in named_series if np.any(m)])
     if np.isfinite(mean_flux):
-        nu0 = np.median([series.nu_hz[m].mean()/1e9 for _, series in named_series if np.any(m)])
+        nu0 = np.median([series.nu_hz[m].mean()/1e9 for _, series, _ in named_series if np.any(m)])
         xx = np.linspace(nu_ghz.min()*0.9, nu_ghz.max()*1.1, 200)  # GHz range for the reference line
         yy = mean_flux * (xx / nu0) ** -0.7
         ax_top.plot(xx, yy, color="black", linestyle="--", label="Reference: α = -0.7")
@@ -612,7 +613,7 @@ def plot_top_n_source_spectra(
 
 
 def plot_sum_residuals_vs_major(
-    named_series: list[tuple[str, SpectralSeries]],
+    named_series: list[tuple[str, SpectralSeries, int]],
     regions: list,  # Regions from regions.read(...)
     output_path: Path,
 ) -> Path:
