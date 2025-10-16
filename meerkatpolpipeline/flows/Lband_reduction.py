@@ -568,11 +568,12 @@ def process_science_fields(
         compute_flagstat_task = task(flagstat_vs_freq.compute_flagstat_vs_freq, name="compute_flagstat_vs_freq")
 
         # NOTE: 746 MHz bandwidth in L-band typically, 12 channels is roughly 60 MHz channel
-        flag_results_per_ms, (centers_mhz, avg_flag_pct, sum_counts) = compute_flagstat_task.submit(
+        future = compute_flagstat_task.submit(
             ms_paths=corrected_extracted_mses,
             bin_width_mhz=10, # MHz
             chunk_rows=4096, # default 
         )
+        flag_results_per_ms, centers_mhz, avg_flag_pct, sum_counts = future.result()
 
         # Plotting flagging percentage per MS
         for ms, c_mhz, flag_pct, _ in flag_results_per_ms:
