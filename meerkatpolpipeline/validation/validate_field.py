@@ -438,6 +438,8 @@ def make_summary_figure(
         format_frequency_axes_ghz([ax_I, ax_Q, ax_U, ax_P, ax_pfrac])
     except ValueError as e:
         print(f"Warning: could not format frequency axes in GHz. Found exception {e}")
+        print(f"{ghz=}, {series.I=}")
+        print(f"{P=}")
 
 
     # Insets (I MFS and P from Q,U MFS) with center marker
