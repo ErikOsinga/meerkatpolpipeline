@@ -616,7 +616,7 @@ def process_science_fields(
             imageset_U,
             sourcelist_reg_filtered,
             sourcelist_fits_filtered,
-            output_prefix=spectra_check_workdir / "top_n_spectra",
+            output_prefix=spectra_check_workdir / "top_n_spectra_flagged",
             top_n=validation_options['top_n_spectra'],
             centers_mhz=centers_mhz,
             avg_flag_pct=avg_flag_pct,

@@ -434,7 +434,11 @@ def make_summary_figure(
 
     # Apply log-x GHz formatting to all frequency-x panels at once
     # i.e. no scientific notation but simple scalar formatting. Requires all plots to be in GHz!
-    format_frequency_axes_ghz([ax_I, ax_Q, ax_U, ax_P, ax_pfrac])
+    try:
+        format_frequency_axes_ghz([ax_I, ax_Q, ax_U, ax_P, ax_pfrac])
+    except ValueError as e:
+        print(f"Warning: could not format frequency axes in GHz. Found exception {e}")
+
 
     # Insets (I MFS and P from Q,U MFS) with center marker
     add_inset_cutouts(
@@ -497,7 +501,11 @@ def plot_all_I_spectra(
     ax_bot.set_ylabel("(S - S_fit) / S_fit")
 
     # format axis ticks to 2 decimal places and scalar values instead of scientific notation
-    format_frequency_axes_ghz([ax_bot])
+    try:
+        format_frequency_axes_ghz([ax_bot])
+    except ValueError as e:
+        print(f"Warning: could not format frequency axes in GHz. Found exception {e}")
+
 
     fig.savefig(output_path, dpi=200)
     plt.close(fig)
