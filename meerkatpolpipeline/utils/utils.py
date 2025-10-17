@@ -446,7 +446,7 @@ def filter_sources_within_radius(
     if ra_col not in table.colnames or dec_col not in table.colnames:
         raise KeyError(f"Input catalogue must contain '{ra_col}' and '{dec_col}' columns.")
 
-    source_coords = SkyCoord(ra=table[ra_col] * u.deg, dec=table[dec_col] * u.deg)
+    source_coords = SkyCoord(ra=table[ra_col].value * u.deg, dec=table[dec_col].value * u.deg)
     separations = center_coord.separation(source_coords)
     mask = separations <= radius_deg * u.deg
     filtered_table = table[mask]
