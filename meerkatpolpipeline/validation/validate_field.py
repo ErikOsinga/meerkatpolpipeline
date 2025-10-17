@@ -594,6 +594,7 @@ def plot_top_n_source_spectra(
 
     # --- one combined plot for all Stokes I spectra ---
     combined_png = Path(f"{output_prefix}_spectral-summary-top{len(named_series)}.png")
+    logger.info(f"Saving spectral summary plot to {combined_png}")
     plot_all_I_spectra(named_series, combined_png)
     out_paths.append(combined_png)
 
