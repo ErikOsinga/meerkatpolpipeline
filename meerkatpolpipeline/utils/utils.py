@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shlex
 import subprocess
 import warnings
@@ -61,7 +62,7 @@ def read_fits_data_and_frequency(filename: Path) -> tuple[np.ndarray, np.ndarray
     return data, frequency, wcs
 
 
-def convert_units(data: np.ndarray, fitsimage: Path | fits.HDUList) -> np.ndarray:
+def convert_units(data: np.ndarray, fitsimage: Path | fits.HDUlist) -> np.ndarray:
     """
     Convert the units of 'data' array which is assumed to be Jy/beam 
     to Jy/pix using the beam information given in the header of 'fitsimage'.
@@ -209,7 +210,7 @@ def find_calibrated_ms(
     Args:
         crosscal_base_dir (Path): Base directory where the crosscal directories are located.
         preprocessed_ms (Path): Path to the preprocessed measurement set.
-        look_in_subdirs (list): List of subdirectories to look for the calibrated measurement set.
+        look_in_subdirs (list): list of subdirectories to look for the calibrated measurement set.
                                  Defaults to ["caracal", "casacrosscal"].
         suffix (str): Suffix to append to the preprocessed measurement set name when searching.
                        : "-cal.ms" is the default for the caracal split MS with the (corrected) calibrators
@@ -256,60 +257,215 @@ def remove_one_copy_from_filename(paths: np.ndarray[Path]) -> np.ndarray[Path]:
     return np.array(new_paths, dtype=object)
 
 
+def _read_ds9_regions(regions_path: str) -> list[str]:
+    """
+    Read a DS9 .reg file and return all non-empty lines as a list.
+    Keeps comments and global directives so they can be preserved in output.
+    """
+    with open(regions_path) as f:
+        lines = [ln.rstrip("\n") for ln in f.readlines()]
+    return lines
+
+
+def _is_fk5_context(lines: list[str]) -> bool:
+    """
+    Return True if the file declares FK5 coordinates (typical for PyBDSF regions).
+    """
+    for ln in lines:
+        s = ln.strip().lower()
+        if s.startswith("fk5"):
+            return True
+        # DS9 allows 'global' lines; continue scanning until a coord system appears.
+        if s and not (s.startswith("#") or s.startswith("global")):
+            # If the first non-comment, non-global line starts with fk5( or shape,
+            # we will assume FK5 was omitted and default to False here.
+            break
+    return False
+
+
+def _extract_fk5_center(line: str) -> SkyCoord | None:
+    """
+    Extract the central coordinate for common DS9 shapes written in FK5.
+    Assumes decimal degrees if numeric; otherwise lets SkyCoord parse.
+    Supported shapes: circle, ellipse, box, point, text.
+    For polygons, estimate center as the mean of vertices.
+
+    Returns None if the line does not contain a recognizable FK5 region.
+    """
+    ln = line.strip()
+    if not ln or ln.startswith("#") or ln.lower().startswith("global") or ln.lower().startswith("fk5"):
+        return None
+
+    # DS9 region line examples (FK5):
+    # circle(ra,dec,r)
+    # ellipse(ra,dec,major,minor,pa)
+    # box(ra,dec,width,height,pa)
+    # point(ra,dec)
+    # text(ra,dec) # text={...}
+    # polygon(ra1,dec1, ra2,dec2, ..., ran,decn)
+
+    m = re.match(r"([a-zA-Z]+)\s*\(([^)]+)\)", ln)
+    if not m:
+        return None
+
+    shape = m.group(1).lower()
+    args_str = m.group(2)
+
+    # Split args by comma while respecting potential whitespace
+    parts = [p.strip() for p in args_str.split(",") if p.strip()]
+    if len(parts) < 2:
+        return None
+
+    def _to_coord(ra_str: str, dec_str: str) -> SkyCoord:
+        # Try numeric degrees first; fall back to SkyCoord parsing if needed
+        try:
+            ra = float(ra_str)
+            dec = float(dec_str)
+            return SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="fk5")
+        except ValueError:
+            return SkyCoord(ra_str + " " + dec_str, frame="fk5")
+
+    if shape in {"circle", "ellipse", "box", "point", "text"}:
+        ra_s, dec_s = parts[0], parts[1]
+        return _to_coord(ra_s, dec_s)
+
+    if shape == "polygon":
+        # Expect even number of coordinates: ra1,dec1, ra2,dec2, ...
+        if len(parts) < 4 or len(parts) % 2 != 0:
+            return None
+        ras: list[float] = []
+        decs: list[float] = []
+        # Attempt numeric parse for centroid; if any non-numeric, fall back to first pair
+        numeric_ok = True
+        for i in range(0, len(parts), 2):
+            try:
+                ras.append(float(parts[i]))
+                decs.append(float(parts[i + 1]))
+            except ValueError:
+                numeric_ok = False
+                break
+        if numeric_ok:
+            return SkyCoord(ra=(sum(ras) / len(ras)) * u.deg, dec=(sum(decs) / len(decs)) * u.deg, frame="fk5")
+        else:
+            # Fallback: use first vertex as approximate center
+            return _to_coord(parts[0], parts[1])
+
+    # Unsupported shape
+    return None
+
+
+def _filter_regions_within_radius(
+    regions_path: str,
+    center_coord: SkyCoord,
+    radius_deg: float
+) -> list[str]:
+    """
+    Load a DS9 .reg file and return only the lines whose region centers
+    lie within the given radius of center_coord. Preserves header/global lines.
+    """
+    lines = _read_ds9_regions(regions_path)
+    out_lines: list[str] = []
+
+    # Always keep DS9 header and global lines
+    for ln in lines:
+        s = ln.strip()
+        if not s or s.startswith("#") or s.lower().startswith("global"):
+            out_lines.append(ln)
+        elif s.lower().startswith("fk5"):
+            out_lines.append(ln)
+        else:
+            # Defer filtering to second pass
+            pass
+
+    fk5 = _is_fk5_context(lines)
+    if not fk5:
+        # If FK5 not declared, prepend it to be explicit (most PyBDSF regions are FK5)
+        out_lines.insert(0, "fk5")
+
+    # Now filter shape lines
+    for ln in lines:
+        s = ln.strip()
+        if not s or s.startswith("#") or s.lower().startswith("global") or s.lower().startswith("fk5"):
+            continue
+        coord = _extract_fk5_center(ln)
+        if coord is None:
+            # If we cannot parse, keep line conservatively or drop?
+            # Choose conservative: keep only if clearly not a region shape.
+            # Here we drop unparseable region shapes to avoid false positives.
+            continue
+        sep = center_coord.separation(coord)
+        if sep <= radius_deg * u.deg:
+            out_lines.append(ln)
+
+    return out_lines
+
+
 def filter_sources_within_radius(
-    sourcelist_path: str | Path,
+    sourcelist_path: str,
     center_coord: SkyCoord,
     radius_deg: float = 0.5,
     ra_col: str = "RA",
     dec_col: str = "DEC",
-    output_path: str | None = None
-) -> Table:
+    output_path: str | None = None,
+    regions_path: str | None = None,
+    regions_output_path: str | None = None,
+) -> tuple[Table, list[str] | None]:
     """
-    Filters a (PYBDSF) source list (.fits catalogue) to only include sources
-    within a given radius from a central coordinate.
+    Filter a PYBDSF source list (.fits catalogue) to sources within radius of center_coord.
+    Optionally filter a corresponding DS9 .reg file to the same footprint.
 
     Parameters
     ----------
     sourcelist_path : str
-        Path to the input PYBDSF source list (.fits file).
+        Path to the input PYBDSF source list (.fits).
     center_coord : SkyCoord
         Central coordinate to search around.
     radius_deg : float, optional
-        Search radius in degrees (default: 0.5 deg).
+        Search radius in degrees (default: 0.5).
     ra_col : str, optional
-        Column name for Right Ascension (default: 'RA').
+        Column name for Right Ascension in degrees (default: 'RA').
     dec_col : str, optional
-        Column name for Declination (default: 'DEC').
+        Column name for Declination in degrees (default: 'DEC').
     output_path : str, optional
         If provided, writes the filtered catalogue to this path.
+    regions_path : str, optional
+        If provided, path to a DS9 .reg file (e.g., PyBDSF regions) to filter by radius.
+        Lines are assumed to be FK5 coordinates (decimal degrees typical for PyBDSF).
+    regions_output_path : str, optional
+        If provided and regions_path is given, writes the filtered .reg to this path.
 
     Returns
     -------
     filtered_table : astropy.table.Table
-        Table containing only sources within the given radius.
+        Catalogue rows within the radius.
+    filtered_regions : list[str] or None
+        Filtered DS9 region lines if regions_path is provided; otherwise None.
     """
-    # Load the catalogue
-    table = Table.read(str(sourcelist_path))
-
-    # Ensure RA and DEC are present
+    # Load and validate catalogue
+    table = Table.read(sourcelist_path)
     if ra_col not in table.colnames or dec_col not in table.colnames:
         raise KeyError(f"Input catalogue must contain '{ra_col}' and '{dec_col}' columns.")
 
-    # Build SkyCoord for all sources
-    source_coords = SkyCoord(ra=table[ra_col].value * u.deg, dec=table[dec_col].value * u.deg)
-
-    # Compute separations
+    source_coords = SkyCoord(ra=table[ra_col] * u.deg, dec=table[dec_col] * u.deg)
     separations = center_coord.separation(source_coords)
-
-    # Filter by radius
     mask = separations <= radius_deg * u.deg
     filtered_table = table[mask]
 
-    # Save filtered catalogue if output path provided
     if output_path:
+        # Ensure directory exists
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         filtered_table.write(output_path, overwrite=True)
 
-    return filtered_table
+    filtered_regions: list[str] | None = None
+    if regions_path:
+        filtered_regions = _filter_regions_within_radius(regions_path, center_coord, radius_deg)
+        if regions_output_path:
+            Path(regions_output_path).parent.mkdir(parents=True, exist_ok=True)
+            with open(regions_output_path, "w") as f:
+                for ln in filtered_regions:
+                    f.write(ln + "\n")
+
+    return filtered_table, filtered_regions
 
 
 def get_fits_image_center(image_path: str | Path) -> SkyCoord:

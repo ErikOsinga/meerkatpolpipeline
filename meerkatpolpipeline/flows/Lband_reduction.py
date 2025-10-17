@@ -36,7 +36,7 @@ from meerkatpolpipeline.utils.utils import (
     execute_command,
     filter_sources_within_radius,
     find_calibrated_ms,
-    get_fits_image_center
+    get_fits_image_center,
 )
 from meerkatpolpipeline.validation import (
     flagstat_vs_freq,
@@ -483,6 +483,7 @@ def process_science_fields(
             # filter sources within a certain radius if requesteds
             if cube_imaging_options['filter_pybdsf_cat_radius_deg'] is not None:
                 sourcelist_fits_filtered = sourcelist_fits.parent / f"sourcelist_filtered_within_{cube_imaging_options['filter_pybdsf_cat_radius_deg']}_deg.fits"
+                sourcelist_reg_filtered = sourcelist_fits_filtered.parent / f"sourcelist_filtered_within_{cube_imaging_options['filter_pybdsf_cat_radius_deg']}_deg.reg"
 
                 center_coord = get_fits_image_center(MFS_image)
 
@@ -490,13 +491,16 @@ def process_science_fields(
 
                 filter_sources_within_radius(
                     sourcelist_fits,
+                    regions_path=sourcelist_reg,
                     center_coord=center_coord,
                     radius_deg=cube_imaging_options['filter_pybdsf_cat_radius_deg'],
                     output_path=sourcelist_fits_filtered,
+                    regions_output_path=sourcelist_reg_filtered,
                 )
 
             else:
                 sourcelist_fits_filtered = sourcelist_fits
+                sourcelist_reg_filtered = sourcelist_reg
 
     else:
         wsclean_output_dir = cube_imaging_workdir / "IQUimages"
