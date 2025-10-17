@@ -249,9 +249,10 @@ def gather_flux_series(
     )
 
     if np.all(mask):
-        logger.warning("All channels were flagged based on flag percentage; returning empty series.")
+        logger.warning("All channels were flagged based on flag percentage; Raising error..")
         logger.info(f"{mask_above_flag_threshold=}")
         logger.info(f"freqs {nu=}, interpolated flag percentage {interp=}")
+        raise ValueError(f"All channels flagged for source index {region_index}, please try raising the threshold from {mask_above_flag_threshold} to a higher number..")
 
     m = m & (~mask)
 
