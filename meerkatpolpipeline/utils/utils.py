@@ -10,7 +10,9 @@ from pathlib import Path
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.table import Table
 from astropy.wcs import WCS, FITSFixedWarning
 from prefect.logging import get_run_logger
 
@@ -252,3 +254,97 @@ def remove_one_copy_from_filename(paths: np.ndarray[Path]) -> np.ndarray[Path]:
             name = name[:-5]  # remove the last ".copy"
         new_paths.append(p.with_name(name))
     return np.array(new_paths, dtype=object)
+
+
+def filter_sources_within_radius(
+    sourcelist_path: str | Path,
+    center_coord: SkyCoord,
+    radius_deg: float = 0.5,
+    ra_col: str = "RA",
+    dec_col: str = "DEC",
+    output_path: str | None = None
+) -> Table:
+    """
+    Filters a (PYBDSF) source list (.fits catalogue) to only include sources
+    within a given radius from a central coordinate.
+
+    Parameters
+    ----------
+    sourcelist_path : str
+        Path to the input PYBDSF source list (.fits file).
+    center_coord : SkyCoord
+        Central coordinate to search around.
+    radius_deg : float, optional
+        Search radius in degrees (default: 0.5 deg).
+    ra_col : str, optional
+        Column name for Right Ascension (default: 'RA').
+    dec_col : str, optional
+        Column name for Declination (default: 'DEC').
+    output_path : str, optional
+        If provided, writes the filtered catalogue to this path.
+
+    Returns
+    -------
+    filtered_table : astropy.table.Table
+        Table containing only sources within the given radius.
+    """
+    # Load the catalogue
+    table = Table.read(str(sourcelist_path))
+
+    # Ensure RA and DEC are present
+    if ra_col not in table.colnames or dec_col not in table.colnames:
+        raise KeyError(f"Input catalogue must contain '{ra_col}' and '{dec_col}' columns.")
+
+    # Build SkyCoord for all sources
+    source_coords = SkyCoord(ra=table[ra_col] * u.deg, dec=table[dec_col] * u.deg)
+
+    # Compute separations
+    separations = center_coord.separation(source_coords)
+
+    # Filter by radius
+    mask = separations <= radius_deg * u.deg
+    filtered_table = table[mask]
+
+    # Save filtered catalogue if output path provided
+    if output_path:
+        filtered_table.write(output_path, overwrite=True)
+
+    return filtered_table
+
+
+def get_fits_image_center(image_path: str | Path) -> SkyCoord:
+    """
+    Returns the celestial coordinate of the image centre from a FITS file.
+
+    Parameters
+    ----------
+    image_path : str
+        Path to the FITS image.
+
+    Returns
+    -------
+    center_coord : astropy.coordinates.SkyCoord
+        The sky coordinate of the image centre.
+    """
+    # Open FITS and extract header
+    with fits.open(str(image_path)) as hdul:
+        header = hdul[0].header
+
+    # Build celestial WCS (important for redundant axes compliance)
+    wcs = WCS(header).celestial
+
+    # Determine the pixel coordinates of the image centre
+    nx = header.get("NAXIS1")
+    ny = header.get("NAXIS2")
+
+    if nx is None or ny is None:
+        raise ValueError("FITS header missing NAXIS1/NAXIS2 keywords.")
+
+    x_center = nx / 2.0
+    y_center = ny / 2.0
+
+    # Convert pixel coordinates to world (RA, Dec)
+    ra_deg, dec_deg = wcs.wcs_pix2world(x_center, y_center, 0)
+    center_coord = SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg)
+
+    return center_coord

@@ -32,10 +32,13 @@ from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
-from meerkatpolpipeline.utils.runpybdsf import _runpybdsf
-from meerkatpolpipeline.utils.utils import find_calibrated_ms
+from meerkatpolpipeline.utils.utils import (
+    execute_command,
+    filter_sources_within_radius,
+    find_calibrated_ms,
+    get_fits_image_center
+)
 from meerkatpolpipeline.validation import (
-    flag_image_freqs,
     flagstat_vs_freq,
     validate_field,
 )
@@ -460,8 +463,6 @@ def process_science_fields(
             # pybdsf multiprocessing and prefect have some weird deadlock
             # run pybdsf in a separate process instead of a task
             from meerkatpolpipeline.utils import runpybdsf
-            from meerkatpolpipeline.utils.utils import execute_command
-
             pybdsf_script = Path(runpybdsf.__file__).parent / "runpybdsf.py"
             pybdsf_cmd = f"python {pybdsf_script} {MFS_image} --outdir {cube_imaging_workdir}"
             execute_command(pybdsf_cmd, logfile=cube_imaging_workdir / 'pybdsf_logs.txt')
@@ -474,6 +475,28 @@ def process_science_fields(
             #             logger=logger
             # )
 
+            # Assuming pybdsf results in these files
+            sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
+            sourcelist_reg = cube_imaging_workdir / 'sourcelist.srl.reg'
+            rmsmap = cube_imaging_workdir / 'rms_map.fits'
+
+            # filter sources within a certain radius if requesteds
+            if cube_imaging_options['filter_pybdsf_cat_radius_deg'] is not None:
+                sourcelist_fits_filtered = sourcelist_fits.parent / f"sourcelist_filtered_within_{cube_imaging_options['filter_pybdsf_cat_radius_deg']}_deg.fits"
+
+                center_coord = get_fits_image_center(MFS_image)
+
+                logger.info(f"Filtering PYBDSF source catalogue to only include sources within {cube_imaging_options['filter_pybdsf_cat_radius_deg']} deg of center {center_coord.to_string('hmsdms')}")
+
+                filter_sources_within_radius(
+                    sourcelist_fits,
+                    center_coord=center_coord,
+                    radius_deg=cube_imaging_options['filter_pybdsf_cat_radius_deg'],
+                    output_path=sourcelist_fits_filtered,
+                )
+
+            else:
+                sourcelist_fits_filtered = sourcelist_fits
 
     else:
         wsclean_output_dir = cube_imaging_workdir / "IQUimages"
@@ -510,12 +533,10 @@ def process_science_fields(
             can_be_pbcor = ["image"] # default, coarse_cube_imaging only does pbcor for 'image' files.
         )
 
-    # Assuming pybdsf results in these files
-    sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
-    sourcelist_reg = cube_imaging_workdir / 'sourcelist.srl.reg'
-    rmsmap = cube_imaging_workdir / 'rms_map.fits'
+        # TODO: how to deal with pybdsf catalogue filtering if this step is disabled?
 
-    if not sourcelist_fits.exists() or not sourcelist_reg.exists() or not rmsmap.exists():
+
+    if not sourcelist_fits.exists() or not sourcelist_reg.exists() or not rmsmap.exists(): # will fail if coarse cube imaging is disabled
         msg = f"PYBDSF results not found in {cube_imaging_workdir}, please check if PYBDSF was run correctly. Expected {sourcelist_fits}"
         logger.error(msg)
         raise FileNotFoundError(msg)
@@ -558,7 +579,7 @@ def process_science_fields(
             imageset_Q,
             imageset_U,
             sourcelist_reg,
-            sourcelist_fits,
+            sourcelist_fits_filtered,
             output_prefix=spectra_check_workdir / "top_n_spectra",
             top_n=validation_options['top_n_spectra'],
             logger=logger
@@ -590,7 +611,7 @@ def process_science_fields(
             imageset_Q,
             imageset_U,
             sourcelist_reg,
-            sourcelist_fits,
+            sourcelist_fits_filtered,
             output_prefix=spectra_check_workdir / "top_n_spectra",
             top_n=validation_options['top_n_spectra'],
             centers_mhz=centers_mhz,

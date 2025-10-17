@@ -24,6 +24,8 @@ class CoarseCubeImagingOptions(BaseOptions):
     """ also make MFS images in addition to the coarse cubes. This is a separate imaging step with no_mf_weighting"""
     run_pybdsf: bool = False
     """ also run pybdsf on the Stokes I MFS image to create a source catalogue. Requires also_image_for_mfs=True"""
+    filter_pybdsf_cat_radius_deg: float | None = None
+    """ filter the pybdsf source catalogue to only include sources within this radius (degrees) from the field centre. If None, no filtering is done."""
 
     # TODO: add size, scale, channels_out etc parameters for wsclean
 
