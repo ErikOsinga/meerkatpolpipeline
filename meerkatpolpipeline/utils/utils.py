@@ -296,7 +296,7 @@ def filter_sources_within_radius(
         raise KeyError(f"Input catalogue must contain '{ra_col}' and '{dec_col}' columns.")
 
     # Build SkyCoord for all sources
-    source_coords = SkyCoord(ra=table[ra_col] * u.deg, dec=table[dec_col] * u.deg)
+    source_coords = SkyCoord(ra=table[ra_col].value * u.deg, dec=table[dec_col].value * u.deg)
 
     # Compute separations
     separations = center_coord.separation(source_coords)
