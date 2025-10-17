@@ -248,6 +248,11 @@ def gather_flux_series(
         outside="extend",          # try "nan" or "false" as well
     )
 
+    if np.all(mask):
+        logger.warning("All channels were flagged based on flag percentage; returning empty series.")
+        logger.info(f"{mask_above_flag_threshold=}")
+        logger.info(f"freqs {nu=}, interpolated flag percentage {interp=}")
+
     m = m & (~mask)
 
     return SpectralSeries(nu_hz=nu[m], I=I[m], Q=Q[m], U=U[m])
