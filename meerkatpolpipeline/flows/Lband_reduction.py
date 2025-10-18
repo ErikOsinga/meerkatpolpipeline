@@ -622,7 +622,7 @@ def process_science_fields(
             sourcelist_reg_filtered,
             sourcelist_fits_filtered,
             output_prefix=spectra_check_workdir / "top_n_spectra_flagged",
-            top_n=validation_options['top_n_spectra'],
+            validation_options=validation_options,
             centers_mhz=centers_mhz,
             avg_flag_pct=avg_flag_pct,
             mask_above_flag_threshold=validation_options['flag_threshold_pct'],
