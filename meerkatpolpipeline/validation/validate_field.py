@@ -228,22 +228,22 @@ def gather_flux_series(
         ifiles, qfiles, ufiles, region_object, region_index
     )
 
-    nu = np.asarray(nu_I, dtype=float)
+    nu_Hz = np.asarray(nu_I, dtype=float) # assume Hz
     I = np.asarray(flux_I, dtype=float)  # noqa: E741
     Q = np.asarray(flux_Q, dtype=float)
     U = np.asarray(flux_U, dtype=float)
 
     # Remove NaNs consistently
-    m = np.isfinite(nu) & np.isfinite(I) & np.isfinite(Q) & np.isfinite(U)
+    m = np.isfinite(nu_Hz) & np.isfinite(I) & np.isfinite(Q) & np.isfinite(U)
 
     if centers_mhz is None or avg_flag_pct is None or mask_above_flag_threshold is None:
         # No flagging requested
-        return SpectralSeries(nu_hz=nu[m], I=I[m], Q=Q[m], U=U[m])
+        return SpectralSeries(nu_hz=nu_Hz[m], I=I[m], Q=Q[m], U=U[m])
 
 
-    # Optional flagging based on avg_flag_pct
+    # Optional flagging based on avg_flag_pct. TODO: check that this is working
     mask, interp = flag_image_freqs.flag_image_freqs(
-        centers_mhz, avg_flag_pct, nu,
+        centers_mhz, avg_flag_pct, nu_Hz/1e6, # make sure both frequencies are in same units
         threshold_pct=mask_above_flag_threshold,
         outside="extend",          # try "nan" or "false" as well
     )
@@ -251,12 +251,12 @@ def gather_flux_series(
     if np.all(mask):
         logger.warning("All channels were flagged based on flag percentage; Raising error..")
         logger.info(f"{mask_above_flag_threshold=}")
-        logger.info(f"freqs {nu=}, interpolated flag percentage {interp=}")
+        logger.info(f"freqs {nu_Hz=}, interpolated flag percentage {interp=}")
         raise ValueError(f"All channels flagged for source index {region_index}, please try raising the threshold from {mask_above_flag_threshold} to a higher number..")
 
     m = m & (~mask)
 
-    return SpectralSeries(nu_hz=nu[m], I=I[m], Q=Q[m], U=U[m])
+    return SpectralSeries(nu_hz=nu_Hz[m], I=I[m], Q=Q[m], U=U[m])
 
 
 def fit_power_law_alpha(nu_hz: np.ndarray, S: np.ndarray) -> tuple[float, float]:

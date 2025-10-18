@@ -607,6 +607,7 @@ def process_science_fields(
 
         # Plotting average flagging vs freq
         avg_out = validate_field_workdir / "plots" / "flag_vs_freq_avg.png"
+        # TODO: overlay the 12 channels from the coarse cube imaging, to see where they end up
         flagstat_vs_freq.plot_flag_vs_freq(centers_mhz, avg_flag_pct, avg_out, "Flagging vs Frequency: AVERAGE")
 
         # Then check spectra with flagging above a certain threshold
