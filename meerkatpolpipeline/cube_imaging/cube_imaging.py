@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import astropy.units as u
+import numpy as np
+from casacore.tables import table
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.cube_imaging.pbcor import calculate_pb, pbcor_allchan
@@ -10,7 +13,7 @@ from meerkatpolpipeline.wsclean.wsclean import ImageSet, WSCleanOptions, run_wsc
 
 
 class CoarseCubeImagingOptions(BaseOptions):
-    """A basic class to handle options for cube imaging. """
+    """A basic class to handle options for coarse cube imaging. """
     
     enable: bool
     """enable this step?"""
@@ -29,12 +32,33 @@ class CoarseCubeImagingOptions(BaseOptions):
 
     # TODO: add size, scale, channels_out etc parameters for wsclean
 
+class FineCubeImagingOptions(BaseOptions):
+    """A basic class to handle options for fine cube imaging. """
+    
+    enable: bool
+    """enable this step?"""
+    targetfield: str | None = None
+    """name of targetfield. This option is propagated to every step."""    
+    corrected_extracted_mses: list[Path] | None = None
+    """list of Paths to extracted MSes that contains the corrected data. If None, will be determined automatically"""
+    no_fit_rm: bool = False
+    """ disable the -fit-rm flag in wsclean, since its only available in the newest versions."""
+    chanwidth_MHz: float | None = 5
+    """Channel width in MHz to aim for. Default 5 MHz"""
+    startfreq_MHz: float | None = None
+    """Start frequency in MHz for the fine channel cubes. If None, will use the lowest frequency in the MS."""
+    endfreq_MHz: float | None = None
+    """End frequency in MHz for the fine channel cubes. If None, will use the highest frequency in the MS."""
+    # TODO: add size, scale, channels_out etc parameters for wsclean
 
-def go_wsclean_coarsecubes_target(
+
+
+def go_wsclean_cube_imaging_target(
     ms: Path | list[Path],
     working_dir: Path,
     lofar_container: Path,
-    cube_imaging_options: dict | CoarseCubeImagingOptions
+    cube_imaging_options: dict | CoarseCubeImagingOptions | FineCubeImagingOptions,
+    finecube: bool = False
 ) -> tuple[ImageSet, ImageSet, ImageSet]:
     """
     Image the TARGET field in I + Q + U using some default settings.
@@ -47,6 +71,24 @@ def go_wsclean_coarsecubes_target(
     logger = get_run_logger()
     logger.info(f"Starting WSClean imaging for target field {cube_imaging_options['targetfield']} in {working_dir}")
 
+    if not finecube:
+        channels_out = 12 # sensible quick default
+        channel_range = None # image whole band
+        logger.info(f"Using default channels_out={channels_out} for coarse cubes.")
+
+    else:
+        channels_out, channel_range_start, channel_range_end = compute_chanout_from_chanwidth(ms, cube_imaging_options)
+        
+        logger.info(f"Computed channels_out={channels_out} for fine cube imaging, assuming a channel width of {cube_imaging_options['chanwidth_MHz']} MHz.")
+        
+        if channel_range_start is not None and channel_range_end is not None:
+            # image only part of band
+            logger.info(f"Using channel range {channel_range_start} to {channel_range_end} for fine cube imaging corresponding to frequencies {cube_imaging_options['startfreq_MHz']} MHz to {cube_imaging_options['endfreq_MHz']} MHz.")
+            channel_range = [channel_range_start, channel_range_end]
+        else:
+            # image whole band
+            channel_range = None
+
     # Common parameters between I and QU
     common = dict(
         no_update_model_required=True,
@@ -58,7 +100,8 @@ def go_wsclean_coarsecubes_target(
         parallel_reordering=4,
         data_column="DATA", # _subtracted_ddcor should only contain DATA column
         join_channels=True,
-        channels_out=12,
+        channels_out=channels_out, # channels out computed above
+        channel_range=channel_range,
         no_mf_weighting=True,
         parallel_gridding=4,
         auto_mask=3.0,
@@ -94,7 +137,7 @@ def go_wsclean_coarsecubes_target(
         expected_pols=["i"],
     )
 
-    imageset_I = pbcor_coarsecubes_target(imageset_I, working_dir / "pbcor_images", pol='i')
+    imageset_I = pbcor_cubes_target(imageset_I, working_dir / "pbcor_images", pol='i')
 
     # ----- Stokes QU (multiscale OFF) -----
     # Build fresh options to avoid inheriting multiscale from I.
@@ -121,8 +164,8 @@ def go_wsclean_coarsecubes_target(
     )
     imageset_Q, imageset_U = imagesets_QU
 
-    imageset_Q = pbcor_coarsecubes_target(imageset_Q, working_dir / "pbcor_images", pol='q')
-    imageset_U = pbcor_coarsecubes_target(imageset_U, working_dir / "pbcor_images", pol='u')
+    imageset_Q = pbcor_cubes_target(imageset_Q, working_dir / "pbcor_images", pol='q')
+    imageset_U = pbcor_cubes_target(imageset_U, working_dir / "pbcor_images", pol='u')
 
 
     if cube_imaging_options['also_image_for_mfs']:
@@ -144,7 +187,7 @@ def go_wsclean_coarsecubes_target(
         )
 
         # can put pbcor images in same directory as coarse cubes
-        imageset_I_mfs = pbcor_coarsecubes_target(imageset_I_mfs, working_dir / "pbcor_images", pol='i')
+        imageset_I_mfs = pbcor_cubes_target(imageset_I_mfs, working_dir / "pbcor_images", pol='i')
 
     else:
         imageset_I_mfs = None
@@ -152,9 +195,9 @@ def go_wsclean_coarsecubes_target(
     return imageset_I, imageset_Q, imageset_U, imageset_I_mfs
 
 
-def pbcor_coarsecubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> ImageSet:
+def pbcor_cubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> ImageSet:
     """
-    Do PB correction for cubes made in go_wsclean_coarsecubes_target.
+    Do PB correction for cubes made in go_wsclean_cube_imaging_target.
     """
     outdir_pbcor_images.mkdir(parents=True, exist_ok=True)
 
@@ -179,3 +222,124 @@ def pbcor_coarsecubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: st
     imset = imset.with_options(image_pbcor=all_corrected, pbcor_model_images=all_pbcor)
 
     return imset
+
+
+def _normalize_ms_list(ms: Path | list[Path]) -> list[Path]:
+    if isinstance(ms, (str, Path)):
+        return [Path(ms)]
+    return [Path(p) for p in ms]
+
+
+def _freq_bounds_from_ms(ms_path: Path) -> tuple[float, float]:
+    """
+    Return (fmin_MHz, fmax_MHz) from SPECTRAL_WINDOW::CHAN_FREQ (Hz) for a single MS.
+    """
+    spw_path = str(ms_path / "SPECTRAL_WINDOW")
+    with table(spw_path) as t:
+        freqs_Hz = t.getcol("CHAN_FREQ")  # shape: (n_spw, n_chan) or (n_row, n_chan)
+    freqs_Hz = np.asarray(freqs_Hz, dtype=np.float64).ravel()
+    fmin_MHz = float(np.min(freqs_Hz) * u.Hz.to(u.MHz))
+    fmax_MHz = float(np.max(freqs_Hz) * u.Hz.to(u.MHz))
+    if fmin_MHz > fmax_MHz:
+        fmin_MHz, fmax_MHz = fmax_MHz, fmin_MHz
+    return fmin_MHz, fmax_MHz
+
+
+def _global_bounds_MHz(ms_list: list[Path]) -> tuple[float, float]:
+    fmins, fmaxs = zip(*[_freq_bounds_from_ms(p) for p in ms_list])
+    return float(min(fmins)), float(max(fmaxs))
+
+
+def _resolve_bounds_MHz(ms: Path | list[Path], opts: dict) -> tuple[float, float]:
+    """
+    Obtain start and end frequency from MS or options, clamped to MS extent.
+
+    Args:
+        ms: Path or list of Paths to Measurement Sets.
+        opts: Cube imaging options with optional startfreq_MHz and endfreq_MHz.
+    
+    Returns:
+        (start_MHz, end_MHz, fmin_ms, fmax_ms)
+    """
+    ms_list = _normalize_ms_list(ms)
+
+    # Start/end from options or MS
+    if opts['startfreq_MHz'] is not None and opts['endfreq_MHz'] is not None:
+        start_MHz = float(opts['startfreq_MHz'])
+        end_MHz = float(opts['endfreq_MHz'])
+    else:
+        fmin_ms, fmax_ms = _global_bounds_MHz(ms_list)
+        start_MHz = fmin_ms
+        end_MHz = fmax_ms
+
+    if start_MHz == end_MHz:
+        raise ValueError("startfreq_MHz equals endfreq_MHz; bandwidth is zero.")
+    if start_MHz > end_MHz:
+        raise ValueError(f"{start_MHz=} is bigger than {end_MHz=}; invalid frequency range.")
+
+    # Clamp to MS extent
+    fmin_ms, fmax_ms = _global_bounds_MHz(ms_list)
+    start_MHz = max(start_MHz, fmin_ms)
+    end_MHz = min(end_MHz, fmax_ms)
+
+    if end_MHz <= start_MHz:
+        raise ValueError("After clamping, endfreq_MHz <= startfreq_MHz; no usable bandwidth.")
+
+    return start_MHz, end_MHz, fmin_ms, fmax_ms
+
+
+def compute_chanout_from_chanwidth(
+    ms: Path | list[Path],
+    cube_imaging_options: dict
+) -> tuple[int, int | None, int | None]:
+    """
+    Compute integer channels_out for WSClean so the per-channel width is
+    as close as possible to, but not exceeding, chanwidth_MHz.
+    If exact division is impossible, we err smaller (more channels).
+
+    Example behaviour:
+
+        - any band, bandwidth = 31 MHz, target width = 5 MHz 
+            -> channels_out = 7 (width=4.42857 MHz), channel_range_start = None, channel_range_end = None
+        
+        - Lband = 907-1670 MHz, 'startfreq_MHz' = 1400, 'endfreq_MHz' = 1600 
+            -> channels_out = 40 (width=5 MHz), channel_range_start = 98 (1402 MHz), channel_range_end = 139 (1602 MHz)
+
+    args:
+        ms: Path or list of Paths to Measurement Sets.
+        cube_imaging_options: dict with at least 'chanwidth_MHz', optional
+            'startfreq_MHz' and 'endfreq_MHz'.
+
+    Returns:
+        int: number of channels between 'startfreq_MHz' and 'endfreq_MHz' with a channel width of chanwidth_MHz
+        int: channel_range_start for WSclean (or None)
+        int: channel_range_end for WSclean (or None)
+    """
+
+    target_width_MHz = cube_imaging_options['chanwidth_MHz']
+    if target_width_MHz <= 0:
+        raise ValueError("chanwidth_MHz must be positive.")
+
+    start_MHz, end_MHz, freqmin_ms, freqmax_ms = _resolve_bounds_MHz(ms, cube_imaging_options)
+    bandwidth_MHz = (end_MHz - start_MHz)
+
+    # Floor ensures resulting width <= target (unless bandwidth < target).
+    channels_out = int(np.floor(bandwidth_MHz / target_width_MHz))
+    if channels_out < 1:
+        raise ValueError(f"Computed channels_out < 1 for {start_MHz=}, {end_MHz=} and {target_width_MHz=}.")
+
+    # Numerical safety: enforce width <= target if channels_out > 1
+    resulting_width = bandwidth_MHz / channels_out
+    if resulting_width > target_width_MHz * (1.0 + 1e-12):
+        channels_out += 1
+    resulting_width = bandwidth_MHz / channels_out
+
+    # Now also compute "channel-range", i.e. the start and end channel in WSclean
+    if start_MHz == freqmin_ms and end_MHz == freqmax_ms:
+        channel_range_start = None
+        channel_range_end = None
+    else:
+        channel_range_start = int((start_MHz - freqmin_ms) / resulting_width)
+        channel_range_end = int((end_MHz - freqmin_ms) / resulting_width)+1
+
+    return int(channels_out), channel_range_start, channel_range_end

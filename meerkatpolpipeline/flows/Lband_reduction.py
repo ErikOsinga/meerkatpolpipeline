@@ -27,7 +27,7 @@ from meerkatpolpipeline.configuration import (
     load_and_copy_strategy,
     log_enabled_operations,
 )
-from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_coarsecubes_target
+from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_cube_imaging_target
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
@@ -449,7 +449,7 @@ def process_science_fields(
             cube_imaging_options['corrected_extracted_mses'] = corrected_extracted_mses
 
         # Make quicklook 12-channel cubes in IQU of the target field, with pb correction.
-        task_image_smallcubes = task(go_wsclean_coarsecubes_target, name="wsclean_smallcubes_target")
+        task_image_smallcubes = task(go_wsclean_cube_imaging_target, name="wsclean_smallcubes_target")
         imageset_I, imageset_Q, imageset_U, imageset_I_mfs = task_image_smallcubes(
             ms = corrected_extracted_mses,
             working_dir = cube_imaging_workdir,
@@ -546,6 +546,7 @@ def process_science_fields(
         logger.error(msg)
         raise FileNotFoundError(msg)
 
+    # TODO: switch step 6 and 7, attempt to compare NVSS to the top_n_spectra, after we determine these automatically.
     ########## step 6: preliminary check of IQUV cubes vs NVSS ##########
     if "compare_to_nvss" in enabled_operations:
         nvss_comparison_workdir = working_dir / "nvss_comparison"
@@ -631,10 +632,28 @@ def process_science_fields(
 
 
 
-    ########## step 8: Resample the frequency axis if requested (required for L-band + UHF imaging) ##########
-
+    ########## step 8: Resample the frequency axis in the MS if requested (required for L-band + UHF imaging) ##########
+    # TODO
 
     ########## step 9: Many-channel IQU imaging ##########
+    if "fine_cube_imaging" in enabled_operations:
+        fine_cube_imaging_workdir = working_dir / "fine_cube_imaging"
+        fine_cube_imaging_workdir.mkdir(exist_ok=True)
+
+        fine_cube_imaging_options = get_options_from_strategy(strategy, operation="fine_cube_imaging")
+
+        # check for user overwrite
+        if fine_cube_imaging_options['corrected_extracted_mses'] is None:
+            fine_cube_imaging_options['corrected_extracted_mses'] = corrected_extracted_mses
+
+        # Make many-channel cubes in IQU of the target field, with pb correction.
+        task_image_finecubes = task(go_wsclean_cube_imaging_target, name="wsclean_finecubes_target")
+        imageset_I_fine, imageset_Q_fine, imageset_U_fine, imageset_I_mfs_fine = task_image_finecubes(
+            ms = fine_cube_imaging_options['corrected_extracted_mses'],
+            working_dir = fine_cube_imaging_workdir,
+            lofar_container=lofar_container,
+            cube_imaging_options=fine_cube_imaging_options
+        )
 
 
     ########## step 10: RM synthesis 1D ##########

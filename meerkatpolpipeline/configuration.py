@@ -12,7 +12,7 @@ import yaml
 from meerkatpolpipeline.caracal._caracal import CrossCalOptions
 from meerkatpolpipeline.check_calibrator.check_calibrator import CheckCalibratorOptions
 from meerkatpolpipeline.check_nvss.compare_to_nvss import CompareNVSSOptions
-from meerkatpolpipeline.cube_imaging.cube_imaging import CoarseCubeImagingOptions
+from meerkatpolpipeline.cube_imaging.cube_imaging import CoarseCubeImagingOptions, FineCubeImagingOptions
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions
@@ -41,7 +41,7 @@ KNOWN_OPERATIONS = (
     "compare_to_nvss",
     "validation",
     "grid_freq_axis",
-    "create_iqu_cubes",
+    "fine_cube_imaging",
     "rmsynth1d",
     "validate_rmsynth1d",
     "rmsynth3d",
@@ -58,6 +58,7 @@ STRATEGY_OPTIONS_MAPPING = {
     "coarse_cube_imaging": CoarseCubeImagingOptions,
     "compare_to_nvss": CompareNVSSOptions,
     "validation": ValidateFieldOptions,
+    "fine_cube_imaging": FineCubeImagingOptions
     # TODO
 }
 
