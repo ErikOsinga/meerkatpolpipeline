@@ -199,7 +199,9 @@ def write_csv(out_path: Path,
 def plot_flag_vs_freq(centers_mhz: np.ndarray,
                       flag_percent: np.ndarray,
                       out_path: Path,
-                      title: str) -> None:
+                      title: str,
+                      image_freqs_MHz: np.ndarray | None = None
+) -> None:
     """Plot and save flagging percentage vs. frequency."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(8, 4.5))
@@ -208,6 +210,13 @@ def plot_flag_vs_freq(centers_mhz: np.ndarray,
     plt.ylabel("Flagged fraction (%)")
     plt.title(title)
     plt.grid(True, alpha=0.3)
+
+    # overlay center frequencies at which we have imaged, if given.
+    if image_freqs_MHz is not None:
+            for i, freq in enumerate(image_freqs_MHz):
+                plt.axvline(freq, color="black", linestyle="--", alpha=0.7)
+                plt.text(freq, 50, f"{i:02d}", color="black", fontsize=8, ha="center", va="bottom")
+
     plt.tight_layout()
     plt.savefig(str(out_path), dpi=150)
     plt.close()

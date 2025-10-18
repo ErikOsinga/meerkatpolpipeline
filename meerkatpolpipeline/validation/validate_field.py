@@ -241,7 +241,7 @@ def gather_flux_series(
         return SpectralSeries(nu_hz=nu_Hz[m], I=I[m], Q=Q[m], U=U[m])
 
 
-    # Optional flagging based on avg_flag_pct. TODO: check that this is working
+    # Optional flagging based on avg_flag_pct.
     mask, interp = flag_image_freqs.flag_image_freqs(
         centers_mhz, avg_flag_pct, nu_Hz/1e6, # make sure both frequencies are in same units
         threshold_pct=mask_above_flag_threshold,
