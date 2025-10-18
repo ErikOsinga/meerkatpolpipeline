@@ -201,7 +201,11 @@ def create_wsclean_command(
             dims = (val, val) if isinstance(val, int) else val
             cmd_parts.extend([flag] + [str(d) for d in dims])
         elif isinstance(val, (list, tuple)):
-            cmd_parts.extend([flag, ",".join(str(v) for v in val)])
+            if name == "channel_range":
+                # note that wsclean requires channel range to be separated by space instead of comma, i.e. "int1 int2"
+                cmd_parts.extend([flag, " ".join(str(v) for v in val)])
+            else:
+                cmd_parts.extend([flag, ",".join(str(v) for v in val)])
         else:
             cmd_parts.extend([flag, str(val)])
 
