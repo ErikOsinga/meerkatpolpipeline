@@ -245,6 +245,25 @@ def _freq_bounds_from_ms(ms_path: Path) -> tuple[float, float]:
     return fmin_MHz, fmax_MHz
 
 
+def _load_ms_chanwidth_MHz(ms_path: Path) -> float:
+    """
+    Load channel width in measurement set
+
+    Returns:
+        float: channel width in MHz
+    """
+
+    spw_path = str(ms_path / "SPECTRAL_WINDOW")
+    with table(spw_path) as t:
+        if "CHAN_WIDTH" in t.colnames():
+            widths_Hz = np.asarray(t.getcol("CHAN_WIDTH"), dtype=np.float64).ravel()
+            assert (widths_Hz == widths_Hz[0]).all(), "Found non-equal channel width in MS. Should not happen after facetselfcal."
+        else:
+            raise ValueError(f"Could not obtain channel width from {ms_path}")
+
+    return widths_Hz[0]/1e6
+
+
 def _global_bounds_MHz(ms_list: list[Path]) -> tuple[float, float]:
     fmins, fmaxs = zip(*[_freq_bounds_from_ms(p) for p in ms_list])
     return float(min(fmins)), float(max(fmaxs))
@@ -299,11 +318,11 @@ def compute_chanout_from_chanwidth(
 
     Example behaviour:
 
-        - any band, bandwidth = 31 MHz, target width = 5 MHz 
+        - any band, bandwidth = 31 MHz, any channel width in MS, target width = 5 MHz 
             -> channels_out = 7 (width=4.42857 MHz), channel_range_start = None, channel_range_end = None
         
-        - Lband = 907-1670 MHz, 'startfreq_MHz' = 1400, 'endfreq_MHz' = 1600 
-            -> channels_out = 40 (width=5 MHz), channel_range_start = 98 (1402 MHz), channel_range_end = 139 (1602 MHz)
+        - Lband = 907-1670 MHz, 0.84 MHz channel width in MS, 'startfreq_MHz' = 1400, 'endfreq_MHz' = 1600 
+            -> channels_out = 40 (width=5 MHz), channel_range_start = 589 (1399 MHz), channel_range_end = 829 (1600.1 MHz)
 
     args:
         ms: Path or list of Paths to Measurement Sets.
@@ -335,11 +354,15 @@ def compute_chanout_from_chanwidth(
     resulting_width = bandwidth_MHz / channels_out
 
     # Now also compute "channel-range", i.e. the start and end channel in WSclean
+    # this depends on the channel width in the measurement set
+    ms_chanwidth_MHz = _load_ms_chanwidth_MHz(_normalize_ms_list(ms)[0])
+    # since WSclean first computes which channel range to cover, and then splits that range into "channels_out" channels for imaging.
+
     if start_MHz == freqmin_ms and end_MHz == freqmax_ms:
         channel_range_start = None
         channel_range_end = None
     else:
-        channel_range_start = int((start_MHz - freqmin_ms) / resulting_width)
-        channel_range_end = int((end_MHz - freqmin_ms) / resulting_width)+1
+        channel_range_start = int((start_MHz - freqmin_ms) / ms_chanwidth_MHz)
+        channel_range_end = int((end_MHz - freqmin_ms) / ms_chanwidth_MHz)+1
 
     return int(channels_out), channel_range_start, channel_range_end
