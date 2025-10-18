@@ -652,7 +652,8 @@ def process_science_fields(
             ms = fine_cube_imaging_options['corrected_extracted_mses'],
             working_dir = fine_cube_imaging_workdir,
             lofar_container=lofar_container,
-            cube_imaging_options=fine_cube_imaging_options
+            cube_imaging_options=fine_cube_imaging_options,
+            finecube=True
         )
 
 
