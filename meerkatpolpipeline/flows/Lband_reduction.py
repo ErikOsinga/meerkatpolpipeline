@@ -8,6 +8,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import numpy as np
 from configargparse import ArgumentParser
 from prefect import flow, task  #, tags, unmapped
 from prefect.logging import get_run_logger
@@ -609,6 +610,7 @@ def process_science_fields(
         avg_out = validate_field_workdir / "plots" / "flag_vs_freq_avg.png"
         # compute the frequency coverage of the coarse cube image.
         _, image_nu_Hz, _ = validate_field.sort_files_by_frequency(imageset_I.image_pbcor)
+        image_nu_Hz = np.asarray(image_nu_Hz) # assumes Hz in header.
         # overlay the 12 channels from the coarse cube imaging, to see where they end up on the flagged spectrum
         flagstat_vs_freq.plot_flag_vs_freq(centers_mhz, avg_flag_pct, avg_out, "Flagging vs Frequency: AVERAGE", image_freqs_MHz=image_nu_Hz/1e6)
 
