@@ -215,7 +215,8 @@ def plot_flag_vs_freq(centers_mhz: np.ndarray,
     if image_freqs_MHz is not None:
             for i, freq in enumerate(image_freqs_MHz):
                 plt.axvline(freq, color="black", linestyle="--", alpha=0.7)
-                plt.text(freq, 50, f"{i:02d}", color="black", fontsize=8, ha="center", va="bottom")
+                plt.text(freq, 50, f"{i:02d}", color="black", fontsize=8, ha="center", va="bottom",
+                         bbox=dict(facecolor="white", edgecolor="none", alpha=0.8))
 
     plt.tight_layout()
     plt.savefig(str(out_path), dpi=150)
