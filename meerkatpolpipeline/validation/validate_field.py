@@ -58,6 +58,10 @@ class ValidateFieldOptions(BaseOptions):
     """Number of brightest sources to plot."""
     flag_threshold_pct: float | None = 20
     """Flag channels where flag percentage >= this threshold."""
+    chan_for_i_cutout: int | None = None
+    """Optionally, use a channel for plotting the stokes I cutout. Useful when MFS image corrupted by bad channels"""
+    chan_for_qu_cutout: int | None = None
+    """Optionally, use a channel for plotting the stokes P cutout (Q^2+U^2)^0.5. Useful when MFS image corrupted by bad channels. 7 is a good default for 12 channel imaging in L-band."""
 
 def read_table(catalog_path: Path) -> Table:
     return Table.read(str(catalog_path))
@@ -305,15 +309,30 @@ def add_inset_cutouts(
     imageset_Q: ImageSet,
     imageset_U: ImageSet,
     center: SkyCoord,
+    validation_options: ValidateFieldOptions | dict,
     cutout_size_pix: int = 40,
 ) -> None:
     """Optional insets: Stokes I (MFS) and Polarized Intensity (from MFS Q,U)."""
 
     VMIN_HARDCODED = -1e-4
 
-    im_I = first_mfs_file(list(imageset_I.image_pbcor))
-    im_Q = first_mfs_file(list(imageset_Q.image_pbcor))
-    im_U = first_mfs_file(list(imageset_U.image_pbcor))
+    if validation_options['chan_for_i_cutout'] is not None:
+        # Use a specific channel for Stokes I cutout
+        chan_I = int(validation_options['chan_for_i_cutout'])
+        im_I = sort_files_by_frequency(list(imageset_I.image_pbcor))[0][chan_I]
+    else:
+        im_I = first_mfs_file(list(imageset_I.image_pbcor))
+        chan_I = "MFS"
+
+    if validation_options['chan_for_qu_cutout'] is not None:
+        # Use a specific channel for Stokes Q,U cutout
+        chan_QU = int(validation_options['chan_for_qu_cutout'])
+        im_Q = sort_files_by_frequency(list(imageset_Q.image_pbcor))[0][chan_QU]
+        im_U = sort_files_by_frequency(list(imageset_U.image_pbcor))[0][chan_QU]
+    else:
+        im_Q = first_mfs_file(list(imageset_Q.image_pbcor))
+        im_U = first_mfs_file(list(imageset_U.image_pbcor))
+        chan_QU = "MFS"
 
     if im_I is None:
         return
@@ -327,7 +346,7 @@ def add_inset_cutouts(
         im = ax.imshow(cutI.data, origin="lower", norm=norm)  # noqa: F841
         cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
         cbar.set_label("[Jy/beam]", fontsize=8)
-        ax.set_title("Stokes I", fontsize=8)
+        ax.set_title(f"Stokes I, channel {chan_I}", fontsize=10)
         ax.scatter([cutout_size_pix / 2], [cutout_size_pix / 2], marker="+", s=30, color='red')
         ax.set_xticks([])
         ax.set_yticks([])
@@ -345,7 +364,7 @@ def add_inset_cutouts(
             im = ax.imshow(Pimg, origin="lower", norm=norm)
             cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
             cbar.set_label("[Jy/beam]", fontsize=8)
-            ax.set_title("Polarized Intensity", fontsize=8)
+            ax.set_title(f"Polarized Intensity: channel {chan_QU}", fontsize=10)
             ax.scatter([cutout_size_pix / 2], [cutout_size_pix / 2], marker="+", s=30, color='red')
             ax.set_xticks([])
             ax.set_yticks([])
@@ -359,6 +378,7 @@ def make_summary_figure(
     imageset_Q: ImageSet,
     imageset_U: ImageSet,
     cutout_size_pix: int,
+    validation_options: ValidateFieldOptions | dict,
 ) -> plt.Figure:
     """
     Make a 3x3 summary figure for one source.
@@ -452,7 +472,7 @@ def make_summary_figure(
     add_inset_cutouts(
         {"inset_I": ax_inset_I, "inset_P": ax_inset_P},
         imageset_I, imageset_Q, imageset_U, center=center,
-        cutout_size_pix=cutout_size_pix
+        cutout_size_pix=cutout_size_pix, validation_options=validation_options
     )
 
     fig.suptitle(name, y=0.98, fontsize=11)
@@ -528,7 +548,7 @@ def plot_top_n_source_spectra(
     ds9_regions: Path,
     catalog_path: Path,
     output_prefix: Path,
-    top_n: int = 10,
+    validation_options: ValidateFieldOptions | dict,
     centers_mhz: np.ndarray | None = None,
     avg_flag_pct: np.ndarray | None = None,
     mask_above_flag_threshold: float | None = None,
@@ -537,6 +557,8 @@ def plot_top_n_source_spectra(
     """
     Plot top N source spectra summaries, by Total_flux from a PYBDSF catalog, using regions for flux extraction.
     """
+    top_n = validation_options['top_n_spectra']
+
     named_series: list[tuple[str, SpectralSeries, int]] = []
 
     if logger is None:
@@ -601,6 +623,7 @@ def plot_top_n_source_spectra(
             imageset_Q=imageset_Q,
             imageset_U=imageset_U,
             cutout_size_pix=cutout_size_pix,
+            validation_options=validation_options,
         )
 
         out_png = Path(f"{output_prefix}_rank{rank:02d}_idx{int(idx)}.png")

@@ -586,7 +586,7 @@ def process_science_fields(
             sourcelist_reg_filtered,
             sourcelist_fits_filtered,
             output_prefix=spectra_check_workdir / "top_n_spectra",
-            top_n=validation_options['top_n_spectra'],
+            validation_options=validation_options,
             logger=logger
         )
 
