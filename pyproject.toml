@@ -28,7 +28,8 @@ dependencies = [
     "katbeam",
     "uncertainties",
     "shadems",
-    "bdsf"
+    "bdsf",
+    "radio_beam"
 ]
 
 classifiers = [

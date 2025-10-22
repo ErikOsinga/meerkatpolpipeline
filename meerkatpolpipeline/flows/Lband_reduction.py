@@ -658,14 +658,28 @@ def process_science_fields(
         )
 
         # Plot beam vs frequency
-        results = generate_beam_plots(
+        beam_limit_arcsec = 15 # 15 arcsec default beam limit. Can make user input
+        task_beam_plots = task(generate_beam_plots, name="plot_beam_vs_freq")
+        beamdata_i, beamdata_q = task_beam_plots(
             i_input=imageset_I_fine.image_pbcor,
             q_input=imageset_Q_fine.image_pbcor,
             output_dir=fine_cube_imaging_workdir / "beam_plots",
-            yline_arcsec=15, # default 15 arcsec
+            yline_arcsec=beam_limit_arcsec,
             ylim_arcsec=None,
             show=False,
         )
+
+        num_chan_largebeam_i = np.sum(beamdata_i.bmaj_deg > beam_limit_arcsec/3600.)
+        logger.info(f"Number of channels in Stokes I with beam (major axis) larger than {beam_limit_arcsec} arcsec: {num_chan_largebeam_i} out of {len(beamdata_i.bmaj_deg)}")
+        num_chan_largebeam_q = np.sum(beamdata_q.bmaj_deg > beam_limit_arcsec/3600.)
+        logger.info(f"Number of channels in stokes Q with beam (major axis) larger than {beam_limit_arcsec} arcsec: {num_chan_largebeam_q} out of {len(beamdata_q.bmaj_deg)}")
+
+        # perc_chan_largebeam_i = (num_chan_largebeam_i / len(beamdata_i.bmaj_deg)) * 100.
+        # perc_chan_largebeam_q = (num_chan_largebeam_q / len(beamdata_q.bmaj_deg)) * 100.
+
+        
+
+
 
 
 

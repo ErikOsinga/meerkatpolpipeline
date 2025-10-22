@@ -274,13 +274,8 @@ def generate_beam_plots(
 
     Returns
     -------
-    dict[str, list[pathlib.Path]]
-        Mapping from stokes label to list of saved figure paths.
-
-    e.g. 
-        {'I': [PosixPath('tests/I_beam_info_vs_freq.png')],
-        'Q': [PosixPath('tests/Q_beam_info_vs_freq.png')]}
-
+    data_i, data_q: [BeamData, BeamData]
+        BeamData for Stokes I and Q. (see .freq, .bmaj, .bmin, .files)
 
 
     """
@@ -290,14 +285,13 @@ def generate_beam_plots(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    results: dict[str, list[Path]] = {}
-    results["I"] = plot_beam_axes(
+    plot_beam_axes(
         data_i, "I", output_dir, yline_arcsec=yline_arcsec, ylim_arcsec=ylim_arcsec, show=show
     )
-    results["Q"] = plot_beam_axes(
+    plot_beam_axes(
         data_q, "Q", output_dir, yline_arcsec=yline_arcsec, ylim_arcsec=ylim_arcsec, show=show
     )
-    return results
+    return data_i, data_q
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
