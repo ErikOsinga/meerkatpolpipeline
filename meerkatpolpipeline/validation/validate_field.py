@@ -682,7 +682,7 @@ def plot_sum_residuals_vs_major(
         return output_path
 
     fig, ax = plt.subplots(figsize=(7.5, 5.5), constrained_layout=True)
-    sc = ax.scatter(majors_arcsec, sums_abs_frac, s=25)
+    ax.scatter(majors_arcsec, sums_abs_frac, s=25)
 
     ax.set_xlabel("Region major axis (arcsec)")
     ax.set_ylabel("Sum |(S - S_fit) / S_fit|")

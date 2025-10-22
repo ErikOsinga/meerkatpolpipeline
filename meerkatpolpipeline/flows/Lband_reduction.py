@@ -28,6 +28,7 @@ from meerkatpolpipeline.configuration import (
     log_enabled_operations,
 )
 from meerkatpolpipeline.cube_imaging.beam_info_vs_freq import generate_beam_plots
+from meerkatpolpipeline.cube_imaging.convolve_beam import BeamParams, convolve_images
 from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_cube_imaging_target
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
@@ -677,13 +678,46 @@ def process_science_fields(
         # perc_chan_largebeam_i = (num_chan_largebeam_i / len(beamdata_i.bmaj_deg)) * 100.
         # perc_chan_largebeam_q = (num_chan_largebeam_q / len(beamdata_q.bmaj_deg)) * 100.
 
+        target_beam = BeamParams(
+            bmaj_arcsec=beam_limit_arcsec,
+            bmin_arcsec=beam_limit_arcsec,
+            bpa_deg=0
+        )
         
+        # convolve stokes I to common resolution
+        task_convolve_images = task(convolve_images, name="convolve_finecube_images")
+        stokesI_convolved_images: list[Path] = task_convolve_images(
+            inputs=imageset_I_fine.image_pbcor,
+            target_beam=target_beam,
+            output_dir=fine_cube_imaging_workdir / "convolved_images",
+            suffix_mode="beam",
+            overwrite=False
+        )
 
+        # convolve stokes Q to common resolution
+        stokesQ_convolved_images: list[Path] = task_convolve_images(
+            inputs=imageset_Q_fine.image_pbcor,
+            target_beam=target_beam,
+            output_dir=fine_cube_imaging_workdir / "convolved_images",
+            suffix_mode="beam",
+            overwrite=False
+        )
 
+        # convolve stokes U to common resolution
+        stokesU_convolved_images: list[Path] = task_convolve_images(
+            inputs=imageset_U_fine.image_pbcor,
+            target_beam=target_beam,
+            output_dir=fine_cube_imaging_workdir / "convolved_images",
+            suffix_mode="beam",
+            overwrite=False
+        )
 
-
+        logger.info(f"Amount of images in Stokes I after convolution: {len(stokesI_convolved_images)}")
+        logger.info(f"Amount of images in Stokes Q after convolution: {len(stokesQ_convolved_images)}")
+        logger.info(f"Amount of images in Stokes U after convolution: {len(stokesU_convolved_images)}")
 
     ########## step 10: RM synthesis 1D ##########
+    
 
 
     ########## step 11: Verify RMSynth1D ##########

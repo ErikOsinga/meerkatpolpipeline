@@ -59,13 +59,13 @@ def go_wsclean_cube_imaging_target(
     lofar_container: Path,
     cube_imaging_options: dict | CoarseCubeImagingOptions | FineCubeImagingOptions,
     finecube: bool = False
-) -> tuple[ImageSet, ImageSet, ImageSet]:
+) -> tuple[ImageSet, ImageSet, ImageSet, ImageSet | None]:
     """
     Image the TARGET field in I + Q + U using some default settings.
         
         stokes I uses multiscale; QU has multiscale disabled.
     
-    Returns: (imageset_I, imageset_Q, imageset_U)
+    Returns: (imageset_I, imageset_Q, imageset_U, imageset_I_mfs (if 'also_image_for_mfs' else None))
     """
 
     logger = get_run_logger()

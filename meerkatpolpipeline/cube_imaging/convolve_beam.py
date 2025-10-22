@@ -154,6 +154,10 @@ def convolve_to_beam(infile: Path, beam: BeamParams, outfile: Path | None = None
         outfile = infile.with_suffix("")  # strip ".fits"
         outfile = outfile.with_name(f"{outfile.name}_{beam.suffix()}").with_suffix(".fits")
 
+    if outfile.exists() and not overwrite:
+        logging.info(f"{outfile} exists and overwrite=False; skipping convolution..")
+        return outfile
+
     with fits.open(infile, memmap=False) as hdul:
         # Prepare data and headers
         hdu2d = flatten_to_2d(hdul)
@@ -219,7 +223,7 @@ def convolve_to_beam(infile: Path, beam: BeamParams, outfile: Path | None = None
 
 def convolve_images(
     inputs: list[Path] | Path,
-    beam: BeamParams | None = None,
+    target_beam: BeamParams | None = None,
     template: Path | None = None,
     output_dir: Path | None = None,
     suffix_mode: str = "beam",
@@ -256,9 +260,9 @@ def convolve_images(
     if template is not None:
         target = read_beam_from_template(Path(template))
     else:
-        if beam is None:
+        if target_beam is None:
             raise ValueError("Provide either 'beam' or 'template'.")
-        target = beam
+        target = target_beam
 
     results: list[Path] = []
     for infile in files:
