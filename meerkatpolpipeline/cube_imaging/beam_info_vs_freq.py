@@ -5,13 +5,13 @@ beam_info_vs_freq.py
 Plot restoring beam axes (BMAJ & BMIN) vs frequency for Stokes I and Q images.
 
 Importable API:
-- generate_beam_plots(i_glob: str, q_glob: str, output_dir: str, ...)
+- generate_beam_plots(i_input: str, q_input: str, output_dir: str, ...)
 - extract_beam_info(pattern: str) -> BeamData
 - plot_beam_axes(...) -> list[pathlib.Path]
 
 CLI:
-python beam_info_vs_freq.py --i_glob './IQU_combined/*I_imaging-0*-image.pbcor.fits' \
-                                --q_glob './IQU_combined/*QU_imaging-0*-Q-image.pbcor.fits' \
+python beam_info_vs_freq.py --i_input './IQU_combined/*I_imaging-0*-image.pbcor.fits' \
+                                --q_input './IQU_combined/*QU_imaging-0*-Q-image.pbcor.fits' \
                                 --output_dir './plots'
 """
 from __future__ import annotations
@@ -59,6 +59,22 @@ class BeamData:
     bmin_deg: np.ndarray
     files: tuple[str, ...]
 
+
+def _to_beam_data(file_input: str | list[Path]) -> BeamData:
+    """Normalize user input into BeamData.
+
+    Accepts either:
+    - a glob pattern (str), or
+    - a concrete list/tuple of Path objects.
+    """
+    if isinstance(file_input, str):
+        return extract_beam_info(file_input)
+
+    # assume an iterable of Path-like objects
+    files = [str(p) for p in file_input]
+    if not files:
+        raise FileNotFoundError("No files provided (empty list/tuple).")
+    return extract_beam_info_from_files(files)
 
 def extract_beam_info(pattern: str) -> BeamData:
     """Read FITS files matching the glob pattern and extract frequency, BMAJ, BMIN.
@@ -231,8 +247,8 @@ def plot_beam_axes(
 
 
 def generate_beam_plots(
-    i_glob: str,
-    q_glob: str,
+    i_input: str | list[Path],
+    q_input: str | list[Path],
     output_dir: str | Path,
     *,
     yline_arcsec: float | None = 15.0,
@@ -241,16 +257,38 @@ def generate_beam_plots(
 ) -> dict[str, list[Path]]:
     """High-level API to generate beam plots for Stokes I and Q.
 
+    Args:
+        i_input : str or list[Path]
+            Glob pattern for Stokes I FITS files
+            OR a list of Path objects.
+        q_input : str
+            Glob pattern for Stokes Q FITS files
+            OR a list of Path objects
+        output_dir : str or Path
+            Directory where the beam plots will be saved.
+        yline_arcsec : float or None, default 15.0.
+            Draw a horizontal reference line at this value (arcsec). Pass None to disable.
+        ylim_arcsec : tuple[float, float] or None, default (-5.0, 30.0).
+            Y-limits (arcsec) for the zoomed figure; ignored if None.
+        show : bool, default False
+
     Returns
     -------
     dict[str, list[pathlib.Path]]
         Mapping from stokes label to list of saved figure paths.
-    """
-    logging.debug("Extracting Stokes I from pattern: %s", i_glob)
-    data_i = extract_beam_info(i_glob)
 
-    logging.debug("Extracting Stokes Q from pattern: %s", q_glob)
-    data_q = extract_beam_info(q_glob)
+    e.g. 
+        {'I': [PosixPath('tests/I_beam_info_vs_freq.png')],
+        'Q': [PosixPath('tests/Q_beam_info_vs_freq.png')]}
+
+
+
+    """
+    data_i = _to_beam_data(i_input)
+    data_q = _to_beam_data(q_input)
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     results: dict[str, list[Path]] = {}
     results["I"] = plot_beam_axes(
@@ -267,12 +305,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         description="Plot restoring beam axes (BMAJ & BMIN) vs frequency for Stokes I and Q images"
     )
     parser.add_argument(
-        "--q_glob",
+        "--q_input",
         required=True,
         help="Glob pattern for Stokes Q FITS files, e.g. './IQU_combined/*QU_imaging-0*-Q-image.pbcor.fits'",
     )
     parser.add_argument(
-        "--i_glob",
+        "--i_input",
         required=True,
         help="Glob pattern for Stokes I FITS files, e.g. './IQU_combined/*I_imaging-0*-image.pbcor.fits'",
     )
@@ -325,11 +363,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     ylim = None if args.no_zoom else tuple(args.ylim_arcsec)
 
     outdir = Path(args.output_dir)
-    outdir.mkdir(parents=True, exist_ok=True)
 
     results = generate_beam_plots(
-        i_glob=args.i_glob,
-        q_glob=args.q_glob,
+        i_input=args.i_input,
+        q_input=args.q_input,
         output_dir=outdir,
         yline_arcsec=yline,
         ylim_arcsec=ylim,

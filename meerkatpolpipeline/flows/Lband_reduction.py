@@ -27,6 +27,7 @@ from meerkatpolpipeline.configuration import (
     load_and_copy_strategy,
     log_enabled_operations,
 )
+from meerkatpolpipeline.cube_imaging.beam_info_vs_freq import generate_beam_plots
 from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_cube_imaging_target
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
@@ -655,6 +656,17 @@ def process_science_fields(
             cube_imaging_options=fine_cube_imaging_options,
             finecube=True
         )
+
+        # Plot beam vs frequency
+        results = generate_beam_plots(
+            i_input=imageset_I_fine.image_pbcor,
+            q_input=imageset_Q_fine.image_pbcor,
+            output_dir=fine_cube_imaging_workdir / "beam_plots",
+            yline_arcsec=15, # default 15 arcsec
+            ylim_arcsec=None,
+            show=False,
+        )
+
 
 
     ########## step 10: RM synthesis 1D ##########
