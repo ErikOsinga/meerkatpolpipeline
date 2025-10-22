@@ -410,6 +410,7 @@ def run_wsclean(
     prefix: str,
     options: WSCleanOptions,
     expected_pols: list[str],
+    open_files_limit: int | None = None,
 ) -> list[ImageSet]:
     """
     Run WSClean once with the given options and return ImageSet(s) for expected_pols.
@@ -445,6 +446,7 @@ def run_wsclean(
             wsclean_command=wsclean_cmd,
             container=lofar_container,
             bind_dirs=[ms[0].parent, wsclean_output_dir],
+            open_files_limit=open_files_limit,
         )
         post = [get_wsclean_output(wsclean_cmd, pol=p.lower(), validate=True) for p in expected_pols]
         return post

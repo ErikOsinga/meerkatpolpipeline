@@ -135,6 +135,7 @@ def go_wsclean_cube_imaging_target(
         prefix=cube_imaging_options['targetfield']+'_stokesI',
         options=opts_I,
         expected_pols=["i"],
+        open_files_limit=None, # can change this if 'error writing to temporary file' appears in WSClean during reorder step
     )
 
     imageset_I = pbcor_cubes_target(imageset_I, working_dir / "pbcor_images", pol='i')
@@ -161,6 +162,7 @@ def go_wsclean_cube_imaging_target(
         prefix=cube_imaging_options['targetfield']+'_stokesQU',
         options=opts_QU,
         expected_pols=["q", "u"],
+        open_files_limit=9000, # require many open files for fine cube imaging with 2 stokes
     )
     imageset_Q, imageset_U = imagesets_QU
 

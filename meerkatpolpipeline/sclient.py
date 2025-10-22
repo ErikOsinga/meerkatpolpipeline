@@ -5,21 +5,34 @@ https://github.com/flint-crew/flint/blob/main/flint/sclient.py
 
 from __future__ import annotations
 
+import contextlib
+import resource
 from pathlib import Path
 from subprocess import CalledProcessError
 from time import sleep
-from typing import Callable, Collection, NamedTuple
+from typing import Callable, Collection, Iterator
 
 from prefect.logging import get_run_logger
 from spython.main import Client as sclient
 
 
-class ContainerCommandResults(NamedTuple):
-    """Description of the command execution results"""
+@contextlib.contextmanager
+def temporarily_set_nofile(limit: int) -> Iterator[None]:
+    """
+    Context manager to temporarily set the allowed number of open files soft limit to `limit`.
+    Useful when fine-cube imaging, and WSClean needs to open many files simultaneously.
 
-    attempts: int
-    """Number of attempts the command took"""
-
+    i.e. Temporarily raise the soft RLIMIT_NOFILE to `limit` (capped by the hard limit).
+    """
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    try:
+        new_soft = min(limit, hard)
+        if new_soft != soft:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (new_soft, hard))
+        yield
+    finally:
+        # Restore original soft limit
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
 
 def pull_container(container_directory: Path, uri: str, file_name: str) -> Path:
     """Download a singularity container from an appropriate ``uri``.
@@ -58,6 +71,7 @@ def run_singularity_command(
     ignore_logging_output: bool = False,
     max_retries: int = 1,
     options: list | None = None,
+    open_files_limit: int | None = None,
 ) -> None:
     """Executes a command within the context of a nominated singularity
     container
@@ -68,7 +82,8 @@ def run_singularity_command(
         bind_dirs (Optional[Union[Path,Collection[Path]]], optional): Specifies a Path, or list of Paths, to bind to in the container. Defaults to None.
         stream_callback_func (Optional[Callable], optional): Provide a function that is applied to each line of output text when singularity is running and `stream=True`. IF provide it should accept a single (string) parameter. If None, nothing happens. Defaultds to None.
         ignore_logging_output (bool, optional): If `True` output from the executed singularity command is not logged. Defaults to False.
-        max_retries (int, optional): If a callback handler is specified which raised an `AttemptRerunException`, this signifies how many attempts should be made. Each rerun will recall `run_singularity_command` lowering this value. Defaults to 2.
+        max_retries (int, optional): If a callback handler is specified which raised an `AttemptRerunException`, this signifies how many attempts should be made. Each rerun will recall `run_singularity_command` lowering this value. Defaults to 1.
+        open_files_limit (int, optional): raise the "ulimit -n <number of open files>" to this value temporarily while running the command. If None, no change is made. Defaults to None.
 
     Raises:
         FileNotFoundError: Thrown when container image not found
@@ -104,16 +119,18 @@ def run_singularity_command(
         logger.info(f"Constructed options: {options}")
 
     try:
-        output = sclient.execute(
-            image=image.resolve(strict=True).as_posix(),
-            command=command.split(),
-            bind=bind,
-            return_result=True,
-            quiet=False,
-            stream=True,
-            stream_type="both",
-            options=options,
-        )
+        contextmanager = temporarily_set_nofile(open_files_limit) if open_files_limit else contextlib.nullcontext()
+        with contextmanager:
+            output = sclient.execute(
+                image=image.resolve(strict=True).as_posix(),
+                command=command.split(),
+                bind=bind,
+                return_result=True,
+                quiet=False,
+                stream=True,
+                stream_type="both",
+                options=options,
+            )
 
         for line in output:
             if not ignore_logging_output:
@@ -166,6 +183,7 @@ def singularity_wrapper(
         stream_callback_func: Callable | None = None,
         ignore_logging_output: bool = False,
         options: list | None = None,
+        open_files_limit: int | None = None,
         **kwargs,
     ) -> str:
         """Function that can be used as a decorator on an input function. This function
@@ -177,6 +195,7 @@ def singularity_wrapper(
             bind_dirs (Optional[Union[Path,Collection[Path]]], optional): Specifies a Path, or list of Paths, to bind to in the container. Defaults to None.
             stream_callback_func (Optional[Callable], optional): Provide a function that is applied to each line of output text when singularity is running and `stream=True`. IF provide it should accept a single (string) parameter. If None, nothing happens. Defaults to None.
             ignore_logging_output (bool, optional): If `True` output from the executed singularity command is not logged. Defaults to False.
+            open_files_limit (int, optional): raise the "ulimit -n <number of open files>" to this value temporarily while running the command. If None, no change is made. Defaults to None.
 
         Returns:
             str: The command that was executed
@@ -196,7 +215,8 @@ def singularity_wrapper(
             bind_dirs=bind_dirs,
             ignore_logging_output=ignore_logging_output,
             stream_callback_func=stream_callback_func,
-            options=options
+            options=options,
+            open_files_limit=open_files_limit
         )
 
         return task_str
