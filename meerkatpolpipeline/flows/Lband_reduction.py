@@ -648,6 +648,8 @@ def process_science_fields(
         # check for user overwrite
         if fine_cube_imaging_options['corrected_extracted_mses'] is None:
             fine_cube_imaging_options['corrected_extracted_mses'] = corrected_extracted_mses
+        
+        fine_cube_imaging_options['also_image_for_mfs'] = False # no need to do MFS in fine cube imaging
 
         # Make many-channel cubes in IQU of the target field, with pb correction.
         task_image_finecubes = task(go_wsclean_cube_imaging_target, name="wsclean_finecubes_target")
