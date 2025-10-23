@@ -28,6 +28,7 @@ from meerkatpolpipeline.configuration import (
     log_enabled_operations,
 )
 from meerkatpolpipeline.cube_imaging.beam_info_vs_freq import generate_beam_plots
+from meerkatpolpipeline.cube_imaging.combine_to_imagecube import combine_to_cube
 from meerkatpolpipeline.cube_imaging.convolve_beam import BeamParams, convolve_images
 from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_cube_imaging_target
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
@@ -716,8 +717,17 @@ def process_science_fields(
         logger.info(f"Amount of images in Stokes Q after convolution: {len(stokesQ_convolved_images)}")
         logger.info(f"Amount of images in Stokes U after convolution: {len(stokesU_convolved_images)}")
 
+        # # combine images into image cubes, flagging bad channels
+        # task_combine_to_cube = task(combine_to_cube, name="combine_finecube_images_to_cubes")
+        # task_combine_to_cube(
+        #     file_input=stokesI_convolved_images,
+        #     reference_chan0=stokesI_convolved_images[0],
+        #     output=fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokesI_pbcor_convolved.fits",
+        # )
+
+
     ########## step 10: RM synthesis 1D ##########
-    
+
 
 
     ########## step 11: Verify RMSynth1D ##########
