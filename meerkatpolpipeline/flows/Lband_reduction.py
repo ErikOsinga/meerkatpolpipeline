@@ -662,6 +662,7 @@ def process_science_fields(
         )
 
         # Plot beam vs frequency
+        logger.info("Generating beam vs frequency plots after fine cube imaging...")
         beam_limit_arcsec = 15 # 15 arcsec default beam limit. Can make user input
         task_beam_plots = task(generate_beam_plots, name="plot_beam_vs_freq")
         beamdata_i, beamdata_q = task_beam_plots(
@@ -688,6 +689,7 @@ def process_science_fields(
         )
         
         # convolve stokes I to common resolution
+        logger.info("Starting convolution of fine cube images to common resolution...")
         task_convolve_images = task(convolve_images, name="convolve_finecube_images")
         stokesI_convolved_images: list[Path] = task_convolve_images(
             inputs=imageset_I_fine.image_pbcor,

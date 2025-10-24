@@ -287,10 +287,9 @@ def convolve_images(
         try:
             out = convolve_to_beam(infile, target, outfile=outfile, overwrite=overwrite)
             results.append(out)
-            logging.info("Created: %s", out)
+            logging.info(f"Created: {out}")
         except Exception as e:
-            logging.error("Failed: %s (%s)", infile, e)
-            raise
+            logging.warning(f"Failed convolving: {infile} with error {e}. Skipping deconv.")
 
     return results
 
