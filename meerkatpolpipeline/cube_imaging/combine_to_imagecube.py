@@ -126,7 +126,11 @@ def build_cube_from_files(
     # Map channel index -> filename (ensure uniqueness)
     chan_to_file: dict[int, Path] = {}
     for fn in files:
-        ch = find_channel_number(fn.name)
+        try:
+            ch = find_channel_number(fn.name)
+        except IndexError as e:
+            print("Error parsing channel number from filename '%s': %s", fn, e)
+            raise ValueError(f"Cannot find channel number in '{fn}'") from e
         if ch < 0 or ch >= nchan:
             raise ValueError(f"Channel {ch} in '{fn}' out of expected range 0-{nchan-1}")
         if ch in chan_to_file:
