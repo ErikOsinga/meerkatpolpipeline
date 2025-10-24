@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
-from meerkatpolpipeline.utils.utils import find_rms
 from meerkatpolpipeline.cube_imaging.combine_to_imagecube import find_channel_number
+from meerkatpolpipeline.utils.utils import find_rms
 
 
 def compute_rms_from_imagelist(imagelist: list[Path]) -> np.ndarray:
@@ -26,9 +26,9 @@ def compute_rms_from_imagelist(imagelist: list[Path]) -> np.ndarray:
     """
     rms_values = []
     for image_path in imagelist:
-        with fits.getdata(image_path) as data:
-            rms = find_rms(data)
-            rms_values.append(rms)
+        data = fits.getdata(image_path)
+        rms = find_rms(data)
+        rms_values.append(rms)
     return np.array(rms_values)
 
 
