@@ -504,3 +504,56 @@ def get_fits_image_center(image_path: str | Path) -> SkyCoord:
     center_coord = SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg)
 
     return center_coord
+
+
+def find_rms(data: np.ndarray, mask_threshold: float = 1e-7) -> float:
+    """
+    Iteratively estimate the RMS noise level of an array by sigma-clipping.
+        Inspired by DDFacet findrms.py
+
+    This function removes values below a specified absolute threshold, then
+    iteratively computes the standard deviation (RMS) while excluding outliers
+    beyond a fixed multiple (3sigma by default) of the current estimate around the median.
+    Iteration stops when the relative change in RMS is below 10%.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Input array containing pixel or intensity values.
+    mask_threshold : float, optional
+        Absolute value below which data points are ignored. Default is 1e-7.
+
+    Returns
+    -------
+    float
+        The estimated RMS value after iterative clipping.
+
+    Notes
+    -----
+    - The iteration is capped at 10 steps.
+    - This approach is robust against bright sources that could bias the RMS.
+    - Convergence is defined as a relative RMS change < 0.1 (10%).
+    """
+    # Mask out low-amplitude pixels
+    valid_data = data[np.abs(data) > mask_threshold]
+    if valid_data.size == 0:
+        raise ValueError("No valid data points above mask_threshold.")
+
+    # Initial RMS estimate
+    rms_previous = np.std(valid_data)
+    convergence_threshold = 0.1  # 10% change allowed
+    sigma_cut = 3.0  # 3-sigma clipping window
+    median_value = np.median(valid_data)
+
+    for _ in range(10):
+        within_clip = np.abs(valid_data - median_value) < rms_previous * sigma_cut
+        clipped_data = valid_data[within_clip]
+
+        rms_new = np.std(clipped_data)
+        relative_change = np.abs((rms_new - rms_previous) / rms_previous)
+
+        if relative_change < convergence_threshold:
+            break
+        rms_previous = rms_new
+
+    return rms_new

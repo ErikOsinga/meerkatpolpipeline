@@ -85,12 +85,12 @@ def find_channel_number(filename: str) -> int:
     Extract the 4-digit channel number from a filename.
     Recognizes '_imaging-XXXX-Q-image', '_imaging-XXXX-U-image', or '_imaging-XXXX-image'.
     """
-    if "Q-image" in filename:
-        pattern = r"_imaging-(\d{4})-Q-image"
-    elif "U-image" in filename:
-        pattern = r"_imaging-(\d{4})-U-image"
+    if "-Q-image" in filename:
+        pattern = r"-\d{4}-Q-image"
+    elif "-U-image" in filename:
+        pattern = r"-\d{4}-U-image"
     else:
-        pattern = r"_imaging-(\d{4})-image"
+        pattern = r"-\d{4}-image"
 
     m = re.search(pattern, filename)
     if not m:

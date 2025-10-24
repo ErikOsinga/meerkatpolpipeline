@@ -44,6 +44,7 @@ from meerkatpolpipeline.utils.utils import (
 )
 from meerkatpolpipeline.validation import (
     flagstat_vs_freq,
+    rms_vs_freq,
     validate_field,
 )
 from meerkatpolpipeline.wsclean.wsclean import (
@@ -721,6 +722,33 @@ def process_science_fields(
         logger.info(f"Amount of images in Stokes I after convolution: {len(stokesI_convolved_images)}")
         logger.info(f"Amount of images in Stokes Q after convolution: {len(stokesQ_convolved_images)}")
         logger.info(f"Amount of images in Stokes U after convolution: {len(stokesU_convolved_images)}")
+
+        # compute rms vs channel index after convolution
+        rms_per_I_image = rms_vs_freq.compute_rms_from_imagelist(stokesI_convolved_images)
+        rms_per_Q_image = rms_vs_freq.compute_rms_from_imagelist(stokesQ_convolved_images)
+        rms_per_U_image = rms_vs_freq.compute_rms_from_imagelist(stokesU_convolved_images)
+
+        # plot rms vs channel index after convolution
+        rms_vs_freq.plot_rms_vs_channel_from_imlist(
+            stokesI_convolved_images,
+            rms_per_I_image,
+            output_dir=fine_cube_imaging_workdir / "beam_plots",
+            output_prefix="stokesI"
+        )
+        rms_vs_freq.plot_rms_vs_channel_from_imlist(
+            stokesQ_convolved_images,
+            rms_per_Q_image,
+            output_dir=fine_cube_imaging_workdir / "beam_plots",
+            output_prefix="stokesQ"
+        )
+        rms_vs_freq.plot_rms_vs_channel_from_imlist(
+            stokesU_convolved_images,
+            rms_per_U_image,
+            output_dir=fine_cube_imaging_workdir / "beam_plots",
+            output_prefix="stokesU"
+        )
+
+        
 
         # # combine images into image cubes, flagging bad channels
         # task_combine_to_cube = task(combine_to_cube, name="combine_finecube_images_to_cubes")
