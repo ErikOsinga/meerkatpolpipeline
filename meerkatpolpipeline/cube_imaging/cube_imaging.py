@@ -49,6 +49,8 @@ class FineCubeImagingOptions(BaseOptions):
     """Start frequency in MHz for the fine channel cubes. If None, will use the lowest frequency in the MS."""
     endfreq_MHz: float | None = None
     """End frequency in MHz for the fine channel cubes. If None, will use the highest frequency in the MS."""
+    beam_limit_asec: float = 15.0
+    """Target beam size in arcseconds for convolving to common beam in the fine channel cubes. Default 15.0 asec"""
     # TODO: add size, scale, channels_out etc parameters for wsclean
 
 

@@ -663,7 +663,8 @@ def process_science_fields(
 
         # Plot beam vs frequency
         logger.info("Generating beam vs frequency plots after fine cube imaging...")
-        beam_limit_arcsec = 15 # 15 arcsec default beam limit. Can make user input
+        # beam_limit_arcsec = 15 # 15 arcsec default beam limit. Can make user input
+        beam_limit_arcsec = fine_cube_imaging_options['beam_limit_asec']
         task_beam_plots = task(generate_beam_plots, name="plot_beam_vs_freq")
         beamdata_i, beamdata_q = task_beam_plots(
             i_input=imageset_I_fine.image_pbcor,
