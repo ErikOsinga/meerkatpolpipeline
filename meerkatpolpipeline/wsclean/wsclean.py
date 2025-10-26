@@ -467,3 +467,29 @@ def get_pbcor_mfs_image_from_imset(imset: ImageSet) -> Path:
             return img
 
     raise ValueError("No MFS pbcor image found in ImageSet")
+
+
+def remove_mfs_image_from_imlist(input_list: list[Path]) -> list[Path]:
+    """
+    Remove MFS images from a list of images
+    """
+    imgs = []
+    for img in input_list:
+        if "MFS" in img.name:
+            continue
+        else:
+            imgs.append(img)
+    return imgs
+
+def remove_mfs_image_from_imset(imset: ImageSet) -> ImageSet:
+    """
+    Remove the pbcor MFS image from an ImageSet
+    """
+    keys = ['image', 'psf', 'dirty', 'model', 'residual', 'image_pbcor', 'pbcor_model_images']
+
+    for key in keys:
+        imgs = getattr(imset, key)
+        imgs_without_mfs = remove_mfs_image_from_imlist(imgs) if imgs is not None else None
+        imset = imset.with_options(**{key:imgs_without_mfs})
+
+    return imset

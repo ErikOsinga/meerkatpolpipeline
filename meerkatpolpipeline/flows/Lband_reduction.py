@@ -50,6 +50,7 @@ from meerkatpolpipeline.validation import (
 from meerkatpolpipeline.wsclean.wsclean import (
     get_imset_from_prefix,
     get_pbcor_mfs_image_from_imset,
+    remove_mfs_image_from_imset,
 )
 
 
@@ -654,13 +655,18 @@ def process_science_fields(
 
         # Make many-channel cubes in IQU of the target field, with pb correction.
         task_image_finecubes = task(go_wsclean_cube_imaging_target, name="wsclean_finecubes_target")
-        imageset_I_fine, imageset_Q_fine, imageset_U_fine, imageset_I_mfs_fine = task_image_finecubes(
+        imageset_I_fine, imageset_Q_fine, imageset_U_fine, _ = task_image_finecubes(
             ms = fine_cube_imaging_options['corrected_extracted_mses'],
             working_dir = fine_cube_imaging_workdir,
             lofar_container=lofar_container,
             cube_imaging_options=fine_cube_imaging_options,
             finecube=True
         )
+
+        # Remove MFS image from fine cube imageset since not needed
+        imageset_I_fine = remove_mfs_image_from_imset(imageset_I_fine)
+        imageset_Q_fine = remove_mfs_image_from_imset(imageset_Q_fine)
+        imageset_U_fine = remove_mfs_image_from_imset(imageset_U_fine)
 
         # Plot beam vs frequency
         logger.info("Generating beam vs frequency plots after fine cube imaging...")
@@ -748,7 +754,7 @@ def process_science_fields(
             output_prefix="stokesU"
         )
 
-        
+
 
         # # combine images into image cubes, flagging bad channels
         # task_combine_to_cube = task(combine_to_cube, name="combine_finecube_images_to_cubes")

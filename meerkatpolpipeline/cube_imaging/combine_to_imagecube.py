@@ -86,11 +86,11 @@ def find_channel_number(filename: str) -> int:
     Recognizes '_imaging-XXXX-Q-image', '_imaging-XXXX-U-image', or '_imaging-XXXX-image'.
     """
     if "-Q-image" in filename:
-        pattern = r"-\d{4}-Q-image"
+        pattern = r"-(\d{4})-Q-image"
     elif "-U-image" in filename:
-        pattern = r"-\d{4}-U-image"
+        pattern = r"-(\d{4})-U-image"
     else:
-        pattern = r"-\d{4}-image"
+        pattern = r"-(\d{4})-image"
 
     m = re.search(pattern, filename)
     if not m:
