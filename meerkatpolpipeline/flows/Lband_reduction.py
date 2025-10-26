@@ -730,24 +730,26 @@ def process_science_fields(
         logger.info(f"Amount of images in Stokes U after convolution: {len(stokesU_convolved_images)}")
 
         # compute rms vs channel index after convolution
-        rms_per_I_image = rms_vs_freq.compute_rms_from_imagelist(stokesI_convolved_images)
-        rms_per_Q_image = rms_vs_freq.compute_rms_from_imagelist(stokesQ_convolved_images)
-        rms_per_U_image = rms_vs_freq.compute_rms_from_imagelist(stokesU_convolved_images)
+        task_compute_rms = task(rms_vs_freq.compute_rms_from_imagelist, name="compute_rms_after_convolution")
+        rms_per_I_image = task_compute_rms(stokesI_convolved_images)
+        rms_per_Q_image = task_compute_rms(stokesQ_convolved_images)
+        rms_per_U_image = task_compute_rms(stokesU_convolved_images)
 
         # plot rms vs channel index after convolution
-        rms_vs_freq.plot_rms_vs_channel_from_imlist(
+        task_plot_rms = task(rms_vs_freq.plot_rms_vs_channel_from_imlist, name="plot_rms_after_convolution")
+        task_plot_rms(
             stokesI_convolved_images,
             rms_per_I_image,
             output_dir=fine_cube_imaging_workdir / "beam_plots",
             output_prefix="stokesI"
         )
-        rms_vs_freq.plot_rms_vs_channel_from_imlist(
+        task_plot_rms(
             stokesQ_convolved_images,
             rms_per_Q_image,
             output_dir=fine_cube_imaging_workdir / "beam_plots",
             output_prefix="stokesQ"
         )
-        rms_vs_freq.plot_rms_vs_channel_from_imlist(
+        task_plot_rms(
             stokesU_convolved_images,
             rms_per_U_image,
             output_dir=fine_cube_imaging_workdir / "beam_plots",
