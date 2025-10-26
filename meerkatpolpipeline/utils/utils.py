@@ -537,7 +537,8 @@ def find_rms(data: np.ndarray, mask_threshold: float = 1e-7) -> float:
     # Mask out low-amplitude pixels
     valid_data = data[np.abs(data) > mask_threshold]
     if valid_data.size == 0:
-        raise ValueError("No valid data points above mask_threshold.")
+        return np.nan
+        # raise ValueError("No valid data points above mask_threshold.")
 
     # Initial RMS estimate
     rms_previous = np.std(valid_data)
