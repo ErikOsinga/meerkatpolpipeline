@@ -27,7 +27,10 @@ def compute_rms_from_imagelist(imagelist: list[Path]) -> np.ndarray:
     rms_values = []
     for image_path in imagelist:
         data = fits.getdata(image_path)
-        rms = find_rms(data)
+        try:
+            rms = find_rms(data)
+        except Exception as e:
+            raise RuntimeError(f"Error computing RMS for image {image_path}: {e}")
         rms_values.append(rms)
     return np.array(rms_values)
 
