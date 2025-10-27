@@ -791,7 +791,8 @@ def process_science_fields(
             nchan=len(imageset_I_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
             width_Mhz=cube_imaging_options['chanwidth_MHz'],
             flag_chans=bad_channel_indices,
-            overwrite=False
+            overwrite=False,
+            logger=logger
         )
 
 
