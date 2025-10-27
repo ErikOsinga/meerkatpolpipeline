@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
+from meerkatpolpipeline.check_nvss.target_vs_nvss import get_channel_frequencies
 from meerkatpolpipeline.cube_imaging.combine_to_imagecube import find_channel_number
 from meerkatpolpipeline.utils.utils import find_rms
 
@@ -38,10 +39,11 @@ def compute_rms_from_imagelist(imagelist: list[Path]) -> np.ndarray:
 def plot_rms_vs_channel_from_imlist(imagelist: list[Path], rmsvalues: np.ndarray, output_dir: Path, output_prefix: str) -> None:
     """
     Plot RMS vs channel number from a list of images and their RMS values.
+    Includes a secondary top axis showing frequency in MHz.
     """
-
-    channels = [find_channel_number(img.stem) for img in imagelist]
-    channels = np.array(channels)
+    channels = np.array([find_channel_number(img.stem) for img in imagelist])
+    frequencies_Hz = get_channel_frequencies(imagelist)
+    frequencies_MHz = frequencies_Hz / 1e6
 
     fig, ax = plt.subplots()
     ax.plot(channels, rmsvalues, marker="o", linestyle="-", label="RMS")
@@ -50,6 +52,17 @@ def plot_rms_vs_channel_from_imlist(imagelist: list[Path], rmsvalues: np.ndarray
     ax.grid(True)
     ax.set_yscale("log")
     ax.legend(loc="best")
+
+    # Define mapping functions between channel number and frequency (MHz)
+    def channel_to_freq(ch):
+        return np.interp(ch, channels, frequencies_MHz)
+
+    def freq_to_channel(freq):
+        return np.interp(freq, frequencies_MHz, channels)
+
+    # Add secondary x-axis on top showing frequency in MHz
+    ax_freq = ax.secondary_xaxis('top', functions=(channel_to_freq, freq_to_channel))
+    ax_freq.set_xlabel("Frequency [MHz]")
 
     out_full = output_dir / f"{output_prefix}_rms_vs_channel.png"
     fig.savefig(out_full, dpi=150, bbox_inches="tight")

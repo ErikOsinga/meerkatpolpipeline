@@ -731,9 +731,9 @@ def process_science_fields(
 
         # compute rms vs channel index after convolution
         task_compute_rms = task(rms_vs_freq.compute_rms_from_imagelist, name="compute_rms_after_convolution")
-        rms_per_I_image = task_compute_rms(stokesI_convolved_images)
-        rms_per_Q_image = task_compute_rms(stokesQ_convolved_images)
-        rms_per_U_image = task_compute_rms(stokesU_convolved_images)
+        rms_per_I_image: np.ndarray = task_compute_rms(stokesI_convolved_images)
+        rms_per_Q_image: np.ndarray = task_compute_rms(stokesQ_convolved_images)
+        rms_per_U_image: np.ndarray = task_compute_rms(stokesU_convolved_images)
 
         # plot rms vs channel index after convolution
         task_plot_rms = task(rms_vs_freq.plot_rms_vs_channel_from_imlist, name="plot_rms_after_convolution")

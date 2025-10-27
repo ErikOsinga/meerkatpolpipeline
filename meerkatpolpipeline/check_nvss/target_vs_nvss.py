@@ -179,13 +179,13 @@ def collect_files(glob_stokesI: str, glob_stokesQ: str | None = None) -> list[Pa
     return [Path(i) for i in ifiles], [Path(q) for q in qfiles], [Path(u) for u in ufiles]
 
 
-def get_channel_frequencies(q_files: list[Path]) -> np.ndarray:
+def get_channel_frequencies(fits_files: list[Path]) -> np.ndarray:
     """
     Extract per-channel frequencies (Hz) from FITS headers.
 
     Parameters
     ----------
-    q_files : list[Path]
+    fits_files : list[Path]
         List of Stokes Q FITS files, one per channel.
 
     Returns
@@ -199,7 +199,7 @@ def get_channel_frequencies(q_files: list[Path]) -> np.ndarray:
         If neither CRVAL3 nor RESTFRQ is found in a header.
     """
     freqs: list[float] = []
-    for fname in q_files:
+    for fname in fits_files:
         with fits.open(fname) as hdul:
             hdr = hdul[0].header
             if "CRVAL3" in hdr:
