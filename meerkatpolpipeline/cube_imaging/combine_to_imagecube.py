@@ -234,6 +234,9 @@ def combine_to_cube(
         # Skip processing if output exists and overwrite is False
         logger.info(f"Output {output} exists and overwrite is False; skipping.")
         return output
+    
+    if flag_chans is None:
+        flag_chans = []
 
     files = normalize_file_input(file_input)
     cube, header = build_cube_from_files(
@@ -241,7 +244,7 @@ def combine_to_cube(
         nchan=nchan,
         width_Mhz=width_Mhz,
         reference_chan0=Path(reference_chan0),
-        flag_chans=flag_chans or [],
+        flag_chans=flag_chans,
         logger=logger
     )
     return write_cube(cube, header, output, overwrite=overwrite, logger=logger)
