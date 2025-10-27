@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from configargparse import ArgumentParser
-from prefect import flow, task  #, tags, unmapped
+from prefect import flow, tags, task  #, unmapped
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.caracal import _caracal
@@ -642,8 +642,8 @@ def process_science_fields(
     # TODO
 
     ########## step 9: Many-channel IQU imaging ##########
+    fine_cube_imaging_workdir = working_dir / "fine_cube_imaging"
     if "fine_cube_imaging" in enabled_operations:
-        fine_cube_imaging_workdir = working_dir / "fine_cube_imaging"
         fine_cube_imaging_workdir.mkdir(exist_ok=True)
 
         fine_cube_imaging_options = get_options_from_strategy(strategy, operation="fine_cube_imaging")
@@ -700,31 +700,34 @@ def process_science_fields(
         # convolve stokes I to common resolution
         logger.info("Starting convolution of fine cube images to common resolution...")
         task_convolve_images = task(convolve_images, name="convolve_finecube_images")
-        stokesI_convolved_images: list[Path] = task_convolve_images(
-            inputs=imageset_I_fine.image_pbcor,
-            target_beam=target_beam,
-            output_dir=fine_cube_imaging_workdir / "convolved_images",
-            suffix_mode="beam",
-            overwrite=False
-        )
+        with tags("stokes-i"):
+            stokesI_convolved_images: list[Path] = task_convolve_images(
+                inputs=imageset_I_fine.image_pbcor,
+                target_beam=target_beam,
+                output_dir=fine_cube_imaging_workdir / "convolved_images",
+                suffix_mode="beam",
+                overwrite=False
+            )
 
-        # convolve stokes Q to common resolution
-        stokesQ_convolved_images: list[Path] = task_convolve_images(
-            inputs=imageset_Q_fine.image_pbcor,
-            target_beam=target_beam,
-            output_dir=fine_cube_imaging_workdir / "convolved_images",
-            suffix_mode="beam",
-            overwrite=False
-        )
+        with tags("stokes-q"):
+            # convolve stokes Q to common resolution
+            stokesQ_convolved_images: list[Path] = task_convolve_images(
+                inputs=imageset_Q_fine.image_pbcor,
+                target_beam=target_beam,
+                output_dir=fine_cube_imaging_workdir / "convolved_images",
+                suffix_mode="beam",
+                overwrite=False
+            )
 
-        # convolve stokes U to common resolution
-        stokesU_convolved_images: list[Path] = task_convolve_images(
-            inputs=imageset_U_fine.image_pbcor,
-            target_beam=target_beam,
-            output_dir=fine_cube_imaging_workdir / "convolved_images",
-            suffix_mode="beam",
-            overwrite=False
-        )
+        with tags("stokes-u"):
+            # convolve stokes U to common resolution
+            stokesU_convolved_images: list[Path] = task_convolve_images(
+                inputs=imageset_U_fine.image_pbcor,
+                target_beam=target_beam,
+                output_dir=fine_cube_imaging_workdir / "convolved_images",
+                suffix_mode="beam",
+                overwrite=False
+            )
 
         logger.info(f"Amount of images in Stokes I after convolution: {len(stokesI_convolved_images)}")
         logger.info(f"Amount of images in Stokes Q after convolution: {len(stokesQ_convolved_images)}")
@@ -735,30 +738,36 @@ def process_science_fields(
 
         # compute rms vs channel index after convolution
         task_compute_rms = task(rms_vs_freq.compute_rms_from_imagelist, name="compute_rms_after_convolution")
-        rms_per_I_image: np.ndarray = task_compute_rms(stokesI_convolved_images)
-        rms_per_Q_image: np.ndarray = task_compute_rms(stokesQ_convolved_images)
-        rms_per_U_image: np.ndarray = task_compute_rms(stokesU_convolved_images)
+        with tags("stokes-i"):
+            rms_per_I_image: np.ndarray = task_compute_rms(stokesI_convolved_images)
+        with tags("stokes-q"):
+            rms_per_Q_image: np.ndarray = task_compute_rms(stokesQ_convolved_images)
+        with tags("stokes-u"):
+            rms_per_U_image: np.ndarray = task_compute_rms(stokesU_convolved_images)
 
         # plot rms vs channel index after convolution
         task_plot_rms = task(rms_vs_freq.plot_rms_vs_channel_from_imlist, name="plot_rms_after_convolution")
-        convolved_I_freqs_Hz = task_plot_rms(
-            stokesI_convolved_images,
-            rms_per_I_image,
-            output_dir=fine_cube_imaging_workdir / "beam_plots",
-            output_prefix="stokesI"
-        )
-        convolved_Q_freqs_Hz = task_plot_rms(
-            stokesQ_convolved_images,
-            rms_per_Q_image,
-            output_dir=fine_cube_imaging_workdir / "beam_plots",
-            output_prefix="stokesQ"
-        )
-        convolved_U_freqs_Hz = task_plot_rms(
-            stokesU_convolved_images,
-            rms_per_U_image,
-            output_dir=fine_cube_imaging_workdir / "beam_plots",
-            output_prefix="stokesU"
-        )
+        with tags("stokes-i"):
+            convolved_I_freqs_Hz = task_plot_rms(
+                stokesI_convolved_images,
+                rms_per_I_image,
+                output_dir=fine_cube_imaging_workdir / "beam_plots",
+                output_prefix="stokesI"
+            )
+        with tags("stokes-q"):
+            convolved_Q_freqs_Hz = task_plot_rms(
+                stokesQ_convolved_images,
+                rms_per_Q_image,
+                output_dir=fine_cube_imaging_workdir / "beam_plots",
+                output_prefix="stokesQ"
+            )
+        with tags("stokes-u"):
+            convolved_U_freqs_Hz = task_plot_rms(
+                stokesU_convolved_images,
+                rms_per_U_image,
+                output_dir=fine_cube_imaging_workdir / "beam_plots",
+                output_prefix="stokesU"
+            )
 
         # make sure we're building cubes consistently, should have same frequencies
         assert np.array_equal(convolved_I_freqs_Hz, convolved_Q_freqs_Hz) and np.array_equal(convolved_I_freqs_Hz, convolved_U_freqs_Hz), "Frequencies from Stokes I, Q, and U after convolution do not match!"
@@ -782,20 +791,56 @@ def process_science_fields(
 
 
         logger.info("Combining channel images to image cube...")
-        # combine images into image cubes, flagging bad channels
+        # combine Stokes I images into image cubes, flagging bad channels
         task_combine_to_cube = task(combine_to_cube, name="combine_finecube_images_to_cubes")
-        task_combine_to_cube(
-            file_input=stokesI_convolved_images,
-            reference_chan0=stokesI_convolved_images[0],
-            output=fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokesI_pbcor_convolved.fits",
-            nchan=len(imageset_I_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
-            width_Mhz=cube_imaging_options['chanwidth_MHz'],
-            flag_chans=bad_channel_indices,
-            overwrite=False,
-            logger=logger
-        )
+        stokesIcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_i_pbcor_convolved.fits"
+        with tags("stokes-i"):
+            task_combine_to_cube(
+                file_input=stokesI_convolved_images,
+                reference_chan0=stokesI_convolved_images[0],
+                output=stokesIcube,
+                nchan=len(imageset_I_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
+                width_Mhz=cube_imaging_options['chanwidth_MHz'],
+                flag_chans=bad_channel_indices,
+                overwrite=False,
+                logger=logger
+            )
 
+        # combine stokes Q images to cube
+        stokesQcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_q_pbcor_convolved.fits"
+        with tags("stokes-q"):
+            task_combine_to_cube(
+                file_input=stokesQ_convolved_images,
+                reference_chan0=stokesQ_convolved_images[0],
+                output=stokesQcube,
+                nchan=len(imageset_Q_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
+                width_Mhz=cube_imaging_options['chanwidth_MHz'],
+                flag_chans=bad_channel_indices,
+                overwrite=False,
+                logger=logger
+            )
 
+        # combine stokes U images to cube
+        stokesUcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_u_pbcor_convolved.fits"
+        with tags("stokes-u"):
+            task_combine_to_cube(
+                file_input=stokesU_convolved_images,
+                reference_chan0=stokesU_convolved_images[0],
+                output=stokesUcube,
+                nchan=len(imageset_U_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
+                width_Mhz=cube_imaging_options['chanwidth_MHz'],
+                flag_chans=bad_channel_indices,
+                overwrite=False,
+                logger=logger
+            )
+
+    else:
+        # assume cubes have been built
+        stokesIcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_i_pbcor_convolved.fits"
+        stokesQcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_q_pbcor_convolved.fits"
+        stokesUcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_u_pbcor_convolved.fits"
+
+    
     ########## step 10: RM synthesis 1D ##########
 
 
