@@ -800,7 +800,7 @@ def process_science_fields(
                 reference_chan0=stokesI_convolved_images[0],
                 output=stokesIcube,
                 nchan=len(imageset_I_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
-                width_Mhz=cube_imaging_options['chanwidth_MHz'],
+                width_Mhz=fine_cube_imaging_options['chanwidth_MHz'],
                 flag_chans=bad_channel_indices,
                 overwrite=False,
                 logger=logger
@@ -814,7 +814,7 @@ def process_science_fields(
                 reference_chan0=stokesQ_convolved_images[0],
                 output=stokesQcube,
                 nchan=len(imageset_Q_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
-                width_Mhz=cube_imaging_options['chanwidth_MHz'],
+                width_Mhz=fine_cube_imaging_options['chanwidth_MHz'],
                 flag_chans=bad_channel_indices,
                 overwrite=False,
                 logger=logger
@@ -828,7 +828,7 @@ def process_science_fields(
                 reference_chan0=stokesU_convolved_images[0],
                 output=stokesUcube,
                 nchan=len(imageset_U_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
-                width_Mhz=cube_imaging_options['chanwidth_MHz'],
+                width_Mhz=fine_cube_imaging_options['chanwidth_MHz'],
                 flag_chans=bad_channel_indices,
                 overwrite=False,
                 logger=logger
