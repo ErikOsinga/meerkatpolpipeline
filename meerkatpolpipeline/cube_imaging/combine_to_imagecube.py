@@ -8,11 +8,11 @@ Importable API:
 - parse_flag_chans(text: str) -> list[int]
 - find_channel_number(filename: str) -> int
 - normalize_file_input(file_input: FileInput) -> list[Path]
-- build_cube_from_files(files: list[Path], nchan: int, width_mhz: float,
+- build_cube_from_files(files: list[Path], nchan: int, width_Mhz: float,
                         reference_chan0: Path, flag_chans: list[int]) -> tuple[np.ndarray, fits.Header]
 - write_cube(cube: np.ndarray, header: fits.Header, output_path: Path, overwrite: bool = True) -> Path
 - combine_to_cube(file_input: FileInput, reference_chan0: Path, output: Path,
-                  nchan: int = 170, width_mhz: float = 5.0, flag_chans: list[int] | None = None,
+                  nchan: int = 170, width_Mhz: float = 5.0, flag_chans: list[int] | None = None,
                   overwrite: bool = True) -> Path
 
 CLI:
@@ -112,7 +112,7 @@ def normalize_file_input(file_input: FileInput) -> list[Path]:
 def build_cube_from_files(
     files: list[Path],
     nchan: int,
-    width_mhz: float,
+    width_Mhz: float,
     reference_chan0: Path,
     flag_chans: list[int],
     logger: logging.Logger = logging,
@@ -175,7 +175,7 @@ def build_cube_from_files(
     hdr["NAXIS4"] = 1
     hdr["CTYPE3"] = "FREQ"
     hdr["CUNIT3"] = "Hz"
-    hdr["CDELT3"] = (width_mhz * u.MHz).to(u.Hz).value
+    hdr["CDELT3"] = (width_Mhz * u.MHz).to(u.Hz).value
 
     # Set reference frequency from channel 0 image
     with fits.open(reference_chan0) as hch0:
@@ -211,7 +211,7 @@ def combine_to_cube(
     reference_chan0: Path,
     output: Path,
     nchan: int = 170,
-    width_mhz: float = 5.0,
+    width_Mhz: float = 5.0,
     flag_chans: list[int] | None = None,
     overwrite: bool = True,
     logger: logging.Logger | None = None,
@@ -239,7 +239,7 @@ def combine_to_cube(
     cube, header = build_cube_from_files(
         files=files,
         nchan=nchan,
-        width_mhz=width_mhz,
+        width_Mhz=width_Mhz,
         reference_chan0=Path(reference_chan0),
         flag_chans=flag_chans or [],
         logger=logger
@@ -285,7 +285,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         reference_chan0=Path(args.input_chan0_image),
         output=Path(args.output),
         nchan=args.nchan,
-        width_mhz=args.width,
+        width_Mhz=args.width,
         flag_chans=args.flag_chans,
         overwrite=args.overwrite,
         logger = logging,
