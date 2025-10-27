@@ -36,10 +36,18 @@ def compute_rms_from_imagelist(imagelist: list[Path]) -> np.ndarray:
     return np.array(rms_values)
 
 
-def plot_rms_vs_channel_from_imlist(imagelist: list[Path], rmsvalues: np.ndarray, output_dir: Path, output_prefix: str) -> None:
+def plot_rms_vs_channel_from_imlist(imagelist: list[Path], rmsvalues: np.ndarray, output_dir: Path, output_prefix: str) -> np.ndarray:
     """
     Plot RMS vs channel number from a list of images and their RMS values.
     Includes a secondary top axis showing frequency in MHz.
+
+    Args:
+        imagelist (list[Path]): List of image file paths.
+        rmsvalues (np.ndarray): Array of RMS values corresponding to each image.
+        output_dir (Path): Directory to save the output plot.
+        output_prefix (str): Prefix for the output plot filename.
+    Returns:
+        np.ndarray: Array of frequencies in Hz corresponding to each channel.
     """
     channels = np.array([find_channel_number(img.stem) for img in imagelist])
     frequencies_Hz = get_channel_frequencies(imagelist)
@@ -68,4 +76,4 @@ def plot_rms_vs_channel_from_imlist(imagelist: list[Path], rmsvalues: np.ndarray
     fig.savefig(out_full, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    return
+    return frequencies_Hz

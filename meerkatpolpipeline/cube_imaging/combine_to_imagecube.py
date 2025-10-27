@@ -26,7 +26,7 @@ import glob
 import logging
 import re
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Sequence
 
 import astropy.units as u
 import numpy as np
@@ -115,6 +115,7 @@ def build_cube_from_files(
     width_mhz: float,
     reference_chan0: Path,
     flag_chans: list[int],
+    logger: logging.Logger = logging,
 ) -> tuple[np.ndarray, fits.Header]:
     """
     Build a (1, nchan, ny, nx) cube with channels from files, reference frequency from reference_chan0,
@@ -129,7 +130,7 @@ def build_cube_from_files(
         try:
             ch = find_channel_number(fn.name)
         except IndexError as e:
-            print("Error parsing channel number from filename '%s': %s", fn, e)
+            logger.error("Error parsing channel number from filename '%s': %s", fn, e)
             raise ValueError(f"Cannot find channel number in '{fn}'") from e
         if ch < 0 or ch >= nchan:
             raise ValueError(f"Channel {ch} in '{fn}' out of expected range 0-{nchan-1}")
@@ -163,7 +164,7 @@ def build_cube_from_files(
         if 0 <= ch < nchan:
             cube[0, ch, :, :] = np.nan
         else:
-            logging.warning("Flagged channel %d out of range (0-%d); ignored", ch, nchan - 1)
+            logger.warning("Flagged channel %d out of range (0-%d); ignored", ch, nchan - 1)
 
     # Frequency axis keywords
     hdr = header0
@@ -195,12 +196,13 @@ def build_cube_from_files(
     return cube, hdr
 
 
-def write_cube(cube: np.ndarray, header: fits.Header, output_path: Path, overwrite: bool = True) -> Path:
+def write_cube(cube: np.ndarray, header: fits.Header, output_path: Path, overwrite: bool = True, logger=None) -> Path:
     """Write the data cube and header to a FITS file and return the output Path."""
     output_path = Path(output_path)
     hdu = fits.PrimaryHDU(data=cube, header=header)
     fits.HDUList([hdu]).writeto(output_path, overwrite=overwrite)
-    logging.info("Written cube: %s", output_path)
+    if logger is not None:
+        logger.info("Written cube: %s", output_path)
     return output_path
 
 
@@ -212,6 +214,7 @@ def combine_to_cube(
     width_mhz: float = 5.0,
     flag_chans: list[int] | None = None,
     overwrite: bool = True,
+    logger: logging.Logger | None = None,
 ) -> Path:
     """
     High-level API: combine images into a cube.
@@ -220,6 +223,18 @@ def combine_to_cube(
     reference_chan0: FITS image whose CRVAL3 defines the cube's reference frequency (channel 0).
     output: destination FITS path.
     """
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    if logger is None:
+        logging.basicConfig(level=getattr(logging, "INFO"), format="%(levelname)s: %(message)s")
+        logger = logging
+
+    if output.exists() and not overwrite:
+        # Skip processing if output exists and overwrite is False
+        logger.info(f"Output {output} exists and overwrite is False; skipping.")
+        return output
+
     files = normalize_file_input(file_input)
     cube, header = build_cube_from_files(
         files=files,
@@ -227,8 +242,9 @@ def combine_to_cube(
         width_mhz=width_mhz,
         reference_chan0=Path(reference_chan0),
         flag_chans=flag_chans or [],
+        logger=logger
     )
-    return write_cube(cube, header, Path(output), overwrite=overwrite)
+    return write_cube(cube, header, output, overwrite=overwrite, logger=logger)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -262,6 +278,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     logging.basicConfig(level=getattr(logging, args.loglevel), format="%(levelname)s: %(message)s")
+    
 
     out = combine_to_cube(
         file_input=args.input_glob,
@@ -271,6 +288,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         width_mhz=args.width,
         flag_chans=args.flag_chans,
         overwrite=args.overwrite,
+        logger = logging,
     )
     logging.info("Done: %s", out)
 

@@ -43,6 +43,7 @@ from meerkatpolpipeline.utils.utils import (
     get_fits_image_center,
 )
 from meerkatpolpipeline.validation import (
+    flag_image_freqs,
     flagstat_vs_freq,
     rms_vs_freq,
     validate_field,
@@ -729,6 +730,9 @@ def process_science_fields(
         logger.info(f"Amount of images in Stokes Q after convolution: {len(stokesQ_convolved_images)}")
         logger.info(f"Amount of images in Stokes U after convolution: {len(stokesU_convolved_images)}")
 
+        # make sure we're building cubes consistently
+        assert len(stokesI_convolved_images) == len(stokesQ_convolved_images) == len(stokesU_convolved_images), "Number of convolved images in Stokes I, Q, and U do not match!"
+
         # compute rms vs channel index after convolution
         task_compute_rms = task(rms_vs_freq.compute_rms_from_imagelist, name="compute_rms_after_convolution")
         rms_per_I_image: np.ndarray = task_compute_rms(stokesI_convolved_images)
@@ -737,34 +741,58 @@ def process_science_fields(
 
         # plot rms vs channel index after convolution
         task_plot_rms = task(rms_vs_freq.plot_rms_vs_channel_from_imlist, name="plot_rms_after_convolution")
-        task_plot_rms(
+        convolved_I_freqs_Hz = task_plot_rms(
             stokesI_convolved_images,
             rms_per_I_image,
             output_dir=fine_cube_imaging_workdir / "beam_plots",
             output_prefix="stokesI"
         )
-        task_plot_rms(
+        convolved_Q_freqs_Hz = task_plot_rms(
             stokesQ_convolved_images,
             rms_per_Q_image,
             output_dir=fine_cube_imaging_workdir / "beam_plots",
             output_prefix="stokesQ"
         )
-        task_plot_rms(
+        convolved_U_freqs_Hz = task_plot_rms(
             stokesU_convolved_images,
             rms_per_U_image,
             output_dir=fine_cube_imaging_workdir / "beam_plots",
             output_prefix="stokesU"
         )
 
+        # make sure we're building cubes consistently, should have same frequencies
+        assert np.array_equal(convolved_I_freqs_Hz, convolved_Q_freqs_Hz) and np.array_equal(convolved_I_freqs_Hz, convolved_U_freqs_Hz), "Frequencies from Stokes I, Q, and U after convolution do not match!"
+
+        # flag channels above a certain rms threshold
+        rms_qu_average = (rms_per_Q_image + rms_per_U_image) / 2.
+        bad_channel_indices = np.where(rms_qu_average > fine_cube_imaging_options['channel_rms_limit_Jybeam'])[0]
+        logger.info(f"Number of channels flagged due to high RMS (> {fine_cube_imaging_options['channel_rms_limit_Jybeam']} Jy/beam) in Q/U after convolution: {len(bad_channel_indices)}")
+
+        # also flag channels above a certain flag percentage
+        flag_mask, _ = flag_image_freqs.flag_image_freqs(
+            centers_mhz, avg_flag_pct, convolved_I_freqs_Hz/1e6, # make sure both frequencies are in same units
+            threshold_pct=fine_cube_imaging_options['channel_flag_limit_pct'],
+            outside="extend"
+        )
+        logger.info(f"Number of channels flagged due to high flag percentage (> {fine_cube_imaging_options['channel_flag_limit_pct']} %) after convolution: {np.sum(flag_mask)}")
+        # these can overlap, so combine them uniquely
+        bad_channel_indices = np.unique( np.concatenate( (bad_channel_indices, np.where(flag_mask)[0]) ) )
+        
+        logger.info(f"Total number of channels flagged after convolution: {len(bad_channel_indices)} out of {len(stokesI_convolved_images)}")
 
 
-        # # combine images into image cubes, flagging bad channels
-        # task_combine_to_cube = task(combine_to_cube, name="combine_finecube_images_to_cubes")
-        # task_combine_to_cube(
-        #     file_input=stokesI_convolved_images,
-        #     reference_chan0=stokesI_convolved_images[0],
-        #     output=fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokesI_pbcor_convolved.fits",
-        # )
+        logger.info("Combining channel images to image cube...")
+        # combine images into image cubes, flagging bad channels
+        task_combine_to_cube = task(combine_to_cube, name="combine_finecube_images_to_cubes")
+        task_combine_to_cube(
+            file_input=stokesI_convolved_images,
+            reference_chan0=stokesI_convolved_images[0],
+            output=fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokesI_pbcor_convolved.fits",
+            nchan=len(imageset_I_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
+            width_Mhz=cube_imaging_options['chanwidth_MHz'],
+            flag_chans=bad_channel_indices,
+            overwrite=False
+        )
 
 
     ########## step 10: RM synthesis 1D ##########

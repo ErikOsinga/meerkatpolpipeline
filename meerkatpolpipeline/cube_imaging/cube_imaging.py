@@ -51,6 +51,10 @@ class FineCubeImagingOptions(BaseOptions):
     """End frequency in MHz for the fine channel cubes. If None, will use the highest frequency in the MS."""
     beam_limit_asec: float = 15.0
     """Target beam size in arcseconds for convolving to common beam in the fine channel cubes. Default 15.0 asec"""
+    channel_rms_limit_Jybeam: float = 1e-3
+    """Flag channels above this RMS level when combining to image cube. Default 1e-3 Jy/beam"""
+    channel_flag_limit_pct: float = 30.0
+    """Flag the entire channel if higher percentage of visibilities flagged at this frequency. Default 30.0% """
     # TODO: add size, scale, channels_out etc parameters for wsclean
 
 
