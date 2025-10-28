@@ -29,7 +29,17 @@ dependencies = [
     "uncertainties",
     "shadems",
     "bdsf",
-    "radio_beam"
+    "radio_beam",
+    # packages below required for Polarimetry Pipeline
+    "RM-Tools",
+    "tqdm",
+    "PolSpectra",
+    "RMTable",
+    "gspread",
+    "healpy",
+    "vos",
+    "fitsio",
+    "pyregion"
 ]
 
 classifiers = [
