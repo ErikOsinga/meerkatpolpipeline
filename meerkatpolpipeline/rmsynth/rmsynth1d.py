@@ -19,14 +19,14 @@ class RMSynth1Doptions(BaseOptions):
     """name of targetfield. This option is propagated to every step."""    
     rmsynth_1d_config_template: Path
     """Path to a template config file for the 1D RM synthesis step."""
-    working_directory: Path
-    """Path to working directory for this step."""
     module_directory: Path
     """Path to POSSUM_Polarimetry_Pipeline pipeline/modules/ directory for this step."""
-    catalog_file: Path
-    """Path to input catalog file for this step."""
+    catalog_file: Path | None = None
+    """Path to input catalog file for this step. If null, will attempt to use the PYBDSF catalog from previous step."""
+    working_directory: Path | None = None
+    """Optional: Path to working directory for this step. If 'null' will assign a default working directory."""
     snr: int = 20
-    """SNR threshold in Stokes I for doing RM synthesis."""
+    """SNR threshold in Stokes I for doing RM synthesis. Default 20"""
 
 
 def _coerce_to_str(v: Any) -> str:
@@ -110,7 +110,7 @@ def create_config_from_template(
     return output_path
 
 
-def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path: Path, rmsynth1d_workdir: Path, ) -> None:
+def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path: Path, rmsynth1d_workdir: Path) -> None:
     """
     Run 1D rm synthesis using the POSSUM_Polarimetry_Pipeline setup
     """
@@ -122,6 +122,12 @@ def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path:
 
     if not stokesI_cube_path.exists():
         raise FileNotFoundError(f"Stokes I cube not found: {stokesI_cube_path}")
+
+    # Set working directory, checking for user overwrite
+    if rmsynth1d_options['rmsynth1d_workdir'] is None:
+        rmsynth1d_options['rmsynth1d_workdir'] = rmsynth1d_workdir.expanduser().resolve()
+    else:
+        rmsynth1d_workdir = Path(rmsynth1d_options['rmsynth1d_workdir']).expanduser().resolve()
 
     # Create config file from template
     config_path = create_config_from_template(

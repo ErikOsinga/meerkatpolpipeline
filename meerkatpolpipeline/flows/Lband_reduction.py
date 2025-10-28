@@ -861,6 +861,10 @@ def process_science_fields(
 
         rmsynth1d_options = get_options_from_strategy(strategy, operation="rmsynth1d")
 
+        # check for user override of catalogue file
+        if rmsynth1d_options['catalog_file'] is None:
+            rmsynth1d_options['catalog_file'] = sourcelist_fits_filtered
+
         # Run RM synthesis in 1D on the image cubes
         task_rmsynth1d = task(run_rmsynth1d, name="rmsynth_1d")
         task_rmsynth1d(
