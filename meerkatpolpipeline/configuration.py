@@ -18,6 +18,7 @@ from meerkatpolpipeline.cube_imaging.cube_imaging import (
 )
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
+from meerkatpolpipeline.rmsynth.rmsynth1d import RMSynth1Doptions
 from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions
 from meerkatpolpipeline.utils.utils import add_timestamp_to_path
 from meerkatpolpipeline.validation.validate_field import ValidateFieldOptions
@@ -50,7 +51,6 @@ KNOWN_OPERATIONS = (
     "rmsynth3d",
     "validate_rmsynth3d",
     "science_plots"
-
 )
 FORMAT_VERSION = 0.1
 STRATEGY_OPTIONS_MAPPING = {
@@ -61,13 +61,13 @@ STRATEGY_OPTIONS_MAPPING = {
     "coarse_cube_imaging": CoarseCubeImagingOptions,
     "compare_to_nvss": CompareNVSSOptions,
     "validation": ValidateFieldOptions,
-    "fine_cube_imaging": FineCubeImagingOptions
+    "fine_cube_imaging": FineCubeImagingOptions,
+    "rmsynth1d": RMSynth1Doptions,
     # TODO
 }
 
 class Strategy(dict):
     """Base representation for handling a loaded strategy"""
-
     pass
 
 def load_and_copy_strategy(

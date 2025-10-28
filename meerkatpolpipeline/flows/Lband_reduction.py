@@ -37,6 +37,7 @@ from meerkatpolpipeline.cube_imaging.cube_imaging import (
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
+from meerkatpolpipeline.rmsynth.rmsynth1d import run_rmsynth1d
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
 from meerkatpolpipeline.utils.utils import (
@@ -854,7 +855,20 @@ def process_science_fields(
 
     
     ########## step 10: RM synthesis 1D ##########
+    rmsynth1d_workdir = working_dir / "rmsynth1d"
+    if "rmsynth1d" in enabled_operations:
+        rmsynth1d_workdir.mkdir(exist_ok=True)
 
+        rmsynth1d_options = get_options_from_strategy(strategy, operation="rmsynth1d")
+
+        # Run RM synthesis in 1D on the image cubes
+        task_rmsynth1d = task(run_rmsynth1d, name="rmsynth_1d")
+        task_rmsynth1d(
+            rmsynth1d_options,
+            stokesIcube_path=stokesIcube,
+            rmsynth1d_workdir=rmsynth1d_workdir,
+            logger=logger
+        )
 
 
     ########## step 11: Verify RMSynth1D ##########
