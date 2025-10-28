@@ -89,11 +89,11 @@ class StokesIQUCubeChannels(BaseOptions):
     """List of path to stokes Q channel images"""
     stokesU_imagelist: list[Path]
     """List of path to stokes U channel images"""
-    rms_per_I_channel: list[float] | None = None
+    rms_per_I_channel: np.ndarray[float] | None = None
     """Optional: stores RMS per Stokes I channel in Jy/beam"""
-    rms_per_Q_channel: list[float] | None = None
+    rms_per_Q_channel: np.ndarray[float] | None = None
     """Optional: stores RMS per Stokes Q channel in Jy/beam"""
-    rms_per_U_channel: list[float] | None = None
+    rms_per_U_channel: np.ndarray[float] | None = None
     """Optional: stores RMS per Stokes U channel in Jy/beam"""
 
 
