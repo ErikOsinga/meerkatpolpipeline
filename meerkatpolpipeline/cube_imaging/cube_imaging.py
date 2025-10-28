@@ -7,9 +7,9 @@ import numpy as np
 from casacore.tables import table
 from prefect.logging import get_run_logger
 
+from meerkatpolpipeline.check_nvss.target_vs_nvss import get_channel_frequencies
 from meerkatpolpipeline.cube_imaging.combine_to_imagecube import (
     find_channel_number,
-    get_channel_frequencies,
 )
 from meerkatpolpipeline.cube_imaging.pbcor import calculate_pb, pbcor_allchan
 from meerkatpolpipeline.options import BaseOptions
