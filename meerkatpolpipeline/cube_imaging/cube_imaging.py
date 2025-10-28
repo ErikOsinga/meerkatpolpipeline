@@ -60,8 +60,8 @@ class FineCubeImagingOptions(BaseOptions):
     """Overwrite existing cube if it exists. Default False"""
     channel_rms_limit_Jybeam: float = 1e-3
     """Flag channels above this RMS level when combining to image cube. Default 1e-3 Jy/beam"""
-    channel_flag_limit_pct: float = 30.0
-    """Flag the entire channel if higher percentage of visibilities flagged at this frequency. Default 30.0% """
+    channel_flag_limit_pct: float = 50.0
+    """Flag the entire channel if higher percentage of visibilities flagged at this frequency. Default 50.0% """
     # TODO: add size, scale, channels_out etc parameters for wsclean
 
 
