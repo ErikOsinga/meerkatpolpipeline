@@ -27,6 +27,8 @@ class RMSynth1Doptions(BaseOptions):
     """Optional: Path to working directory for this step. If 'null' will assign a default working directory."""
     snr: int = 20
     """SNR threshold in Stokes I for doing RM synthesis. Default 20"""
+    overwrite: bool = False
+    """Overwrite existing output files? Default False, in which case it will skip this step if output already exists"""
 
 
 def _coerce_to_str(v: Any) -> str:
@@ -110,11 +112,32 @@ def create_config_from_template(
     return output_path
 
 
-def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path: Path, rmsynth1d_workdir: Path) -> None:
+def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path: Path, rmsynth1d_workdir: Path) -> tuple[Path, Path, Path]:
     """
     Run 1D rm synthesis using the POSSUM_Polarimetry_Pipeline setup
+    
+    args:
+        rmsynth1d_options (dict | RMSynth1Doptions): Dictionary storing RMSynth1Doptions for this step
+        stokesI_cube_path (Path): Path to the Stokes I cube file for this targetfield.
+        rmsynth1d_workdir (Path): The working directory for the rmsynth1d step
+
+    returns:
+        catalog: Path to the output RMSynth 1D catalog FITS file
+        fdf: Path to the output RMSynth 1D FDF FITS file
+        spectra: Path to the output RMSynth 1D spectra FITS file
+
     """
     logger = get_run_logger()
+
+    # this has to change if the template ever changes
+    catalog = rmsynth1d_workdir / f"{rmsynth1d_options['targetfield']}.rmsynth1d.catalog.fits"
+    fdf = rmsynth1d_workdir / f"{rmsynth1d_options['targetfield']}.rmsynth1d.FDF.fits"
+    spectra = rmsynth1d_workdir / f"{rmsynth1d_options['targetfield']}.rmsynth1d.spectra.fits"
+
+    if catalog.exists() and fdf.exists() and spectra.exists() and (not rmsynth1d_options['overwrite']):
+        logger.info("RMSynth 1D output files already exist and overwrite is False; skipping this step.")
+        return catalog, fdf, spectra
+
 
     module_dir = Path(rmsynth1d_options["module_directory"]).expanduser().resolve()
     if not module_dir.exists():
@@ -152,4 +175,4 @@ def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path:
     
     logger.info("RMSynth 1D completed successfully.")
 
-    return None
+    return catalog, fdf, spectra

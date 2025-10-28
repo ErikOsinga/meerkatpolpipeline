@@ -878,13 +878,11 @@ def process_science_fields(
 
         # Run RM synthesis in 1D on the image cubes
         task_rmsynth1d = task(run_rmsynth1d, name="rmsynth_1d")
-        task_rmsynth1d(
+        rms1d_catalog, rms1d_fdf, rms1d_spectra = task_rmsynth1d(
             rmsynth1d_options,
             stokesI_cube_path=stokesIcube,
             rmsynth1d_workdir=rmsynth1d_workdir,
         )
-
-
 
 
     ########## step 11: Verify RMSynth1D ##########
