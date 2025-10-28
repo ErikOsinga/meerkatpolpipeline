@@ -38,6 +38,7 @@ from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
 from meerkatpolpipeline.rmsynth.rmsynth1d import run_rmsynth1d
+from meerkatpolpipeline.rmsynth.validate_rmsynth import make_rm_validation_plots
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
 from meerkatpolpipeline.utils.rename_pybdsf_cat import rename_columns
@@ -886,7 +887,25 @@ def process_science_fields(
 
 
     ########## step 11: Verify RMSynth1D ##########
+    if "validate_rmsynth1d" in enabled_operations:
+        validate_rmsynth1d_workdir = working_dir / "validate_rmsynth1d"
+        validate_rmsynth1d_workdir.mkdir(exist_ok=True)
 
+        validation_rmsynth1d_options = get_options_from_strategy(strategy, operation="validate_rmsynth1d")
+
+        logger.info("Starting validate RMSynth1D step")
+
+        task_validate_rmsynth1d = task(make_rm_validation_plots, name="validate_rmsynth1d")
+        task_validate_rmsynth1d(
+            validation_rmsynth1d_options,
+            imageset_I=imageset_I,
+            imageset_Q=imageset_Q,
+            imageset_U=imageset_U,
+            rms1d_catalog=rms1d_catalog,
+            rms1d_fdf=rms1d_fdf,
+            rms1d_spectra=rms1d_spectra,
+            plot_dir=validate_rmsynth1d_workdir,
+        )
 
     ########## step 12: RM synthesis 3D ##########
 

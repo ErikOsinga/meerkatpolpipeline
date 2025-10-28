@@ -19,6 +19,7 @@ from meerkatpolpipeline.cube_imaging.cube_imaging import (
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.rmsynth.rmsynth1d import RMSynth1Doptions
+from meerkatpolpipeline.rmsynth.validate_rmsynth import ValidateRMsynth1dOptions
 from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions
 from meerkatpolpipeline.utils.utils import add_timestamp_to_path
 from meerkatpolpipeline.validation.validate_field import ValidateFieldOptions
@@ -63,6 +64,7 @@ STRATEGY_OPTIONS_MAPPING = {
     "validation": ValidateFieldOptions,
     "fine_cube_imaging": FineCubeImagingOptions,
     "rmsynth1d": RMSynth1Doptions,
+    "validate_rmsynth1d": ValidateRMsynth1dOptions,
     # TODO
 }
 
