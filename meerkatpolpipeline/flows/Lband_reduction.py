@@ -786,18 +786,18 @@ def process_science_fields(
         # flag channels above a certain rms threshold
         rms_qu_average = (stokes_iqu_cube_channels.rms_per_Q_channel + stokes_iqu_cube_channels.rms_per_U_channel) / 2.
         # make sure these are indices of the original cube before any channels are removed !!
-        bad_channel_indices = np.asarray(stokes_iqu_cube_channels.channel_numbers)[rms_qu_average > fine_cube_imaging_options['channel_rms_limit_Jybeam']]
+        bad_channel_indices = stokes_iqu_cube_channels.channel_numbers[rms_qu_average > fine_cube_imaging_options['channel_rms_limit_Jybeam']]
         logger.info(f"Number of channels flagged due to high RMS (> {fine_cube_imaging_options['channel_rms_limit_Jybeam']} Jy/beam) in Q/U after convolution: {len(bad_channel_indices)}")
 
         # also flag channels above a certain flag percentage
         flag_mask, _ = flag_image_freqs.flag_image_freqs(
-            centers_mhz, avg_flag_pct, np.asarray(stokes_iqu_cube_channels.frequencies)/1e6, # make sure both frequencies are in same units
+            centers_mhz, avg_flag_pct, stokes_iqu_cube_channels.frequencies/1e6, # make sure both frequencies are in same units
             threshold_pct=fine_cube_imaging_options['channel_flag_limit_pct'],
             outside="extend"
         )
         logger.info(f"Number of channels flagged due to high flag percentage (> {fine_cube_imaging_options['channel_flag_limit_pct']} %) after convolution: {np.sum(flag_mask)}")
         # these can overlap, so combine them uniquely. Again make sure indices correspond to WSClean indexing before any channels are removed
-        bad_channel_indices = np.unique( np.concatenate( (bad_channel_indices, np.asarray(stokes_iqu_cube_channels.channel_numbers)[flag_mask]) ) )
+        bad_channel_indices = np.unique( np.concatenate( (bad_channel_indices, stokes_iqu_cube_channels.channel_numbers[flag_mask]) ) )
         
         logger.info(f"Total number of channels flagged after convolution: {len(bad_channel_indices)} out of {len(stokesI_convolved_images)}")
 

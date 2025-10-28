@@ -6,6 +6,7 @@ import astropy.units as u
 import numpy as np
 from casacore.tables import table
 from prefect.logging import get_run_logger
+from pydantic import ConfigDict
 
 from meerkatpolpipeline.check_nvss.target_vs_nvss import get_channel_frequencies
 from meerkatpolpipeline.cube_imaging.combine_to_imagecube import (
@@ -74,11 +75,14 @@ class StokesIQUCubeChannels(BaseOptions):
 
     Channels are allowed to be missing, e.g. channel_numbers can be [0,4,10,11,12,13]
     """
+
+    # allow np.ndarray types in pydantic model
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     
-    channel_numbers: list[int]
-    """list of channel numbers."""
-    frequencies: list[float]
-    """list of frequencies in Hz corresponding to each channel number."""
+    channel_numbers: np.ndarray[int]
+    """array of channel numbers."""
+    frequencies: np.ndarray[float]
+    """array of frequencies in Hz corresponding to each channel number."""
     stokesI_imagelist: list[Path]
     """List of path to stokes I channel images"""
     stokesQ_imagelist: list[Path]
@@ -124,8 +128,8 @@ def create_stokesIQU_cube_channels_from_imagelists(
         raise ValueError("Stokes I, Q and U images do not have the same frequencies.")
     
     stokesIQU_cube_channels = StokesIQUCubeChannels(
-        channel_numbers = channels['I'].tolist(),
-        frequencies = frequencies_hz['I'].tolist(),
+        channel_numbers = channels['I'],
+        frequencies = frequencies_hz['I'],
         stokesI_imagelist = stokesI_convolved_images,
         stokesQ_imagelist = stokesQ_convolved_images,
         stokesU_imagelist = stokesU_convolved_images,
