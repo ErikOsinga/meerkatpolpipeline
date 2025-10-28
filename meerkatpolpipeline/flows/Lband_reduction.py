@@ -869,9 +869,8 @@ def process_science_fields(
         task_rmsynth1d = task(run_rmsynth1d, name="rmsynth_1d")
         task_rmsynth1d(
             rmsynth1d_options,
-            stokesIcube_path=stokesIcube,
+            stokesI_cube_path=stokesIcube,
             rmsynth1d_workdir=rmsynth1d_workdir,
-            logger=logger
         )
 
 
