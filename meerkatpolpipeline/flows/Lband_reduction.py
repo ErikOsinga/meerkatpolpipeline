@@ -40,6 +40,7 @@ from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview
 from meerkatpolpipeline.rmsynth.rmsynth1d import run_rmsynth1d
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
+from meerkatpolpipeline.utils.rename_pybdsf_cat import rename_columns
 from meerkatpolpipeline.utils.utils import (
     execute_command,
     filter_sources_within_radius,
@@ -861,9 +862,15 @@ def process_science_fields(
 
         rmsynth1d_options = get_options_from_strategy(strategy, operation="rmsynth1d")
 
+        # rename pybdsf columns to be compliant with pol pipeline
+        sourcelist_table_filtered = rename_columns(sourcelist_fits_filtered)
+        # write it to a new file
+        sourcelist_fits_filtered_renamed = sourcelist_fits_filtered.parent / sourcelist_fits_filtered.with_suffix('.renamed.fits').name
+        sourcelist_table_filtered.write(sourcelist_fits_filtered_renamed, overwrite=True)
+
         # check for user override of catalogue file
         if rmsynth1d_options['catalog_file'] is None:
-            rmsynth1d_options['catalog_file'] = sourcelist_fits_filtered
+            rmsynth1d_options['catalog_file'] = sourcelist_fits_filtered_renamed
 
         # Run RM synthesis in 1D on the image cubes
         task_rmsynth1d = task(run_rmsynth1d, name="rmsynth_1d")
@@ -872,6 +879,8 @@ def process_science_fields(
             stokesI_cube_path=stokesIcube,
             rmsynth1d_workdir=rmsynth1d_workdir,
         )
+
+
 
 
     ########## step 11: Verify RMSynth1D ##########
