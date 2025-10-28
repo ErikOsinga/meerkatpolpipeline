@@ -124,10 +124,10 @@ def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path:
         raise FileNotFoundError(f"Stokes I cube not found: {stokesI_cube_path}")
 
     # Set working directory, checking for user overwrite
-    if rmsynth1d_options['rmsynth1d_workdir'] is None:
-        rmsynth1d_options['rmsynth1d_workdir'] = rmsynth1d_workdir.expanduser().resolve()
+    if rmsynth1d_options['working_directory'] is None:
+        rmsynth1d_options['working_directory'] = rmsynth1d_workdir.expanduser().resolve()
     else:
-        rmsynth1d_workdir = Path(rmsynth1d_options['rmsynth1d_workdir']).expanduser().resolve()
+        rmsynth1d_workdir = Path(rmsynth1d_options['working_directory']).expanduser().resolve()
 
     # Create config file from template
     config_path = create_config_from_template(
