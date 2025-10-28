@@ -802,6 +802,10 @@ def process_science_fields(
         bad_channel_indices = np.unique( np.concatenate( (bad_channel_indices, stokes_iqu_cube_channels.channel_numbers[flag_mask]) ) )
         
         logger.info(f"Total number of channels flagged after convolution: {len(bad_channel_indices)} out of {len(stokesI_convolved_images)}")
+        
+        assert len(bad_channel_indices) < len(stokesI_convolved_images), "All channels were flagged, cannot build cube. Consider lowering the flag percentage, rms limit, or increasing the beam size!"
+
+        assert len(bad_channel_indices) < int(0.8 * len(stokesI_convolved_images)), "More than 80% of channels were flagged, consider lowering the flag percentage, rms limit, or increasing the beam size!"
 
 
         logger.info("Combining channel images to image cube...")
