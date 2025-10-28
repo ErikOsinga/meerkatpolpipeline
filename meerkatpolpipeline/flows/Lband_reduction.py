@@ -30,7 +30,10 @@ from meerkatpolpipeline.configuration import (
 from meerkatpolpipeline.cube_imaging.beam_info_vs_freq import generate_beam_plots
 from meerkatpolpipeline.cube_imaging.combine_to_imagecube import combine_to_cube
 from meerkatpolpipeline.cube_imaging.convolve_beam import BeamParams, convolve_images
-from meerkatpolpipeline.cube_imaging.cube_imaging import go_wsclean_cube_imaging_target
+from meerkatpolpipeline.cube_imaging.cube_imaging import (
+    create_stokesIQU_cube_channels_from_imagelists,
+    go_wsclean_cube_imaging_target,
+)
 from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
@@ -745,32 +748,40 @@ def process_science_fields(
         with tags("stokes-u"):
             rms_per_U_image: np.ndarray = task_compute_rms(stokesU_convolved_images)
 
+        # put all channel images into an StokesIQUCubeChannels object
+        stokes_iqu_cube_channels = create_stokesIQU_cube_channels_from_imagelists(
+            stokesI_convolved_images=stokesI_convolved_images,
+            stokesQ_convolved_images=stokesQ_convolved_images,
+            stokesU_convolved_images=stokesU_convolved_images,
+            rms_per_I_channel=rms_per_I_image,
+            rms_per_Q_channel=rms_per_Q_image,
+            rms_per_U_channel=rms_per_U_image,
+        )
+
         # plot rms vs channel index after convolution
         task_plot_rms = task(rms_vs_freq.plot_rms_vs_channel_from_imlist, name="plot_rms_after_convolution")
         with tags("stokes-i"):
-            convolved_I_freqs_Hz = task_plot_rms(
+            task_plot_rms(
                 stokesI_convolved_images,
                 rms_per_I_image,
                 output_dir=fine_cube_imaging_workdir / "beam_plots",
                 output_prefix="stokesI"
             )
         with tags("stokes-q"):
-            convolved_Q_freqs_Hz = task_plot_rms(
+            task_plot_rms(
                 stokesQ_convolved_images,
                 rms_per_Q_image,
                 output_dir=fine_cube_imaging_workdir / "beam_plots",
                 output_prefix="stokesQ"
             )
         with tags("stokes-u"):
-            convolved_U_freqs_Hz = task_plot_rms(
+            task_plot_rms(
                 stokesU_convolved_images,
                 rms_per_U_image,
                 output_dir=fine_cube_imaging_workdir / "beam_plots",
                 output_prefix="stokesU"
             )
 
-        # make sure we're building cubes consistently, should have same frequencies
-        assert np.array_equal(convolved_I_freqs_Hz, convolved_Q_freqs_Hz) and np.array_equal(convolved_I_freqs_Hz, convolved_U_freqs_Hz), "Frequencies from Stokes I, Q, and U after convolution do not match!"
 
         # flag channels above a certain rms threshold
         rms_qu_average = (rms_per_Q_image + rms_per_U_image) / 2.

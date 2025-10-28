@@ -7,6 +7,10 @@ import numpy as np
 from casacore.tables import table
 from prefect.logging import get_run_logger
 
+from meerkatpolpipeline.cube_imaging.combine_to_imagecube import (
+    find_channel_number,
+    get_channel_frequencies,
+)
 from meerkatpolpipeline.cube_imaging.pbcor import calculate_pb, pbcor_allchan
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.wsclean.wsclean import ImageSet, WSCleanOptions, run_wsclean
@@ -57,6 +61,77 @@ class FineCubeImagingOptions(BaseOptions):
     """Flag the entire channel if higher percentage of visibilities flagged at this frequency. Default 30.0% """
     # TODO: add size, scale, channels_out etc parameters for wsclean
 
+
+class StokesIQUCubeChannels(BaseOptions):
+    """A basic class to handle output for Stokes I+Q+U cubes. 
+    
+    Stores list[Path] for every stokes parameter, for every channel available in the cubes.
+    
+    Assumes that Stokes I, Q and U cubes have the same number of channels.
+    Assumes that images have been convolved to same resolution.
+
+    Channels are allowed to be missing, e.g. channel_numbers can be [0,4,10,11,12,13]
+    """
+    
+    channel_numbers: list[int]
+    """list of channel numbers."""
+    frequencies: list[float]
+    """list of frequencies in Hz corresponding to each channel number."""
+    stokesI_imagelist: list[Path]
+    """List of path to stokes I channel images"""
+    stokesQ_imagelist: list[Path]
+    """List of path to stokes Q channel images"""
+    stokesU_imagelist: list[Path]
+    """List of path to stokes U channel images"""
+    rms_per_I_channel: list[float] | None = None
+    """Optional: stores RMS per Stokes I channel in Jy/beam"""
+    rms_per_Q_channel: list[float] | None = None
+    """Optional: stores RMS per Stokes Q channel in Jy/beam"""
+    rms_per_U_channel: list[float] | None = None
+    """Optional: stores RMS per Stokes U channel in Jy/beam"""
+
+
+def create_stokesIQU_cube_channels_from_imagelists(
+    stokesI_convolved_images: list[Path],
+    stokesQ_convolved_images: list[Path],
+    stokesU_convolved_images: list[Path],
+    rms_per_I_channel: list[float] | None = None,
+    rms_per_Q_channel: list[float] | None = None,
+    rms_per_U_channel: list[float] | None = None,
+) -> StokesIQUCubeChannels:
+    """
+    Create StokesIQUCubeChannels from lists of convolved images.
+    Assumes that the images are named such that the channel number can be extracted
+    from the filename using a four digit number (WSClean convention)
+    """
+
+    channels: dict[str, np.ndarray] = {}
+    frequencies_hz: dict[str, np.ndarray] = {}
+    stokes = ['I', 'Q', 'U']
+    imlists = [stokesI_convolved_images, stokesQ_convolved_images, stokesU_convolved_images]
+
+    for i, stokes in enumerate(stokes):
+        imlist = imlists[i]
+        channels[stokes] = np.array([find_channel_number(img.stem) for img in imlist])
+        frequencies_hz[stokes] = get_channel_frequencies(imlist)
+    
+    # Ensure that all stokes have the same channels and frequencies
+    if not (np.array_equal(channels['I'], channels['Q']) and np.array_equal(channels['I'], channels['U'])):
+        raise ValueError("Stokes I, Q and U images do not have the same channel numbers.")
+    if not (np.array_equal(frequencies_hz['I'], frequencies_hz['Q']) and np.array_equal(frequencies_hz['I'], frequencies_hz['U'])):
+        raise ValueError("Stokes I, Q and U images do not have the same frequencies.")
+    
+    stokesIQU_cube_channels = StokesIQUCubeChannels(
+        channel_numbers = channels['I'].tolist(),
+        frequencies = frequencies_hz['I'].tolist(),
+        stokesI_imagelist = stokesI_convolved_images,
+        stokesQ_imagelist = stokesQ_convolved_images,
+        stokesU_imagelist = stokesU_convolved_images,
+        rms_per_I_channel = rms_per_I_channel,
+        rms_per_Q_channel = rms_per_Q_channel,
+        rms_per_U_channel = rms_per_U_channel,
+    )
+    return stokesIQU_cube_channels
 
 
 def go_wsclean_cube_imaging_target(
