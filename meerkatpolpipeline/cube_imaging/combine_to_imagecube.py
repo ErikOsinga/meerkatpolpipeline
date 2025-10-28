@@ -232,7 +232,7 @@ def combine_to_cube(
 
     if output.exists() and not overwrite:
         # Skip processing if output exists and overwrite is False
-        logger.info(f"Output {output} exists and overwrite is False; skipping.")
+        logger.info(f"Output {output} exists and overwrite is False; skipping combine_to_cube.")
         return output
     
     if flag_chans is None:
