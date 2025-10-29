@@ -45,6 +45,7 @@ from polspectra import from_FITS as polspectra_from_FITS
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.options import BaseOptions
+from meerkatpolpipeline.utils.utils import _wrap_angle_deg
 from meerkatpolpipeline.validation.validate_field import (
     add_inset_cutouts,
     first_mfs_file,
@@ -119,6 +120,8 @@ def _build_figure() -> tuple[plt.Figure, dict[str, plt.Axes]]:
 
     ax_inset_I = fig.add_subplot(gs[2, 0])
     ax_inset_P = fig.add_subplot(gs[2, 1])
+    ax_chi = fig.add_subplot(gs[2, 2])
+
 
     axes = {
         "I": ax_I,
@@ -129,6 +132,7 @@ def _build_figure() -> tuple[plt.Figure, dict[str, plt.Axes]]:
         "TEXT": ax_text,
         "inset_I": ax_inset_I,
         "inset_P": ax_inset_P,
+         "CHI": ax_chi,
     }
     return fig, axes
 
@@ -144,10 +148,9 @@ def _plot_stokes_I(ax: plt.Axes, freq_hz: np.ndarray, I_jy: np.ndarray, Ierr: np
         ax.text(0.5, 0.5, "No valid I data", transform=ax.transAxes, ha="center")
         return
 
-    ax.scatter(nu_ghz[m], I_mJy[m], s=12)
+    # ax.scatter(nu_ghz[m], I_mJy[m], s=12)
     ax.errorbar(nu_ghz[m], I_mJy[m], yerr=e_mJy[m], fmt="o", ms=3, lw=0.8, alpha=0.9)
-
-    ax.plot(nu_ghz[m], I_mJy[m], lw=0.8, alpha=0.6)
+    # ax.plot(nu_ghz[m], I_mJy[m], lw=0.8, alpha=0.6)
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("Frequency (GHz)")
@@ -235,6 +238,56 @@ def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
         f"fracpol: {get('fracpol')}",
     ]
     ax.text(0.0, 1.0, "\n".join(lines), va="top", fontsize=10)
+
+
+def _plot_pol_angle(ax: plt.Axes,
+                    freq_hz: np.ndarray,
+                    Q_jy: np.ndarray,
+                    U_jy: np.ndarray,
+                    derot_polangle_deg: float,
+                    derot_polangle_err_deg: float,
+                    rm_rad_m2: float,
+                    rm_err_rad_m2: float) -> None:
+    """
+    Plot pol angle (0.5 * arctan2(U, Q) in degrees) vs lambda^2,
+    and overlay best-fit line: chi_fit = derot_polangle + rm * lambda^2,
+    with a 1-sigma shaded band from independent errors:
+      sigma_chi(x)^2 = sigma_derot^2 + (x^2) * sigma_rm^2
+    """
+    nu = np.asarray(freq_hz, dtype=float)
+    Q = np.asarray(Q_jy, dtype=float)
+    U = np.asarray(U_jy, dtype=float)
+
+    m = np.isfinite(nu) & np.isfinite(Q) & np.isfinite(U) & (nu > 0)
+    if not np.any(m):
+        ax.text(0.5, 0.5, "No valid Q/U data", transform=ax.transAxes, ha="center")
+        return
+
+    lam2 = (c.to(u.m / u.s).value / nu[m])**2  # m^2
+    chi_deg = np.degrees(0.5 * np.arctan2(U[m], Q[m]))
+    chi_deg = _wrap_angle_deg(chi_deg)
+
+    # Data points
+    ax.scatter(lam2, chi_deg, s=12, alpha=0.9, label="data")
+
+    # Best-fit line and 1-sigma band
+    # Convert RM and its error to deg/m^2
+    rm_deg = rm_rad_m2 * (180.0 / np.pi)
+    rm_err_deg = rm_err_rad_m2 * (180.0 / np.pi)
+
+    x = np.linspace(lam2.min(), lam2.max(), 200)
+    chi_fit = derot_polangle_deg + rm_deg * x
+
+    # 1-sigma band assuming independence of intercept and slope
+    sigma = np.sqrt(derot_polangle_err_deg**2 + (x**2) * (rm_err_deg**2))
+
+    ax.plot(x, chi_fit, lw=1.2, label="best fit")
+    ax.fill_between(x, chi_fit - sigma, chi_fit + sigma, alpha=0.25, label="1-sigma")
+
+    ax.set_xlabel("lambda^2 [m^2]")
+    ax.set_ylabel("pol angle [deg]")
+    ax.set_title("Pol angle vs lambda^2")
+    ax.legend(fontsize=8, loc="best")
 
 
 def _compute_cutout_size_pixels(maj_deg: float, imageset_I: ImageSet) -> int:
@@ -325,6 +378,17 @@ def make_rm_validation_plots(
         _plot_rmsf(axes["RMSF"], phi_rmsf=phi_rmsf, rmsf=rmsf)
         _plot_fdf(axes["FDF"], phi_fdf=phi_fdf, fdf=fdf)
         _plot_summary_text(axes["TEXT"], cat_row=cat_row)
+
+        _plot_pol_angle(
+            axes["CHI"],
+            freq_hz=freq_hz,
+            Q_jy=Q_jy,
+            U_jy=U_jy,
+            derot_polangle_deg=float(cat_row["derot_polangle"]),
+            derot_polangle_err_deg=float(cat_row["derot_polangle_err"]),
+            rm_rad_m2=float(cat_row["rm"]),
+            rm_err_rad_m2=float(cat_row["rm_err"]),
+        )
 
         # Insets (I and P), using Maj*2 scaling (in degrees -> pixels via I-MFS WCS)
         center = SkyCoord(ra=float(cat_row["ra"]) * u.deg, dec=float(cat_row["dec"]) * u.deg, frame="icrs")

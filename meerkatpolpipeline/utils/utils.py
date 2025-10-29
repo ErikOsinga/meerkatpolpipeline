@@ -592,3 +592,9 @@ def find_pybdsf_filtered_cats(cube_imaging_workdir: Path) -> tuple[Path, Path]:
     
     return sourcelist_fits_filtered, sourcelist_reg_filtered
 
+
+def _wrap_angle_deg(chi_deg: np.ndarray) -> np.ndarray:
+    """
+    Wrap polarization angle to [-90, 90) deg to avoid 180-deg jumps.
+    """
+    return ((np.asarray(chi_deg) + 90.0) % 180.0) - 90.0
