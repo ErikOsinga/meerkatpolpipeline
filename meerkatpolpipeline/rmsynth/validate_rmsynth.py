@@ -254,19 +254,22 @@ def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
         if name in ['Source_ID', 'S_Code', 'IfitStat']:
             # raw string
             return str(cat_row[name]) if name in cat_row.colnames or name in cat_row.keys() else "N/A"
+        elif name in ['stokesI', 'stokesI_err', 'polint', 'polint_err']:
+            # float with 2 decimal places, in mJy
+            return str(f"{float(cat_row[name])*1e3:.2f}") if name in cat_row.colnames or name in cat_row.keys() else "N/A"
         else:
-            # float with 2 decimal places
+            # float with 2 decimal places, no unit conversion
             return str(f"{cat_row[name]:.2f}") if name in cat_row.colnames or name in cat_row.keys() else "N/A"
 
     lines = [
         f"Source_id: {get('Source_id')}",
-        f"Stokes I: {float(get('stokesI'))*1e3} mJy",
+        f"Stokes I: {float(get('stokesI'))} +/- {float(get('stokesI_err'))} mJy",
+        f"polint: {float(get('polint'))} +/- {float(get('polint_err'))} mJy",
+        f"fracpol: {get('fracpol')}",
         f"RM: {get('rm')} +/- {get('rm_err')} rad/m^2",
         f"SNR_PI: {get('SNR_PI')}",
         f"S_Code: {get('S_Code')}",
-        f"polint: {float(get('polint'))*1e3} +/- {float(get('polint_err'))*1e3} mJy",
         f"IfitStat: {get('IfitStat')}",
-        f"fracpol: {get('fracpol')}",
     ]
     ax.text(0.0, 1.0, "\n".join(lines), va="top", fontsize=10)
 
