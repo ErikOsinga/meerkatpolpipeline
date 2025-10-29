@@ -32,7 +32,6 @@ To use: call make_rm_validation_plots(...) from a driver (flow).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import dict, list, tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -275,7 +274,7 @@ def make_rm_validation_plots(
 
     for i in sel:
         logger.info(f"Making RM-synthesis validation plot for Source {i} out of {len(sel)} with snr_pi >= {snr_threshold}")
-        
+
         cat_row = catalog[i]
         source_id = cat_row["Source_id"]
 
