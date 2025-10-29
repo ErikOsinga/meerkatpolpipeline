@@ -105,7 +105,7 @@ def _build_figure() -> tuple[plt.Figure, dict[str, plt.Axes]]:
       [1,0] Q vs lambda^2          [1,1] U vs lambda^2     [1,2] Summary text
       [2,0] Inset I (image)        [2,1] Inset P (image)   [2,2] (unused)
     """
-    fig = plt.figure(figsize=(12, 10), constrained_layout=True)
+    fig = plt.figure(figsize=(18, 10), constrained_layout=True)
     gs = fig.add_gridspec(3, 3, height_ratios=[1.2, 1.2, 1.0], width_ratios=[1.0, 1.0, 1.0])
 
     ax_I = fig.add_subplot(gs[0, 0])
@@ -133,10 +133,11 @@ def _build_figure() -> tuple[plt.Figure, dict[str, plt.Axes]]:
     return fig, axes
 
 
-def _plot_stokes_I(ax: plt.Axes, freq_hz: np.ndarray, I_jy: np.ndarray) -> None:
+def _plot_stokes_I(ax: plt.Axes, freq_hz: np.ndarray, I_jy: np.ndarray, Ierr: np.ndarray) -> None:
     # Convert to GHz and mJy, log-log
     nu_ghz = np.asarray(freq_hz, dtype=float) / 1e9
     I_mJy = 1e3 * np.asarray(I_jy, dtype=float)
+    e_mJy = 1e3 * Ierr
 
     m = np.isfinite(nu_ghz) & np.isfinite(I_mJy) & (I_mJy > 0)
     if not np.any(m):
@@ -144,12 +145,15 @@ def _plot_stokes_I(ax: plt.Axes, freq_hz: np.ndarray, I_jy: np.ndarray) -> None:
         return
 
     ax.scatter(nu_ghz[m], I_mJy[m], s=12)
+    ax.errorbar(nu_ghz[m], I_mJy[m], yerr=e_mJy[m], fmt="o", ms=3, lw=0.8, alpha=0.9)
+
     ax.plot(nu_ghz[m], I_mJy[m], lw=0.8, alpha=0.6)
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("Frequency (GHz)")
     ax.set_ylabel("Stokes I [mJy]")
     ax.set_title("Stokes I vs frequency")
+    ax.grid()
 
 
 def _plot_Q_U(axQ: plt.Axes, axU: plt.Axes,
@@ -181,6 +185,7 @@ def _plot_Q_U(axQ: plt.Axes, axU: plt.Axes,
         ax.set_xlabel("lambda^2 [m^2]")
         ax.set_ylabel("Flux [Jy]")
         ax.set_title(f"{label} vs lambda^2")
+        ax.grid()
 
 
 def _plot_rmsf(ax: plt.Axes, phi_rmsf: np.ndarray, rmsf: np.ndarray) -> None:
@@ -206,13 +211,19 @@ def _plot_fdf(ax: plt.Axes, phi_fdf: np.ndarray, fdf: np.ndarray) -> None:
     ax.plot(x[m], y[m], lw=1.0)
     ax.set_xlabel("phi [rad/m^2]")
     ax.set_ylabel("amplitude [Jy/beam/RMSF]")
-    ax.set_title("FDF")
+    fdf_peak_loc = x[m][np.argmax(y[m])]
+    ax.set_title(f"FDF, peak at {fdf_peak_loc:.1f} rad/m^2")
 
 
 def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
     # Show required fields; any missing -> "N/A"
     def get(name: str) -> str:
-        return str(cat_row[name]) if name in cat_row.colnames or name in cat_row.keys() else "N/A"
+        if name in ['Source_ID', 'S_Code', 'IFitStat']:
+            # raw string
+            return str(cat_row[name]) if name in cat_row.colnames or name in cat_row.keys() else "N/A"
+        else:
+            # float with 2 decimal places
+            return str(f"{cat_row[name]:.2f}") if name in cat_row.colnames or name in cat_row.keys() else "N/A"
 
     lines = [
         f"Source_id: {get('Source_id')}",
@@ -274,9 +285,10 @@ def make_rm_validation_plots(
         raise KeyError("Catalog must contain 'SNR_PI' column.")
     sel = np.where(np.asarray(catalog["SNR_PI"], dtype=float) >= float(snr_threshold))[0]
 
-
+    counter = 0
     for i in sel:
-        logger.info(f"Making RM-synthesis validation plot for Source {i} out of {len(sel)} with SNR_PI >= {snr_threshold}")
+        logger.info(f"Plotting RM-synthesis validation for Source index {i}, number {counter} out of {len(sel)} with SNR_PI >= {snr_threshold}")
+        counter += 1
 
         cat_row = catalog[i]
         source_id = cat_row["Source_id"]
@@ -307,7 +319,7 @@ def make_rm_validation_plots(
         fig, axes = _build_figure()
 
         # Panels
-        _plot_stokes_I(axes["I"], freq_hz=freq_hz, I_jy=I_jy)
+        _plot_stokes_I(axes["I"], freq_hz=freq_hz, I_jy=I_jy, Ierr=Ierr)
         _plot_Q_U(axes["Q"], axes["U"], freq_hz=freq_hz,
                   Q_jy=Q_jy, U_jy=U_jy, Qerr=Qerr, Uerr=Uerr)
         _plot_rmsf(axes["RMSF"], phi_rmsf=phi_rmsf, rmsf=rmsf)
