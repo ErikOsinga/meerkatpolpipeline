@@ -288,9 +288,9 @@ def make_rm_validation_plots(
         Q_jy = np.asarray(spectra["stokesQ"][j_spc], dtype=float)
         U_jy = np.asarray(spectra["stokesU"][j_spc], dtype=float)
 
-        Ierr = spectra["stokesI_error"][j_spc] if "stokesI_error" in spectra.colnames else None
-        Qerr = spectra["stokesQ_error"][j_spc] if "stokesQ_error" in spectra.colnames else None
-        Uerr = spectra["stokesU_error"][j_spc] if "stokesU_error" in spectra.colnames else None
+        Ierr = spectra["stokesI_error"][j_spc] if "stokesI_error" in spectra.columns else None
+        Qerr = spectra["stokesQ_error"][j_spc] if "stokesQ_error" in spectra.columns else None
+        Uerr = spectra["stokesU_error"][j_spc] if "stokesU_error" in spectra.columns else None
         Ierr = np.asarray(Ierr, dtype=float) if Ierr is not None else None
         Qerr = np.asarray(Qerr, dtype=float) if Qerr is not None else None
         Uerr = np.asarray(Uerr, dtype=float) if Uerr is not None else None
