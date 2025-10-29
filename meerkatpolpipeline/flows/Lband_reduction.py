@@ -554,8 +554,8 @@ def process_science_fields(
         # Attempt to find PYBDSF filtered catalogue
         sourcelist_fits_filtered, sourcelist_reg_filtered = find_pybdsf_filtered_cats(cube_imaging_workdir)
 
-    if not sourcelist_fits.exists() or not sourcelist_reg.exists(): 
-        msg = f"PYBDSF results not found in {cube_imaging_workdir}, please check if PYBDSF was run correctly. Expected {sourcelist_fits}"
+    if not sourcelist_fits_filtered.exists() or not sourcelist_reg_filtered.exists(): 
+        msg = f"PYBDSF results not found in {cube_imaging_workdir}, please check if PYBDSF was run correctly. Expected {sourcelist_fits_filtered}"
         logger.error(msg)
         raise FileNotFoundError(msg)
 
