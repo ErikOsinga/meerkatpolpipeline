@@ -4,7 +4,7 @@ RM-synthesis validation plotting.
 Requirements/assumptions:
 - Load tables:
     - catalog: astropy Table with columns: 'Source_id', 'ra', 'dec', 'rm', 'rm_err',
-      'snr_pi', 'S_Code', 'polint', 'polint_err', 'IFitStat', 'fracpol', 'Maj' (deg)
+      'SNR_PI', 'S_Code', 'polint', 'polint_err', 'IFitStat', 'fracpol', 'Maj' (deg)
     - fdf_tbl: astropy Table with columns: 'Source_id', 'phi_fdf' (array), 'fdf' (array),
       'phi_rmsf' (array), 'rmsf' (array). Plot absolute amplitude for FDF and RMSF.
     - spectra: polspectra.polarizationspectra from polspectra.from_FITS, table-like with
@@ -214,7 +214,7 @@ def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
     lines = [
         f"Source_id: {get('Source_id')}",
         f"rm: {get('rm')} +/- {get('rm_err')} rad/m^2",
-        f"snr_pi: {get('snr_pi')}",
+        f"SNR_PI: {get('SNR_PI')}",
         f"S_Code: {get('S_Code')}",
         f"polint: {get('polint')} +/- {get('polint_err')} Jy",
         f"IFitStat: {get('IFitStat')}",
@@ -248,7 +248,7 @@ def make_rm_validation_plots(
     plot_dir: Path,
 ) -> list[Path]:
     """
-    Build one validation plot per source with snr_pi >= snr_threshold.
+    Build one validation plot per source with SNR_PI >= snr_threshold.
 
     Returns list of written PNG paths.
     """
@@ -267,13 +267,13 @@ def make_rm_validation_plots(
     snr_threshold = validation_rmsynth1d_options['snr_threshold']
 
     # Filter sources
-    if "snr_pi" not in catalog.colnames:
-        raise KeyError("Catalog must contain 'snr_pi' column.")
-    sel = np.where(np.asarray(catalog["snr_pi"], dtype=float) >= float(snr_threshold))[0]
+    if "SNR_PI" not in catalog.colnames:
+        raise KeyError("Catalog must contain 'SNR_PI' column.")
+    sel = np.where(np.asarray(catalog["SNR_PI"], dtype=float) >= float(snr_threshold))[0]
 
 
     for i in sel:
-        logger.info(f"Making RM-synthesis validation plot for Source {i} out of {len(sel)} with snr_pi >= {snr_threshold}")
+        logger.info(f"Making RM-synthesis validation plot for Source {i} out of {len(sel)} with SNR_PI >= {snr_threshold}")
 
         cat_row = catalog[i]
         source_id = cat_row["Source_id"]
