@@ -560,9 +560,12 @@ def find_rms(data: np.ndarray, mask_threshold: float = 1e-7) -> float:
     return rms_new
 
 
-def find_pybdsf_filtered_cats(cube_imaging_workdir: Path) -> tuple[Path, Path, Path]:
+def find_pybdsf_filtered_cats(cube_imaging_workdir: Path) -> tuple[Path, Path]:
     """
     Attempt to find filtered PyBDSF catalog files in the given cube imaging workdir.
+
+    returns:
+        tuple of Paths: (sourcelist_fits_filtered, sourcelist_reg_filtered)
     """
     # Assuming pybdsf results in these files
     sourcelist_fits = cube_imaging_workdir / 'sourcelist.srl.fits'
@@ -578,12 +581,12 @@ def find_pybdsf_filtered_cats(cube_imaging_workdir: Path) -> tuple[Path, Path, P
     sourcelist_reg_filtered = list(cube_imaging_workdir.glob('sourcelist_filtered_within_*_deg.reg'))
 
     if len(sourcelist_fits_filtered) == 1:
-        sourcelist_fits = sourcelist_fits_filtered[0]
+        sourcelist_fits_filtered = sourcelist_fits_filtered[0]
     else:
         raise ValueError(f"Could not uniquely identify filtered PyBDSF sourcelist in {cube_imaging_workdir}. Found: {sourcelist_fits_filtered}")
     
     if len(sourcelist_reg_filtered) == 1:
-        sourcelist_reg = sourcelist_reg_filtered[0]
+        sourcelist_reg_filtered = sourcelist_reg_filtered[0]
     else:
         raise ValueError(f"Could not uniquely identify filtered PyBDSF region file in {cube_imaging_workdir}. Found: {sourcelist_reg_filtered}")
     
