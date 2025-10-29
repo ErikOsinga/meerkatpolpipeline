@@ -46,6 +46,7 @@ from meerkatpolpipeline.utils.utils import (
     execute_command,
     filter_sources_within_radius,
     find_calibrated_ms,
+    find_pybdsf_filtered_cats,
     get_fits_image_center,
 )
 from meerkatpolpipeline.validation import (
@@ -550,10 +551,10 @@ def process_science_fields(
             can_be_pbcor = ["image"] # default, coarse_cube_imaging only does pbcor for 'image' files.
         )
 
-        # TODO: how to deal with pybdsf catalogue filtering if this step is disabled?
+        # Attempt to find PYBDSF filtered catalogue
+        sourcelist_fits_filtered, sourcelist_reg_filtered = find_pybdsf_filtered_cats(cube_imaging_workdir)
 
-
-    if not sourcelist_fits.exists() or not sourcelist_reg.exists() or not rmsmap.exists(): # will fail if coarse cube imaging is disabled
+    if not sourcelist_fits.exists() or not sourcelist_reg.exists(): 
         msg = f"PYBDSF results not found in {cube_imaging_workdir}, please check if PYBDSF was run correctly. Expected {sourcelist_fits}"
         logger.error(msg)
         raise FileNotFoundError(msg)
