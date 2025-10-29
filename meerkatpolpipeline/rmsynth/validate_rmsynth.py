@@ -61,6 +61,10 @@ class ValidateRMsynth1dOptions(BaseOptions):
     """name of targetfield. This option is propagated to every step."""
     snr_threshold: float = 7.0
     """SNR threshold in polarized intensity for making validation plots. Default 7.0"""
+    chan_for_i_cutout: int | None = None
+    """Optionally, use a channel for plotting the stokes I cutout. Useful when MFS image corrupted by bad channels"""
+    chan_for_qu_cutout: int | None = None
+    """Optionally, use a channel for plotting the stokes P cutout (Q^2+U^2)^0.5. Useful when MFS image corrupted by bad channels. 7 is a good default for 12 channel imaging in L-band."""
 
 
 # ---------------------- File helpers ----------------------
@@ -323,6 +327,7 @@ def make_rm_validation_plots(
             imageset_U=imageset_U,
             center=center,
             cutout_size_pix=cutout_size_pix,
+            validation_options=validation_rmsynth1d_options,
         )
 
         fig.suptitle(f"Source_id: {source_id}", fontsize=12)
