@@ -260,11 +260,11 @@ def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
 
     lines = [
         f"Source_id: {get('Source_id')}",
-        f"Stokes I: {get('stokesI')*1e3} mJy",
+        f"Stokes I: {float(get('stokesI'))*1e3} mJy",
         f"RM: {get('rm')} +/- {get('rm_err')} rad/m^2",
         f"SNR_PI: {get('SNR_PI')}",
         f"S_Code: {get('S_Code')}",
-        f"polint: {get('polint')*1e3} +/- {get('polint_err')*1e3} mJy",
+        f"polint: {float(get('polint'))*1e3} +/- {float(get('polint_err'))*1e3} mJy",
         f"IFitStat: {get('IFitStat')}",
         f"fracpol: {get('fracpol')}",
     ]
