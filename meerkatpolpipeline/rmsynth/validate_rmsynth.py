@@ -69,9 +69,9 @@ def _pixel_scale_deg_from_wcs(fits_path: Path) -> float:
     with fits.open(fits_path) as hdul:
         wcs = WCS(hdul[0].header).celestial
         # proj_plane_pixel_scales returns Quantity in angle/pixel
-        # Take mean of x/y to be robust to non-square pixels
-        scales = wcs.proj_plane_pixel_scales().to(u.deg).value
-        return float(np.mean(scales))
+        scales = wcs.proj_plane_pixel_scales() # should be 2-element list
+        assert scales[0] == scales[1], "Non-square pixels not supported."
+        return float(scales[0].to(u.deg).value)
 
 
 # ---------------------- Data access -----------------------
