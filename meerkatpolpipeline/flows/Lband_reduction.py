@@ -856,9 +856,9 @@ def process_science_fields(
 
     else:
         # assume cubes have been built
-        stokesIcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_i_pbcor_convolved.fits"
-        stokesQcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_q_pbcor_convolved.fits"
-        stokesUcube = fine_cube_imaging_workdir / "cubes" / f"{fine_cube_imaging_options['targetfield']}_stokes_u_pbcor_convolved.fits"
+        stokesIcube = fine_cube_imaging_workdir / "cubes" / f"{strategy['targetfield']}_stokes_i_pbcor_convolved.fits"
+        stokesQcube = fine_cube_imaging_workdir / "cubes" / f"{strategy['targetfield']}_stokes_q_pbcor_convolved.fits"
+        stokesUcube = fine_cube_imaging_workdir / "cubes" / f"{strategy['targetfield']}_stokes_u_pbcor_convolved.fits"
 
     
     ########## step 10: RM synthesis 1D ##########
