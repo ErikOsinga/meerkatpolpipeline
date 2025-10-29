@@ -184,9 +184,8 @@ def _plot_Q_U(axQ: plt.Axes, axU: plt.Axes,
 
 
 def _plot_rmsf(ax: plt.Axes, phi_rmsf: np.ndarray, rmsf: np.ndarray) -> None:
-    # Magnitude; label per requirement
-    x = np.asarray(phi_rmsf, dtype=float)
-    y = np.abs(np.asarray(rmsf, dtype=float))
+    x = phi_rmsf
+    y = np.abs(rmsf)
     m = np.isfinite(x) & np.isfinite(y)
     if not np.any(m):
         ax.text(0.5, 0.5, "No RMSF", transform=ax.transAxes, ha="center")
@@ -198,8 +197,8 @@ def _plot_rmsf(ax: plt.Axes, phi_rmsf: np.ndarray, rmsf: np.ndarray) -> None:
 
 
 def _plot_fdf(ax: plt.Axes, phi_fdf: np.ndarray, fdf: np.ndarray) -> None:
-    x = np.asarray(phi_fdf, dtype=float)
-    y = np.abs(np.asarray(fdf, dtype=float))
+    x = phi_fdf
+    y = np.abs(fdf)
     m = np.isfinite(x) & np.isfinite(y)
     if not np.any(m):
         ax.text(0.5, 0.5, "No FDF", transform=ax.transAxes, ha="center")
@@ -300,9 +299,9 @@ def make_rm_validation_plots(
         Uerr = np.asarray(Uerr, dtype=float) if Uerr is not None else None
 
         phi_fdf = np.asarray(fdf_tbl["phi_fdf"][j_fdf], dtype=float)
-        fdf = np.asarray(fdf_tbl["fdf"][j_fdf], dtype=float)
+        fdf = np.asarray(fdf_tbl["fdf"][j_fdf], dtype=complex)
         phi_rmsf = np.asarray(fdf_tbl["phi_rmsf"][j_fdf], dtype=float)
-        rmsf = np.asarray(fdf_tbl["rmsf"][j_fdf], dtype=float)
+        rmsf = np.asarray(fdf_tbl["rmsf"][j_fdf], dtype=complex)
 
         # Build figure
         fig, axes = _build_figure()
