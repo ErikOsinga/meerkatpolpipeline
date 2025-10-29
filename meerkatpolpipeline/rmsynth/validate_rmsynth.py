@@ -43,6 +43,9 @@ from astropy.table import Table
 from astropy.wcs import WCS
 from polspectra import from_FITS as polspectra_from_FITS
 from prefect.logging import get_run_logger
+from RMutils.util_misc import (
+    powerlaw_poly5,  # assumes fit_function='log' in RMsynth .ini file
+)
 
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import _wrap_angle_deg
@@ -137,7 +140,22 @@ def _build_figure() -> tuple[plt.Figure, dict[str, plt.Axes]]:
     return fig, axes
 
 
-def _plot_stokes_I(ax: plt.Axes, freq_hz: np.ndarray, I_jy: np.ndarray, Ierr: np.ndarray) -> None:
+def _plot_stokes_I(
+    ax: plt.Axes,
+    freq_hz: np.ndarray,
+    I_jy: np.ndarray,
+    Ierr: np.ndarray,
+    *,
+    model_params: tuple[float, float, float, float] | None = None,
+) -> None:
+    """
+    Plot observed stokes I spectrum and (optional) overplot model.
+
+    model_params: optional tuple (I_curvature, spectral_index, stokesI_Jy, reffreq_Hz)
+
+    See RM-tools powerlaw_poly5 for model definition. Assumes fit_type='log' in RMsynth .ini file.
+
+    """
     # Convert to GHz and mJy, log-log
     nu_ghz = np.asarray(freq_hz, dtype=float) / 1e9
     I_mJy = 1e3 * np.asarray(I_jy, dtype=float)
@@ -157,6 +175,18 @@ def _plot_stokes_I(ax: plt.Axes, freq_hz: np.ndarray, I_jy: np.ndarray, Ierr: np
     ax.set_ylabel("Stokes I [mJy]")
     ax.set_title("Stokes I vs frequency")
     ax.grid()
+
+    # overlay best-fit spectrum if available
+    if (model_params is not None):
+        I_curv, alpha, stokesI_Jy, reffreq_Hz = model_params
+        p = [I_curv, alpha, stokesI_Jy]
+        model = powerlaw_poly5(p)  # callable
+        y_model_Jy = model(freq_hz / float(reffreq_Hz))
+        y_model_mJy = 1e3 * np.asarray(y_model_Jy, dtype=float)
+        mm = np.isfinite(nu_ghz) & np.isfinite(y_model_mJy) & (y_model_mJy > 0)
+        if np.any(mm):
+            ax.plot(nu_ghz[mm], y_model_mJy[mm], lw=1.2, alpha=0.9, label="best-fit I model")
+            ax.legend(fontsize=8, loc="best")
 
 
 def _plot_Q_U(axQ: plt.Axes, axU: plt.Axes,
@@ -338,7 +368,7 @@ def make_rm_validation_plots(
         raise KeyError("Catalog must contain 'SNR_PI' column.")
     sel = np.where(np.asarray(catalog["SNR_PI"], dtype=float) >= float(snr_threshold))[0]
 
-    counter = 0
+    counter = 1
     for i in sel:
         logger.info(f"Plotting RM-synthesis validation for Source index {i}, number {counter} out of {len(sel)} with SNR_PI >= {snr_threshold}")
         counter += 1
@@ -372,7 +402,20 @@ def make_rm_validation_plots(
         fig, axes = _build_figure()
 
         # Panels
-        _plot_stokes_I(axes["I"], freq_hz=freq_hz, I_jy=I_jy, Ierr=Ierr)
+        model_params = (
+            float(cat_row["I_curvature"]),
+            float(cat_row["spectral_index"]),
+            float(cat_row["stokesI"]),       # Jy
+            float(cat_row["reffreq_pol"]),   # Hz
+        )
+        # plot stokes I and RM-synthesis best-fit model
+        _plot_stokes_I(
+            axes["I"],
+            freq_hz=freq_hz,
+            I_jy=I_jy,
+            Ierr=Ierr,
+            model_params=model_params
+        )
         _plot_Q_U(axes["Q"], axes["U"], freq_hz=freq_hz,
                   Q_jy=Q_jy, U_jy=U_jy, Qerr=Qerr, Uerr=Uerr)
         _plot_rmsf(axes["RMSF"], phi_rmsf=phi_rmsf, rmsf=rmsf)
