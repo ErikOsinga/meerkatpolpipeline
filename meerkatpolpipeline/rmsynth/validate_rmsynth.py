@@ -4,7 +4,7 @@ RM-synthesis validation plotting.
 Requirements/assumptions:
 - Load tables:
     - catalog: astropy Table with columns: 'Source_id', 'ra', 'dec', 'rm', 'rm_err',
-      'SNR_PI', 'S_Code', 'polint', 'polint_err', 'IFitStat', 'fracpol', 'Maj' (deg)
+      'SNR_PI', 'S_Code', 'polint', 'polint_err', 'IfitStat', 'fracpol', 'Maj' (deg)
     - fdf_tbl: astropy Table with columns: 'Source_id', 'phi_fdf' (array), 'fdf' (array),
       'phi_rmsf' (array), 'rmsf' (array). Plot absolute amplitude for FDF and RMSF.
     - spectra: polspectra.polarizationspectra from polspectra.from_FITS, table-like with
@@ -251,7 +251,7 @@ def _plot_fdf(ax: plt.Axes, phi_fdf: np.ndarray, fdf: np.ndarray) -> None:
 def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
     # Show required fields; any missing -> "N/A"
     def get(name: str) -> str:
-        if name in ['Source_ID', 'S_Code', 'IFitStat']:
+        if name in ['Source_ID', 'S_Code', 'IfitStat']:
             # raw string
             return str(cat_row[name]) if name in cat_row.colnames or name in cat_row.keys() else "N/A"
         else:
@@ -265,7 +265,7 @@ def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
         f"SNR_PI: {get('SNR_PI')}",
         f"S_Code: {get('S_Code')}",
         f"polint: {float(get('polint'))*1e3} +/- {float(get('polint_err'))*1e3} mJy",
-        f"IFitStat: {get('IFitStat')}",
+        f"IfitStat: {get('IfitStat')}",
         f"fracpol: {get('fracpol')}",
     ]
     ax.text(0.0, 1.0, "\n".join(lines), va="top", fontsize=10)
