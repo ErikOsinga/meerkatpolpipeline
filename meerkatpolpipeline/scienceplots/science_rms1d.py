@@ -644,7 +644,7 @@ def running_scatter_vs_radius(
         each element is a 1D bootstrap array. Returns (y, yerr_low, yerr_up).
         """
         arr = np.asarray(arr, dtype=object) if isinstance(arr, (list, tuple)) or getattr(arr, "dtype", None) is None else arr
-        if getattr(arr, "dtype", None) is object:
+        if isinstance(getattr(arr, "dtype", None), object):
             y = np.empty(len(arr), float)
             ylo = np.empty(len(arr), float)
             yhi = np.empty(len(arr), float)
