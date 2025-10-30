@@ -463,6 +463,8 @@ def make_rm_validation_plots(
             derot_polangle_err_deg=float(cat_row["derot_polangle_err"]),
             rm_rad_m2=float(cat_row["rm"]),
             rm_err_rad_m2=float(cat_row["rm_err"]),
+            Qerr=Qerr,
+            Uerr=Uerr
         )
 
         # Insets (I and P), using Maj*2 scaling (in degrees -> pixels via I-MFS WCS)
