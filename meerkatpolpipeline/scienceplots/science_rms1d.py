@@ -968,7 +968,7 @@ def plot_mfs_image_publication(
     ax.set_ylabel(r"$\mathrm{Dec}$")
 
     # Colorbar
-    cbar = fig.colorbar(ax.images[0], ax=ax, pad=0.01, fraction=0.045)
+    cbar = fig.colorbar(ax.images[0], ax=ax, pad=0.01, fraction=0.046)
     cbar.set_label(cbar_label)
 
     # Title
