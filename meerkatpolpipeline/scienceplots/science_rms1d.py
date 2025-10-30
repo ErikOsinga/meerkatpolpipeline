@@ -19,6 +19,7 @@ from astropy.visualization import (
 )
 from astropy.wcs import WCS
 from matplotlib.colors import TwoSlopeNorm
+from astropy.nddata import Cutout2D
 
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import PrintLogger, _get_option
@@ -84,6 +85,8 @@ class ScienceRMSynth1DOptions(BaseOptions):
     """Lower display limit for MFS image. If None, use percentile (99.5%) with arcsinh scaling."""
     mfs_image_vmax: float | None = None
     """Upper display limit for MFS image. If None, use percentile (99.5%) with arcsinh scaling."""
+    mfs_image_width_deg: float | None = None
+    """If set, crop the MFS image to a square of this width (deg) centered on `center_coord`."""
 
 
 def _find_col(tbl: Table, candidates):
@@ -867,9 +870,10 @@ def running_scatter_vs_radius(
 def plot_mfs_image_publication(
     science_options: dict | ScienceRMSynth1DOptions,
     stokesI_MFS: Path,
+    center_coord: SkyCoord,
     plot_dir: Path,
     logger=None,
-):
+) -> None:
     """
     Render a publication-grade Stokes-I MFS image using WCS, with arcsinh scaling and
     the 'inferno' colormap. If both mfs_image_vmin and mfs_image_vmax are None, use
@@ -909,6 +913,21 @@ def plot_mfs_image_publication(
 
     # Celestial WCS
     wcs = WCS(hdr).celestial
+
+    # Optional cutout around the centre
+    width_deg = _get_option(science_options, "mfs_image_width_deg", None)
+    if width_deg is not None:
+        try:
+            size = (width_deg * u.deg, width_deg * u.deg)
+        except Exception:
+            # be robust if user passes a Quantity already
+            size = (float(width_deg) * u.deg, float(width_deg) * u.deg)
+        cut = Cutout2D(
+            data, position=center_coord, size=size, wcs=wcs, mode="trim"
+        )
+        data = cut.data
+        wcs = cut.wcs
+
 
     # Determine display normalization
     finite = np.isfinite(data)
@@ -1030,6 +1049,7 @@ def generate_science_plots(
     plot_mfs_image_publication(
         science_options,
         stokesI_MFS=stokesI_MFS,
+        center_coord=center_coord,
         plot_dir=output_dir,
         logger=logger,
     )
