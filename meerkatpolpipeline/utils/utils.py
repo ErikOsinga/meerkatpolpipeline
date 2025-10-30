@@ -598,3 +598,11 @@ def _wrap_angle_deg(chi_deg: np.ndarray) -> np.ndarray:
     Wrap polarization angle to [-90, 90) deg to avoid 180-deg jumps.
     """
     return ((np.asarray(chi_deg) + 90.0) % 180.0) - 90.0
+
+
+def _get_option(opts, key, default=None):
+    """Access option whether `opts` is a dict or a dataclass-like object."""
+    try:
+        return opts[key]
+    except Exception:
+        return getattr(opts, key, default)
