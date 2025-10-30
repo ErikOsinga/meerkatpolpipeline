@@ -327,9 +327,9 @@ def _plot_pol_angle(ax: plt.Axes,
 
     # Data points (with error bars if available)
     if yerr_deg is not None:
-        ax.errorbar(lam2, chi_deg, yerr=yerr_deg, fmt="o", ms=3, lw=0.8, alpha=0.9, label="data")
+        ax.errorbar(lam2, chi_deg, yerr=yerr_deg, fmt="o", ms=3, lw=0.8, alpha=0.9, label="data",color='C0')
     else:
-        ax.scatter(lam2, chi_deg, s=12, alpha=0.9, label="data")
+        ax.scatter(lam2, chi_deg, s=12, alpha=0.9, label="data", color='C0')
 
     # Best-fit line and 1-sigma band
     # Convert RM and its error to deg/m^2
@@ -343,8 +343,8 @@ def _plot_pol_angle(ax: plt.Axes,
     # 1-sigma band assuming independence of intercept and slope
     sigma = np.sqrt(derot_polangle_err_deg**2 + (x**2) * (rm_err_deg**2))
 
-    ax.plot(x, chi_fit, lw=1.2, label="best fit")
-    ax.fill_between(x, chi_fit - sigma, chi_fit + sigma, alpha=0.25, label="1-sigma")
+    ax.plot(x, chi_fit, lw=1.2, label="best fit", color='C1')
+    ax.fill_between(x, chi_fit - sigma, chi_fit + sigma, alpha=0.25, label="1-sigma",color='C1')
 
     ax.set_xlabel("lambda^2 [m^2]")
     ax.set_ylabel("pol angle [deg]")
