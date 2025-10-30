@@ -39,9 +39,9 @@ from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
 from meerkatpolpipeline.rmsynth.rmsynth1d import run_rmsynth1d
 from meerkatpolpipeline.rmsynth.validate_rmsynth import make_rm_validation_plots
+from meerkatpolpipeline.scienceplots import science_rms1d
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
-from meerkatpolpipeline.scienceplots import science_rms1d
 from meerkatpolpipeline.utils.rename_pybdsf_cat import rename_columns
 from meerkatpolpipeline.utils.utils import (
     execute_command,
@@ -933,6 +933,7 @@ def process_science_fields(
             rms1d_catalog=rms1d_catalog,
             rms1d_fdf=rms1d_fdf,
             rms1d_spectra=rms1d_spectra,
+            center_coord=center_coord,
             output_dir=science_plots_workdir,
             logger=logger
         )
