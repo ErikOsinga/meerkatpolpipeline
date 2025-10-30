@@ -52,8 +52,8 @@ KNOWN_OPERATIONS = (
     "validate_rmsynth1d",
     "rmsynth3d",
     "validate_rmsynth3d",
-    "science_plots_rms1d"
-    "science_plots_rms3d"
+    "science_plots_rms1d",
+    "science_plots_rms3d",
 )
 FORMAT_VERSION = 0.1
 STRATEGY_OPTIONS_MAPPING = {
