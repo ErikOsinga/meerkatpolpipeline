@@ -78,6 +78,8 @@ class ScienceRMSynth1DOptions(BaseOptions):
     """Number of points in fixed-count window for running scatter vs radius plot. If null, uses window size."""
     running_scatter_nbootstrap: int | None = None
     """Number of bootstrap resamples for running scatter uncertainty estimation. If null, no bootstrap."""
+    running_scatter_binwidth_visualisation: str | None = None
+    """How to visualise the running-bin width: 'upperpanel' (x-whiskers), 'lowerpanel' (r_min/r_max panel), or None."""
 
 
 def _find_col(tbl: Table, candidates):
@@ -724,31 +726,62 @@ def running_scatter_vs_radius(
 
     # Do we need a second panel for Npoints?
     xwidth = _get_option(science_options, "running_scatter_window_arcmin")
-    want_N_panel = xwidth is not None  # fixed-width windows → varying N
 
     # --- Plotting
-    if want_N_panel:
+    # --- Compute bin edges and x-error (arcmin)
+    left_bounds   = np.asarray(rs.left_bounds,    float)
+    window_widths = np.asarray(rs.window_widths,  float)
+    x             = np.asarray(rs.medians_x,      float)
+
+    right_bounds  = left_bounds + window_widths
+    xerr_left  = np.clip(x - left_bounds, 0.0, None)
+    xerr_right = np.clip(right_bounds - x, 0.0, None)
+    xerr = np.vstack([xerr_left, xerr_right])  # (2, N)
+
+    # Decide visualization mode
+    binvis = _get_option(science_options, "running_scatter_binwidth_visualisation", None)
+    binvis = None if binvis is None else str(binvis).lower()
+
+    # When to show a lower panel?
+    # - If user asked 'lowerpanel' and we have fixed-count windows (Mfix set, xwidth None) -> show rmin/rmax there
+    # - If fixed-width windows (xwidth set) -> show N per bin (same as before), regardless of binvis
+    want_lowerpanel = False
+    show_rminmax_panel = False
+    if xwidth is not None:
+        want_lowerpanel = True  # varying N: show N panel
+    elif Mfix is not None and binvis == "lowerpanel":
+        want_lowerpanel = True
+        show_rminmax_panel = True
+
+    # x-whiskers only for 'upperpanel'; otherwise no xerr
+    use_xerr = (binvis == "upperpanel")
+    xerr_to_use = xerr if use_xerr else None
+
+    # Figure layout
+    if want_lowerpanel:
         fig, (ax, ax2) = plt.subplots(
-            2, 1, sharex=True, figsize=(5.4, 5.4), height_ratios=[2.6, 1.0]
+            2, 1, sharex=True, figsize=(5.6, 5.6), height_ratios=[2.6, 1.0]
         )
     else:
-        fig, ax = plt.subplots(figsize=(5.2, 3.9))
+        fig, ax = plt.subplots(figsize=(5.2, 6.9))
         ax2 = None
 
-    # --- Top panel: sigma vs radius with asymmetric x-whiskers and optional y-errors
+    # --- Top panel: sigma vs radius (with optional y-errors and optional x-whiskers)
     if elo is not None and ehi is not None:
         ax.errorbar(
             x, sigma,
-            xerr=xerr, yerr=[elo, ehi],
-            fmt="o-", ms=3.5, lw=1.1, elinewidth=0.9,
-            capsize=2.0, alpha=0.95,
+            xerr=xerr_to_use, yerr=[elo, ehi],
+            fmt="o", ms=3.5, lw=1.1, elinewidth=0.9,
+            capsize=2.0 if use_xerr else 2.0,
+            alpha=0.95,
         )
     else:
         ax.errorbar(
             x, sigma,
-            xerr=xerr,
-            fmt="o-", ms=3.5, lw=1.1, elinewidth=0.9,
-            capsize=0.0, alpha=0.95,
+            xerr=xerr_to_use,
+            fmt="o", ms=3.5, lw=1.1, elinewidth=0.9,
+            capsize=2.0 if use_xerr else 0.0,
+            alpha=0.95,
         )
 
     ax.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
@@ -757,31 +790,49 @@ def running_scatter_vs_radius(
     else:
         ax.set_ylabel(r"$\sigma_{\mathrm{RM}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
 
-    # Secondary kpc axis (top) if redshift given
+    # Secondary kpc axis on top (colored as you set elsewhere)
     if have_kpc_axis:
         secax = ax.secondary_xaxis("top", functions=(arcmin_to_kpc, kpc_to_arcmin))
-
+        kpc_color = "#1f77b4"
         secax.set_xlabel(
             r"Radius to centre ($\mathrm{kpc}$)"
             + f"  [Planck18, $z={float(z):.3f}$]",
-            color=KPC_AXIS_COLOR,
+            color=kpc_color,
         )
-
-        # set tick and spine colors to match
-        secax.tick_params(axis="x", colors=KPC_AXIS_COLOR, which="both")
-        secax.spines["top"].set_color(KPC_AXIS_COLOR)
-        secax.xaxis.label.set_color(KPC_AXIS_COLOR)
-
+        secax.tick_params(axis="x", colors=kpc_color)
+        secax.spines["top"].set_color(kpc_color)
+        secax.xaxis.label.set_color(kpc_color)
 
     ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
 
-    # --- Bottom panel: N per bin (only when xwidth is fixed)
-    if want_N_panel and ax2 is not None:
-        Npoints = np.asarray(rs.Npoints, int)
-        ax2.plot(x, Npoints, "s-", ms=3.0, lw=1.0)
-        ax2.set_ylabel(r"$N_{\mathrm{bin}}$")
-        ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
-        ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+    # --- Lower panel content
+    if want_lowerpanel and ax2 is not None:
+        if show_rminmax_panel:
+            # Show r_min and r_max of each running bin
+            rmin_arcmin = left_bounds
+            rmax_arcmin = right_bounds
+            if have_kpc_axis:
+                rmin = arcmin_to_kpc(rmin_arcmin)
+                rmax = arcmin_to_kpc(rmax_arcmin)
+                ylab = r"$r_{\min},\,r_{\max}\;(\mathrm{kpc})$"
+            else:
+                rmin = rmin_arcmin
+                rmax = rmax_arcmin
+                ylab = r"$r_{\min},\,r_{\max}\;(\mathrm{arcmin})$"
+
+            ax2.plot(x, rmin, "s-", ms=2.8, lw=1.0, label=r"$r_{\min}$")
+            ax2.plot(x, rmax, "o-", ms=2.8, lw=1.0, label=r"$r_{\max}$")
+            ax2.set_ylabel(ylab)
+            ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
+            ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+            ax2.legend(frameon=False, loc="best")
+        else:
+            # Fixed-width: show N per bin (as before)
+            Npoints = np.asarray(rs.Npoints, int)
+            ax2.plot(x, Npoints, "s-", ms=3.0, lw=1.0)
+            ax2.set_ylabel(r"$N_{\mathrm{bin}}$")
+            ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
+            ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
 
     fig.tight_layout()
 
