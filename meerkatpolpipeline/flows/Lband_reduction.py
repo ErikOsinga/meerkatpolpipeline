@@ -466,8 +466,8 @@ def process_science_fields(
             cube_imaging_options['corrected_extracted_mses'] = corrected_extracted_mses
 
         # Make quicklook 12-channel cubes in IQU of the target field, with pb correction.
-        task_image_smallcubes = task(go_wsclean_cube_imaging_target, name="wsclean_smallcubes_target")
-        imageset_I, imageset_Q, imageset_U, imageset_I_mfs = task_image_smallcubes(
+        task_image_coarsecubes = task(go_wsclean_cube_imaging_target, name="wsclean_coarsecubes_target")
+        imageset_I, imageset_Q, imageset_U, imageset_I_mfs = task_image_coarsecubes(
             ms = corrected_extracted_mses,
             working_dir = cube_imaging_workdir,
             lofar_container=lofar_container,
