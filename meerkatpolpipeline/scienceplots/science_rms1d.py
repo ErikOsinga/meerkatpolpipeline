@@ -20,6 +20,8 @@ from astropy.visualization import (
 from astropy.wcs import WCS
 from matplotlib.colors import TwoSlopeNorm
 from astropy.nddata import Cutout2D
+from matplotlib.patches import Circle
+from astropy.visualization.wcsaxes import SphericalCircle
 
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import PrintLogger, _get_option
@@ -87,6 +89,8 @@ class ScienceRMSynth1DOptions(BaseOptions):
     """Upper display limit for MFS image. If None, use percentile (99.5%) with arcsinh scaling."""
     mfs_image_width_deg: float | None = None
     """If set, crop the MFS image to a square of this width (deg) centered on `center_coord`."""
+    cluster_r500_deg: float | None = None
+    """If set, draw a yellow dashed circle of this radius (deg) centered on `center_coord`, labeled $R_{\\mathrm{500}}$."""
 
 
 def _find_col(tbl: Table, candidates):
@@ -147,6 +151,47 @@ def _scale_scatter_method_to_sigma(method: str) -> float:
     elif method == 'std':
         scale_by = 1.0
     return scale_by
+
+
+def _draw_r500_circle_plain(ax, center_coord: SkyCoord, r500_deg: float):
+    """Draw R500 on a plain RA/Dec axes (no WCS projection)."""
+    circ = Circle(
+        (center_coord.ra.deg, center_coord.dec.deg),
+        radius=float(r500_deg),
+        fill=False, ls="--", lw=1.2, ec="yellow", alpha=0.9,
+        zorder=3,
+    )
+    ax.add_patch(circ)
+    # label near the top of the circle
+    ax.text(
+        center_coord.ra.deg,
+        center_coord.dec.deg + float(r500_deg),
+        r"$R_{\mathrm{500}}$",
+        color="yellow", ha="center", va="bottom", fontsize=10, zorder=4,
+    )
+
+
+def _draw_r500_circle_wcs(ax, center_coord: SkyCoord, r500_deg: float):
+    """Draw R500 on a WCSAxes projection using a spherical circle."""
+    circ = SphericalCircle(
+        center=center_coord,
+        radius=float(r500_deg) * u.deg,
+        edgecolor="yellow", facecolor="none",
+        linestyle="--", linewidth=1.2, alpha=0.9,
+        transform=ax.get_transform("world"),
+        zorder=3,
+    )
+    ax.add_patch(circ)
+    # label at 'top' point (roughly dec + r)
+    ax.text(
+        center_coord.ra.deg,
+        center_coord.dec.deg + float(r500_deg),
+        r"$R_{\mathrm{500}}$",
+        color="yellow", ha="center", va="bottom", fontsize=10,
+        transform=ax.get_transform("world"),
+        zorder=4,
+    )
+
 
 
 def plot_rm_vs_radius(
@@ -360,6 +405,15 @@ def plot_rm_bubble_map(
     # Mark cluster centre
     ax.plot(center_coord.ra.deg, center_coord.dec.deg, marker="*", ms=10, mec="k", mfc="none", lw=1.0)
 
+    # Optional R500 overlay
+    r500_deg = _get_option(science_options, "cluster_r500_deg", None)
+    if r500_deg is not None:
+        try:
+            _draw_r500_circle_plain(ax, center_coord, float(r500_deg))
+        except Exception as e:
+            logger.warning(f"Could not draw R500 circle (plain): {e}")
+
+
     # Axes and labels
     ax.set_xlabel(r"$\mathrm{RA}\;(\deg)$")
     ax.set_ylabel(r"$\mathrm{Dec}\;(\deg)$")
@@ -525,6 +579,15 @@ def plot_rm_bubble_map_on_stokesI(
         marker="*", ms=10, mec="k", mfc="none", lw=1.0,
         transform=ax.get_transform("world"),
     )
+
+    # Optional R500 overlay (WCS)
+    r500_deg = _get_option(science_options, "cluster_r500_deg", None)
+    if r500_deg is not None:
+        try:
+            _draw_r500_circle_wcs(ax, center_coord, float(r500_deg))
+        except Exception as e:
+            logger.warning(f"Could not draw R500 circle (WCS): {e}")
+
 
     # Axes & grid (WCSAxes handles labels/units)
     ax.grid(color="white", alpha=0.2, ls=":", lw=0.8)
@@ -961,6 +1024,15 @@ def plot_mfs_image_publication(
     fig = plt.figure(figsize=(5.4, 4.6))
     ax = plt.subplot(111, projection=wcs)
     im = ax.imshow(data, origin="lower", cmap="inferno", norm=norm)  # noqa: F841
+
+    # Optional R500 overlay (WCS)
+    r500_deg = _get_option(science_options, "cluster_r500_deg", None)
+    if r500_deg is not None:
+        try:
+            _draw_r500_circle_wcs(ax, center_coord, float(r500_deg))
+        except Exception as e:
+            logger.warning(f"Could not draw R500 circle (WCS): {e}")
+
 
     # Axis cosmetics (publication-leaning)
     ax.grid(alpha=0.15, linestyle=":", linewidth=0.8)
