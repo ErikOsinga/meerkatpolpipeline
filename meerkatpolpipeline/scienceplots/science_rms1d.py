@@ -46,7 +46,7 @@ mpl.rcParams.update({
 })
 
 RM_COL_OPTIONS = ["RM", "RM_rad_m2", "rm", "RM_obs", "RM_obs_rad_m2"]
-RM_ERR_COL_OPTIONS = ["e_RM", "RM_ERR", "RM_err", "dRM", "ERR_RM", "RM_err"]
+RM_ERR_COL_OPTIONS = ["e_RM", "RM_ERR", "rm_err", "dRM", "ERR_RM", "RM_err"]
 RA_COL_OPTIONS = ["RA", "ra", "RA_deg", "RAJ2000", "optRA"]
 DEC_COL_OPTIONS = ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"]
 KPC_AXIS_COLOR = "#1f77b4" # mpl default blue
@@ -637,67 +637,71 @@ def running_scatter_vs_radius(
 
     logger.info(f"Made {len(rs.medians_x)} running bins from {len(RM)} sources")
 
-    # Helper: summarize bootstrap/object arrays -> (median, low, high)
-    def _summarize(arr):
-        """
-        Accepts either a float array (shape [nbin]) or an object array where
-        each element is a 1D bootstrap array. Returns (y, yerr_low, yerr_up).
-        """
-        arr = np.asarray(arr, dtype=object) if isinstance(arr, (list, tuple)) or getattr(arr, "dtype", None) is None else arr
-        if isinstance(getattr(arr, "dtype", None), object):
-            y = np.empty(len(arr), float)
-            ylo = np.empty(len(arr), float)
-            yhi = np.empty(len(arr), float)
-            for i, samp in enumerate(arr):
-                samp = np.asarray(samp, float)
-                if samp.size == 0 or not np.all(np.isfinite(samp)):
-                    y[i] = np.nan
-                    ylo[i] = np.nan
-                    yhi[i] = np.nan
-                else:
-                    y[i]  = np.nanmedian(samp)
-                    p16   = np.nanpercentile(samp, 16.0)
-                    p84   = np.nanpercentile(samp, 84.0)
-                    ylo[i] = y[i] - p16
-                    yhi[i] = p84 - y[i]
-            return y, ylo, yhi
-        else:
-            # No bootstrap -> no vertical error bars from the statistic
-            return np.asarray(arr, float), None, None
-
-    # Choose base scatter statistic
+    # --- Choose base statistic array (per-bin), possibly bootstrap object arrays
     method = str(_get_option(science_options, "running_scatter_method", "iqr")).lower()
     if method == "std":
-        base_stat, elo, ehi = _summarize(rs.stds_y)
+        stat_arr = rs.stds_y
     elif method == "iqr":
-        base_stat, elo, ehi = _summarize(rs.iqrs_y)
+        stat_arr = rs.iqrs_y
     elif method == "mad":
-        base_stat, elo, ehi = _summarize(rs.MADs_y)
+        stat_arr = rs.MADs_y
     else:
         raise ValueError(f"Unknown running_scatter_method={method!r} (expected 'std'|'iqr'|'mad').")
 
-    # Convert chosen statistic to Gaussian sigma
+    # Convert chosen statistic to Gaussian sigma using the appropriate scale factor
     scale_by = _scale_scatter_method_to_sigma(method)
-    sigma = base_stat / scale_by
-    if elo is not None and ehi is not None:
-        elo = elo / scale_by
-        ehi = ehi / scale_by
 
-    # Correct for measurement error if available: sigma_intr^2 = sigma_est^2 - Yerrcor_sq
+    # Prepare measurement-error variance per bin (None if unavailable or mismatched)
+    yerrcor_sq = getattr(rs, "Yerrcor_sq", None)
+    if yerrcor_sq is not None:
+        yerrcor_sq = np.asarray(yerrcor_sq, float)
+    if (yerrcor_sq is not None) and (yerrcor_sq.shape != np.asarray(rs.medians_x).shape):
+        logger.warning("Yerrcor_sq shape does not match number of bins; skipping measurement-error correction.")
+        yerrcor_sq = None
 
-    logger.warning("TODO: implement correction also for 'extrinsic' scatter")
-    if getattr(rs, "Yerrcor_sq", None) is not None:
-        yerrcor = np.asarray(rs.Yerrcor_sq, float)
-        if yerrcor.shape == sigma.shape:
-            sigma2 = np.clip(sigma**2 - yerrcor, a_min=0.0, a_max=None)
-            sigma = np.sqrt(sigma2)
-            # Propagate bootstrap error bars through the same subtraction (approximation):
-            if elo is not None and ehi is not None:
-                # Finite-difference style propagation on the +/− bars
-                sigma_plus  = np.sqrt(np.clip((sigma + ehi)**2 - yerrcor, 0.0, None))
-                sigma_minus = np.sqrt(np.clip((np.maximum(sigma - elo, 0.0))**2 - yerrcor, 0.0, None))
-                ehi = np.abs(sigma_plus - sigma)
-                elo = np.abs(sigma - sigma_minus)
+    logger.warning("TODO: implement correction also for 'extrinsic' scatter.")
+
+    # Apply measurement-error correction **before** summarising bootstraps, then summarise.
+    # For bootstrap object arrays: correct each bootstrap sample: sigma = sqrt(max((stat/scale_by)^2 - yerrcor_sq, 0))
+    # For plain arrays: same correction, but no vertical error bars available.
+    def _summarize_and_correct_sigma(stat_arr, scale_by, yerrcor_sq):
+        arr = np.asarray(stat_arr, dtype=object) if (
+            isinstance(stat_arr, (list, tuple)) or getattr(stat_arr, "dtype", None) is None
+        ) else stat_arr
+
+        # Bootstrap/object case
+        if isinstance(getattr(arr, "dtype", None), object):
+            
+            # convert to 1sigma, and float array
+            arr = np.asarray(arr, dtype=float) / scale_by
+
+            # correct each bootstrap-sampled bin for measurement error
+            sig_samp = np.sqrt( np.clip (arr**2 - yerrcor_sq[:,np.newaxis], a_min=0.0, a_max=None)) # shape (nbin, nboot)
+
+            # TODO: extrinsic scatter correction here in future
+            # .... (calculate in script somewhere or allow user override?)
+
+            # summarize per-bin bootstrap distributions
+            med = np.nanmedian(sig_samp, axis=1)
+            p16 = np.nanpercentile(sig_samp, 16.0, axis=1)
+            p84 = np.nanpercentile(sig_samp, 84.0, axis=1)
+            
+            # return in standard format
+            y   = med
+            ylo = med - p16
+            yhi = p84 - med
+
+            return y, ylo, yhi
+        
+        else:
+            # Non-bootstrap (plain float array) case. No vertical errorbars
+            sigma = np.asarray(arr, float) / scale_by
+            if yerrcor_sq is not None:
+                sigma = np.sqrt(np.clip(sigma**2 - yerrcor_sq, 0.0, None))
+            # TODO: extrinsic scatter correction here in future
+            return sigma, None, None
+
+    sigma, elo, ehi = _summarize_and_correct_sigma(stat_arr, scale_by, yerrcor_sq)
 
     # X positions for plotting
     x = np.asarray(rs.medians_x, float)
@@ -772,7 +776,7 @@ def running_scatter_vs_radius(
             x, sigma,
             xerr=xerr_to_use, yerr=[elo, ehi],
             fmt="o", ms=3.5, lw=1.1, elinewidth=0.9,
-            capsize=2.0 if use_xerr else 2.0,
+            capsize=2.0,
             alpha=0.95, color='k'
         )
     else:
