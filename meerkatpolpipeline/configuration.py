@@ -20,6 +20,7 @@ from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.rmsynth.rmsynth1d import RMSynth1Doptions
 from meerkatpolpipeline.rmsynth.validate_rmsynth import ValidateRMsynth1dOptions
+from meerkatpolpipeline.scienceplots.science_rms1d import ScienceRMSynth1DOptions
 from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions
 from meerkatpolpipeline.utils.utils import add_timestamp_to_path
 from meerkatpolpipeline.validation.validate_field import ValidateFieldOptions
@@ -51,7 +52,8 @@ KNOWN_OPERATIONS = (
     "validate_rmsynth1d",
     "rmsynth3d",
     "validate_rmsynth3d",
-    "science_plots"
+    "science_plots_rms1d"
+    "science_plots_rms3d"
 )
 FORMAT_VERSION = 0.1
 STRATEGY_OPTIONS_MAPPING = {
@@ -65,6 +67,7 @@ STRATEGY_OPTIONS_MAPPING = {
     "fine_cube_imaging": FineCubeImagingOptions,
     "rmsynth1d": RMSynth1Doptions,
     "validate_rmsynth1d": ValidateRMsynth1dOptions,
+    "science_plots_rms1d": ScienceRMSynth1DOptions,
     # TODO
 }
 

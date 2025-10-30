@@ -41,6 +41,7 @@ from meerkatpolpipeline.rmsynth.rmsynth1d import run_rmsynth1d
 from meerkatpolpipeline.rmsynth.validate_rmsynth import make_rm_validation_plots
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
+from meerkatpolpipeline.scienceplots import science_rms1d
 from meerkatpolpipeline.utils.rename_pybdsf_cat import rename_columns
 from meerkatpolpipeline.utils.utils import (
     execute_command,
@@ -554,6 +555,9 @@ def process_science_fields(
         # Attempt to find PYBDSF filtered catalogue
         sourcelist_fits_filtered, sourcelist_reg_filtered = find_pybdsf_filtered_cats(cube_imaging_workdir)
 
+        # Grab center coords from any image
+        center_coord = get_fits_image_center(imageset_I.image_pbcor[0])
+
     if not sourcelist_fits_filtered.exists() or not sourcelist_reg_filtered.exists(): 
         msg = f"PYBDSF results not found in {cube_imaging_workdir}, please check if PYBDSF was run correctly. Expected {sourcelist_fits_filtered}"
         logger.error(msg)
@@ -915,6 +919,23 @@ def process_science_fields(
 
 
     ########## step 14: Science plots ##########
+    if 'science_plots_rms1d' in enabled_operations:
+        science_plots_workdir = working_dir / "science_plots_rms1d"
+        science_plots_workdir.mkdir(exist_ok=True)
+
+        science_plots_options = get_options_from_strategy(strategy, operation="science_plots_rms1d")
+
+        logger.info("Starting science plots from RMSynth1D results")
+
+        task_science_plots = task(science_rms1d.generate_science_plots, name="science_plots_rms1d")
+        task_science_plots(
+            science_plots_options,
+            rms1d_catalog=rms1d_catalog,
+            rms1d_fdf=rms1d_fdf,
+            rms1d_spectra=rms1d_spectra,
+            output_dir=science_plots_workdir,
+            logger=logger
+        )
 
     
 def setup_run(
