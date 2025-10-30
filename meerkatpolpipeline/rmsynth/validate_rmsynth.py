@@ -257,6 +257,9 @@ def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
         elif name in ['stokesI', 'stokesI_err', 'polint', 'polint_err']:
             # float with 2 decimal places, in mJy
             return str(f"{float(cat_row[name])*1e3:.2f}") if name in cat_row.colnames or name in cat_row.keys() else "N/A"
+        elif name in ['ra', 'dec']:
+            # float with 6 decimal places, in deg
+            return str(f"{float(cat_row[name]):.6f}") if name in cat_row.colnames or name in cat_row.keys() else "N/A"
         else:
             # float with 2 decimal places, no unit conversion
             return str(f"{cat_row[name]:.2f}") if name in cat_row.colnames or name in cat_row.keys() else "N/A"
@@ -270,8 +273,10 @@ def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
         f"SNR_PI: {get('SNR_PI')}",
         f"S_Code: {get('S_Code')}",
         f"IfitStat: {get('IfitStat')}",
+        f"RA: {get('ra')} deg",
+        f"Dec: {get('dec')} deg",
     ]
-    ax.text(0.0, 1.0, "\n".join(lines), va="top", fontsize=10)
+    ax.text(0.0, 1.0, "\n".join(lines), va="top", fontsize=15)
 
 
 def _plot_pol_angle(ax: plt.Axes,
@@ -281,7 +286,10 @@ def _plot_pol_angle(ax: plt.Axes,
                     derot_polangle_deg: float,
                     derot_polangle_err_deg: float,
                     rm_rad_m2: float,
-                    rm_err_rad_m2: float) -> None:
+                    rm_err_rad_m2: float,
+                    Qerr: np.ndarray | None = None,
+                    Uerr: np.ndarray | None = None
+    ) -> None:
     """
     Plot pol angle (0.5 * arctan2(U, Q) in degrees) vs lambda^2,
     and overlay best-fit line: chi_fit = derot_polangle + rm * lambda^2,
@@ -301,8 +309,27 @@ def _plot_pol_angle(ax: plt.Axes,
     chi_deg = np.degrees(0.5 * np.arctan2(U[m], Q[m]))
     chi_deg = _wrap_angle_deg(chi_deg)
 
-    # Data points
-    ax.scatter(lam2, chi_deg, s=12, alpha=0.9, label="data")
+    # Optional per-point angle uncertainties from Qerr/Uerr
+    yerr_deg = None
+    if Qerr is not None and Uerr is not None:
+        sigma_Q = np.asarray(Qerr, dtype=float)
+        sigma_U = np.asarray(Uerr, dtype=float)
+        if sigma_Q.shape == Q.shape and sigma_U.shape == U.shape:
+            Qm, Um = Q[m], U[m]
+            # Avoid divide-by-zero if Q^2+U^2 == 0
+            denom = (Qm**2 + Um**2)
+            safe = denom > 0
+            yerr_rad = np.zeros_like(Qm, dtype=float)
+            yerr_rad[safe] = 0.5 * np.sqrt(
+                (Qm[safe]**2 * sigma_U[m][safe]**2 + Um[safe]**2 * sigma_Q[m][safe]**2) / (denom[safe]**2)
+            )
+            yerr_deg = np.degrees(yerr_rad)
+
+    # Data points (with error bars if available)
+    if yerr_deg is not None:
+        ax.errorbar(lam2, chi_deg, yerr=yerr_deg, fmt="o", ms=3, lw=0.8, alpha=0.9, label="data")
+    else:
+        ax.scatter(lam2, chi_deg, s=12, alpha=0.9, label="data")
 
     # Best-fit line and 1-sigma band
     # Convert RM and its error to deg/m^2
@@ -311,6 +338,7 @@ def _plot_pol_angle(ax: plt.Axes,
 
     x = np.linspace(lam2.min(), lam2.max(), 200)
     chi_fit = derot_polangle_deg + rm_deg * x
+    chi_fit = _wrap_angle_deg(chi_fit)
 
     # 1-sigma band assuming independence of intercept and slope
     sigma = np.sqrt(derot_polangle_err_deg**2 + (x**2) * (rm_err_deg**2))
