@@ -80,6 +80,10 @@ class ScienceRMSynth1DOptions(BaseOptions):
     """Number of bootstrap resamples for running scatter uncertainty estimation. If null, no bootstrap."""
     running_scatter_binwidth_visualisation: str | None = None
     """How to visualise the running-bin width: 'upperpanel' (x-whiskers), 'lowerpanel' (r_min/r_max panel), or None."""
+    mfs_image_vmin: float | None = None
+    """Lower display limit for MFS image. If None, use percentile (99.5%) with arcsinh scaling."""
+    mfs_image_vmax: float | None = None
+    """Upper display limit for MFS image. If None, use percentile (99.5%) with arcsinh scaling."""
 
 
 def _find_col(tbl: Table, candidates):
@@ -860,6 +864,110 @@ def running_scatter_vs_radius(
     return
 
 
+def plot_mfs_image_publication(
+    science_options: dict | ScienceRMSynth1DOptions,
+    stokesI_MFS: Path,
+    plot_dir: Path,
+    logger=None,
+):
+    """
+    Render a publication-grade Stokes-I MFS image using WCS, with arcsinh scaling and
+    the 'inferno' colormap. If both mfs_image_vmin and mfs_image_vmax are None, use
+    robust percentile limits (1–99.5%) with an arcsinh stretch. If provided, use the
+    user-specified vmin/vmax (still arcsinh).
+    """
+    if logger is None:
+        logger = PrintLogger()
+
+    plot_dir = Path(plot_dir)
+    plot_dir.mkdir(parents=True, exist_ok=True)
+    pdf_dir = plot_dir / "pdfs"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+
+    stokesI_MFS = Path(stokesI_MFS)
+    if not stokesI_MFS.exists():
+        raise FileNotFoundError(f"Stokes I MFS file not found: {stokesI_MFS}")
+
+    # Read FITS & find first image HDU
+    with fits.open(stokesI_MFS) as hdul:
+        ihdu = None
+        for h in hdul:
+            if (h.data is not None) and (h.data.size > 0):
+                ihdu = h
+                break
+        if ihdu is None:
+            raise ValueError(f"No image data found in {stokesI_MFS}")
+        data = ihdu.data
+        hdr = ihdu.header
+
+    # Squeeze to 2D (take first plane if necessary)
+    data = np.squeeze(data)
+    while data.ndim > 2:
+        data = data[0]
+    if data.ndim != 2:
+        raise ValueError("Image is not 2D after squeezing.")
+
+    # Celestial WCS
+    wcs = WCS(hdr).celestial
+
+    # Determine display normalization
+    finite = np.isfinite(data)
+    if not np.any(finite):
+        raise ValueError("Image contains no finite pixels.")
+
+    user_vmin = _get_option(science_options, "mfs_image_vmin", None)
+    user_vmax = _get_option(science_options, "mfs_image_vmax", None)
+
+    if (user_vmin is None) and (user_vmax is None):
+        # Robust percentile limits + arcsinh stretch
+        p_lo, p_hi = AsymmetricPercentileInterval(1, 99.5).get_limits(data[finite])
+        norm = ImageNormalize(vmin=p_lo, vmax=p_hi, stretch=AsinhStretch(a=0.02))
+    else:
+        # Use provided bounds (if one side is None, infer that side from percentiles)
+        if (user_vmin is None) or (user_vmax is None):
+            p_lo, p_hi = AsymmetricPercentileInterval(1, 99.5).get_limits(data[finite])
+            if user_vmin is None:
+                user_vmin = float(p_lo)
+            if user_vmax is None:
+                user_vmax = float(p_hi)
+        norm = ImageNormalize(vmin=float(user_vmin), vmax=float(user_vmax), stretch=AsinhStretch(a=0.02))
+
+    # Prepare labels
+    field = _get_option(science_options, "targetfield", "field")
+    bunit = hdr.get("BUNIT", "").strip()
+    cbar_label = f"Stokes I ({bunit})" if bunit else "Stokes I"
+
+    # Plot
+    fig = plt.figure(figsize=(5.4, 4.6))
+    ax = plt.subplot(111, projection=wcs)
+    im = ax.imshow(data, origin="lower", cmap="inferno", norm=norm)  # noqa: F841
+
+    # Axis cosmetics (publication-leaning)
+    ax.grid(alpha=0.15, linestyle=":", linewidth=0.8)
+    ax.set_xlabel(r"$\mathrm{RA}$")
+    ax.set_ylabel(r"$\mathrm{Dec}$")
+
+    # Colorbar
+    cbar = fig.colorbar(ax.images[0], ax=ax, pad=0.01, fraction=0.045)
+    cbar.set_label(cbar_label)
+
+    # Title
+    ax.set_title(f"{field} — Stokes I (MFS)")
+
+    fig.tight_layout()
+
+    # Save
+    base = f"mfs_image_{field}"
+    png_path = plot_dir / f"{base}.png"
+    pdf_path = pdf_dir / f"{base}.pdf"
+    fig.savefig(png_path, bbox_inches="tight")
+    fig.savefig(pdf_path, bbox_inches="tight")
+    plt.close(fig)
+
+    logger.info(f"Saved MFS image: {png_path.name} and {pdf_path.name}")
+
+    return {"png": png_path, "pdf": pdf_path}
+
 
 def generate_science_plots(
     science_options: ScienceRMSynth1DOptions,
@@ -913,6 +1021,14 @@ def generate_science_plots(
         science_options,
         rms1d_catalog,
         center_coord,
+        plot_dir=output_dir,
+        logger=logger,
+    )
+
+    # generate MFS image 
+    plot_mfs_image_publication(
+        science_options,
+        stokesI_MFS=stokesI_MFS,
         plot_dir=output_dir,
         logger=logger,
     )
