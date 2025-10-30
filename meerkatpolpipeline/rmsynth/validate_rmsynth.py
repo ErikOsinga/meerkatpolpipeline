@@ -55,6 +55,7 @@ from meerkatpolpipeline.validation.validate_field import (
 )
 from meerkatpolpipeline.wsclean.wsclean import ImageSet
 
+SIZE_AXISLABEL=15
 
 class ValidateRMsynth1dOptions(BaseOptions):
     """A basic class to handle options for validation plots for 1D RM synthesis. """
@@ -171,8 +172,8 @@ def _plot_stokes_I(
     # ax.plot(nu_ghz[m], I_mJy[m], lw=0.8, alpha=0.6)
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("Frequency (GHz)")
-    ax.set_ylabel("Stokes I [mJy]")
+    ax.set_xlabel("Frequency (GHz)", fontsize=SIZE_AXISLABEL)
+    ax.set_ylabel("Stokes I [mJy]", fontsize=SIZE_AXISLABEL)
     ax.set_title("Stokes I vs frequency")
     ax.grid()
 
@@ -215,8 +216,8 @@ def _plot_Q_U(axQ: plt.Axes, axU: plt.Axes,
                 ax.plot(lam2[m], y[m], "o-", ms=3, lw=0.8, alpha=0.9)
         else:
             ax.plot(lam2[m], y[m], "o-", ms=3, lw=0.8, alpha=0.9)
-        ax.set_xlabel("lambda^2 [m^2]")
-        ax.set_ylabel("Flux [Jy]")
+        ax.set_xlabel("lambda^2 [m^2]", fontsize=SIZE_AXISLABEL)
+        ax.set_ylabel("Flux [Jy]", fontsize=SIZE_AXISLABEL)
         ax.set_title(f"{label} vs lambda^2")
         ax.grid()
 
@@ -229,8 +230,8 @@ def _plot_rmsf(ax: plt.Axes, phi_rmsf: np.ndarray, rmsf: np.ndarray) -> None:
         ax.text(0.5, 0.5, "No RMSF", transform=ax.transAxes, ha="center")
         return
     ax.plot(x[m], y[m], lw=1.0)
-    ax.set_xlabel("phi [rad/m^2]")
-    ax.set_ylabel("amplitude [Jy/beam/RMSF]")
+    ax.set_xlabel("phi [rad/m^2]", fontsize=SIZE_AXISLABEL)
+    ax.set_ylabel("amplitude [Jy/beam/RMSF]", fontsize=SIZE_AXISLABEL)
     ax.set_title("RMSF")
 
 
@@ -242,8 +243,8 @@ def _plot_fdf(ax: plt.Axes, phi_fdf: np.ndarray, fdf: np.ndarray) -> None:
         ax.text(0.5, 0.5, "No FDF", transform=ax.transAxes, ha="center")
         return
     ax.plot(x[m], y[m], lw=1.0)
-    ax.set_xlabel("phi [rad/m^2]")
-    ax.set_ylabel("amplitude [Jy/beam/RMSF]")
+    ax.set_xlabel("phi [rad/m^2]", fontsize=SIZE_AXISLABEL)
+    ax.set_ylabel("amplitude [Jy/beam/RMSF]", fontsize=SIZE_AXISLABEL)
     fdf_peak_loc = x[m][np.argmax(y[m])]
     ax.set_title(f"FDF, peak at {fdf_peak_loc:.1f} rad/m^2")
 
@@ -273,6 +274,7 @@ def _plot_summary_text(ax: plt.Axes, cat_row: Table.Row) -> None:
         f"SNR_PI: {get('SNR_PI')}",
         f"S_Code: {get('S_Code')}",
         f"IfitStat: {get('IfitStat')}",
+        f"sigmaAddC: {get('sigmaAddC')}",
         f"RA: {get('ra')} deg",
         f"Dec: {get('dec')} deg",
     ]
@@ -346,8 +348,8 @@ def _plot_pol_angle(ax: plt.Axes,
     ax.plot(x, chi_fit, lw=1.2, label="best fit", color='C1')
     ax.fill_between(x, chi_fit - sigma, chi_fit + sigma, alpha=0.25, label="1-sigma",color='C1')
 
-    ax.set_xlabel("lambda^2 [m^2]")
-    ax.set_ylabel("pol angle [deg]")
+    ax.set_xlabel("lambda^2 [m^2]", fontsize=SIZE_AXISLABEL)
+    ax.set_ylabel("pol angle [deg]", fontsize=SIZE_AXISLABEL)
     ax.set_title("Pol angle vs lambda^2")
     ax.legend(fontsize=8, loc="best")
 
