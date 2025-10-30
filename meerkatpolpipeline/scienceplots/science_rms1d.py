@@ -822,7 +822,7 @@ def running_scatter_vs_radius(
 
             ax2.plot(x, rmin, "s-", ms=2.8, lw=1.0, label=r"$r_{\min}$",color='C0')
             ax2.plot(x, rmax, "o-", ms=2.8, lw=1.0, label=r"$r_{\max}$",color='C1')
-            ax2.plot(x, arcmin_to_kpc(x), "o-", ms=2.8, lw=1.0, label=r"$r_{\median}$",color='k')
+            ax2.plot(x, arcmin_to_kpc(x), "o-", ms=2.8, lw=1.0, label=r"$r_{\mathrm{median}}$",color='k')
             ax2.set_ylabel(ylab)
             ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
             ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
