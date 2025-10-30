@@ -617,10 +617,12 @@ def plot_rm_bubble_map_on_stokesI(
     field = _get_option(science_options, "targetfield", "field")
     z = _get_option(science_options, "z_cluster", None)
     if z is not None:
-        ax.set_title(f"{field} — RM bubble map on Stokes I (z={float(z):.3f}){title_suffix}")
+        ax.set_title(f"{field} — RM bubble map on Stokes I (z={float(z):.3f})\n{title_suffix}")
     else:
-        ax.set_title(f"{field} — RM bubble map on Stokes I{title_suffix}")
+        ax.set_title(f"{field} — RM bubble map on Stokes I\n{title_suffix}")
 
+    ax.set_xlabel(r"$\mathrm{RA}$")
+    ax.set_ylabel(r"$\mathrm{Dec}$")
     fig.tight_layout()
 
     # Outputs
