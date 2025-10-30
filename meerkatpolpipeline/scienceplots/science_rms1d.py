@@ -535,6 +535,13 @@ def plot_rm_bubble_map_on_stokesI(
         data = ihdu.data
         hdr = ihdu.header
     
+    # Squeeze to 2D (take first plane if necessary)
+    data = np.squeeze(data)
+    while data.ndim > 2:
+        data = data[0]
+    if data.ndim != 2:
+        raise ValueError("Image is not 2D after squeezing.")
+
     # Celestial WCS
     wcs = WCS(hdr).celestial
 
