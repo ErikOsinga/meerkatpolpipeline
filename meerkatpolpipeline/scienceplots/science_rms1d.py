@@ -70,7 +70,7 @@ def _as_quantity(col):
 
 
 def plot_rm_vs_radius(
-    science_options: ScienceRMSynth1DOptions,
+    science_options: dict | ScienceRMSynth1DOptions,
     rms1d_catalog: Path,
     center_coord: SkyCoord,
     plot_dir: Path,
@@ -106,7 +106,7 @@ def plot_rm_vs_radius(
 
     # Sky positions and separations
     coords = SkyCoord(tab[ra_col] * u.deg, tab[dec_col] * u.deg, frame="icrs")
-    sep = coords.separation(center_coord)                   # angle
+    sep = coords.separation(center_coord)
     r_arcmin = sep.to(u.arcmin).value
 
     # RM and optional uncertainties
@@ -119,11 +119,11 @@ def plot_rm_vs_radius(
             RM_err = np.asarray(tab[err_col])
 
     # Cosmology conversion (if z given)
-    z = getattr(science_options, "z_cluster", None)
+    z = science_options['z_cluster']
     have_kpc_axis = (z is not None)
     if have_kpc_axis:
         DA = Planck18.angular_diameter_distance(float(z)).to(u.kpc)  # kpc
-        kpc_per_arcmin = (1.0 * u.arcmin).to(u.rad) * DA              # kpc per arcmin
+        kpc_per_arcmin = (1.0 * u.arcmin).to(u.rad) * DA
         kpc_per_arcmin = kpc_per_arcmin.value
 
         def arcmin_to_kpc(x):
@@ -133,7 +133,7 @@ def plot_rm_vs_radius(
             return x / kpc_per_arcmin
 
 
-    fig, ax = plt.subplots(figsize=(5.0, 3.8))  # compact, journal-friendly
+    fig, ax = plt.subplots(figsize=(5.0, 3.8))  # compact
 
     # Scatter (with errorbars if available)
     if RM_err is not None:
