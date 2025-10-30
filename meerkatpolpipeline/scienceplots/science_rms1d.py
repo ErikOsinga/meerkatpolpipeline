@@ -45,6 +45,8 @@ class ScienceRMSynth1DOptions(BaseOptions):
     """enable this step?"""
     targetfield: str | None = None
     """name of targetfield. This option is propagated to every step."""
+    snr_threshold: float = 7.0
+    """SNR threshold in polarized intensity for making science plots. Default 7.0"""
     z_cluster: float | None = None
     """Redshift of the cluster."""
 
@@ -88,6 +90,11 @@ def plot_rm_vs_radius(
 
     # Read catalogue
     tab = Table.read(str(rms1d_catalog))
+
+    # apply SNR threshold
+    tab = tab[tab["SNR_PI"] > science_options['snr_threshold']]
+    logger.info(f"Selected {len(tab)} sources with SNR_PI > {science_options['snr_threshold']}")
+
     # Detect columns
     ra_col  = _find_col(tab, ["RA", "ra", "RA_deg", "RAJ2000", "optRA"])
     dec_col = _find_col(tab, ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"])
