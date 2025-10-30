@@ -922,6 +922,7 @@ def plot_mfs_image_publication(
         # Robust percentile limits + arcsinh stretch
         p_lo, p_hi = AsymmetricPercentileInterval(1, 99.5).get_limits(data[finite])
         norm = ImageNormalize(vmin=p_lo, vmax=p_hi, stretch=AsinhStretch(a=0.02))
+        logger.info(f"Using robust percentiles for MFS image display: vmin={p_lo:.3e}, vmax={p_hi:.3e}")
     else:
         # Use provided bounds (if one side is None, infer that side from percentiles)
         if (user_vmin is None) or (user_vmax is None):
