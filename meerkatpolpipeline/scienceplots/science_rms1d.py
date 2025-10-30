@@ -707,24 +707,52 @@ def running_scatter_vs_radius(
         def kpc_to_arcmin(xv):
             return xv / kpc_per_arcmin
 
-    # --- Plot
-    fig, ax = plt.subplots(figsize=(5.2, 3.9))
+    # --- Compute asymmetric bin-width errors for x-whiskers
+    left_bounds   = np.asarray(rs.left_bounds,    float)
+    window_widths = np.asarray(rs.window_widths,  float)
+    x             = np.asarray(rs.medians_x,      float)
+
+    right_bounds  = left_bounds + window_widths
+    xerr_left  = np.clip(x - left_bounds, 0.0, None)
+    xerr_right = np.clip(right_bounds - x, 0.0, None)
+    xerr = np.vstack([xerr_left, xerr_right])  # shape (2, N)
+
+    # Do we need a second panel for Npoints?
+    xwidth = _get_option(science_options, "running_scatter_window_arcmin")
+    want_N_panel = xwidth is not None  # fixed-width windows → varying N
+
+    # --- Plotting
+    if want_N_panel:
+        fig, (ax, ax2) = plt.subplots(
+            2, 1, sharex=True, figsize=(5.4, 5.4), height_ratios=[2.6, 1.0]
+        )
+    else:
+        fig, ax = plt.subplots(figsize=(5.2, 3.9))
+        ax2 = None
+
+    # --- Top panel: sigma vs radius with asymmetric x-whiskers and optional y-errors
     if elo is not None and ehi is not None:
         ax.errorbar(
-            x, sigma, yerr=[elo, ehi], fmt="o-", ms=3.5, lw=1.1, elinewidth=0.9,
+            x, sigma,
+            xerr=xerr, yerr=[elo, ehi],
+            fmt="o-", ms=3.5, lw=1.1, elinewidth=0.9,
             capsize=2.0, alpha=0.95,
         )
     else:
-        ax.plot(x, sigma, "o-", ms=3.5, lw=1.1, alpha=0.95)
+        ax.errorbar(
+            x, sigma,
+            xerr=xerr,
+            fmt="o-", ms=3.5, lw=1.1, elinewidth=0.9,
+            capsize=0.0, alpha=0.95,
+        )
 
     ax.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
-    # y-label reflects GRM-corrected case
     if file_suffix:
         ax.set_ylabel(r"$\sigma_{\mathrm{RM,corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
     else:
         ax.set_ylabel(r"$\sigma_{\mathrm{RM}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
 
-    # Secondary kpc axis if redshift given
+    # Secondary kpc axis (top) if redshift given
     if have_kpc_axis:
         secax = ax.secondary_xaxis("top", functions=(arcmin_to_kpc, kpc_to_arcmin))
         secax.set_xlabel(
@@ -733,10 +761,20 @@ def running_scatter_vs_radius(
         )
 
     ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+
+    # --- Bottom panel: N per bin (only when xwidth is fixed)
+    if want_N_panel and ax2 is not None:
+        Npoints = np.asarray(rs.Npoints, int)
+        ax2.plot(x, Npoints, "s-", ms=3.0, lw=1.0)
+        ax2.set_ylabel(r"$N_{\mathrm{bin}}$")
+        ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
+        ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+
     fig.tight_layout()
 
     # Filenames
     field = _get_option(science_options, "targetfield", "field")
+    method = str(_get_option(science_options, "running_scatter_method", "iqr")).lower()
     base = f"running_scatter_vs_radius_{field}_method-{method}"
     if have_kpc_axis:
         base += f"_z{float(z):.3f}"
@@ -750,7 +788,7 @@ def running_scatter_vs_radius(
 
     logger.info(f"Saved running scatter vs radius plot: {png_path.name} and {pdf_path.name}")
 
-    return None
+    return
 
 
 
