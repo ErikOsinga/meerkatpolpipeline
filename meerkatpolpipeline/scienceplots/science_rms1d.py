@@ -37,7 +37,10 @@ mpl.rcParams.update({
     "legend.frameon": False,
 })
 
-
+RM_COL_OPTIONS = ["RM", "RM_rad_m2", "rm", "RM_obs", "RM_obs_rad_m2"]
+RM_ERR_COL_OPTIONS = ["e_RM", "RM_ERR", "RM_err", "dRM", "ERR_RM", "RM_err"]
+RA_COL_OPTIONS = ["RA", "ra", "RA_deg", "RAJ2000", "optRA"]
+DEC_COL_OPTIONS = ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"]
 
 class ScienceRMSynth1DOptions(BaseOptions):
     """A basic class to handle options for science plots after 1D RM synthesis. """
@@ -54,6 +57,8 @@ class ScienceRMSynth1DOptions(BaseOptions):
     """Scaling factor (division) for bubble sizes in RM bubble plot. Default 1."""
     bubble_scale_function: str = "linear"
     """Scaling function for bubble sizes in RM bubble plot. Default 'linear', also supports 'quadratic'."""
+    grm_correction: str | None = None
+    """Type of Galactic RM correction applied, if any. Options: None/null, 'hutschenreuter', 'annulus_method'."""
 
 
 def _find_col(tbl: Table, candidates):
@@ -74,6 +79,33 @@ def _as_quantity(col):
         return col * (u.rad / u.m**2)
     except Exception:
         return col
+
+
+def _resolve_rm_columns(tab: Table, science_options):
+    """
+    Decide which RM columns to use based on `grm_correction`.
+    Returns: (rm_col, err_col, title_suffix, file_suffix)
+    """
+    grm = _get_option(science_options, "grm_correction", None)
+    if grm is None:
+        rm_col  = _find_col(tab, RM_COL_OPTIONS)
+        err_col = _find_col(tab, RM_ERR_COL_OPTIONS)
+        if rm_col is None:
+            raise KeyError(
+                f"Could not find RM column. Tried: {RM_COL_OPTIONS}."
+            )
+        return rm_col, err_col, "", ""  # no suffixes
+    
+    grm_l = str(grm).lower()
+    if grm_l == "hutschenreuter":
+        if "rrm_huts" not in tab.colnames:
+            raise KeyError("grm_correction='hutschenreuter' but column 'rrm_huts' not found.")
+        rm_col = "rrm_huts"
+        err_col = "rrm_huts_err" if "rrm_huts_err" in tab.colnames else None
+        return rm_col, err_col, " (Hutschenreuter GRM corrected)", "_grm-hutschenreuter"
+    else:
+        # Anything else: not implemented (for now)
+        raise NotImplementedError(f"grm_correction={grm!r} is not implemented.")
 
 
 def plot_rm_vs_radius(
@@ -104,19 +136,15 @@ def plot_rm_vs_radius(
     logger.info(f"Selected {len(tab)} sources with SNR_PI > {science_options['snr_threshold']}")
 
     # Detect columns
-    ra_col  = _find_col(tab, ["RA", "ra", "RA_deg", "RAJ2000", "optRA"])
-    dec_col = _find_col(tab, ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"])
-    rm_col  = _find_col(tab, ["RM", "RM_rad_m2", "rm", "RM_obs", "RM_obs_rad_m2"])
-    err_col = _find_col(tab, ["e_RM", "RM_ERR", "RM_err", "dRM", "ERR_RM", "RM_err"])
+    ra_col  = _find_col(tab, RA_COL_OPTIONS)
+    dec_col = _find_col(tab, DEC_COL_OPTIONS)
+
+    rm_col, err_col, title_suffix, file_suffix = _resolve_rm_columns(tab, science_options)
 
     if ra_col is None or dec_col is None:
         raise KeyError(
             "Could not find RA/Dec columns. Tried: "
-            "RA/ra/RA_deg/RAJ2000/optRA and DEC/Dec/dec/DEC_deg/DEJ2000/optDec."
-        )
-    if rm_col is None:
-        raise KeyError(
-            "Could not find RM column. Tried: RM/RM_rad_m2/rm/RM_obs/RM_obs_rad_m2."
+            f"{RA_COL_OPTIONS} and {DEC_COL_OPTIONS}"
         )
 
     # Sky positions and separations
@@ -160,7 +188,11 @@ def plot_rm_vs_radius(
         ax.plot(r_arcmin, RM, "o", ms=3.5, alpha=0.9)
 
     ax.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
-    ax.set_ylabel(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+    if title_suffix == "":
+        ax.set_ylabel(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+    else:
+        ax.set_title(title_suffix)
+        ax.set_ylabel(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
 
     # Secondary x-axis in kpc if z is provided
     if have_kpc_axis:
@@ -179,6 +211,8 @@ def plot_rm_vs_radius(
     base = f"rm_vs_radius_{field}"
     if have_kpc_axis:
         base += f"_z{float(z):.3f}"
+    base += file_suffix  # add '' or '_grm-hutschenreuter'
+
     png_path = plot_dir / f"{base}.png"
     pdf_path = pdf_dir / f"{base}.pdf"
 
@@ -222,10 +256,11 @@ def plot_rm_bubble_map(
     logger.info(f"Selected {len(tab)} sources with SNR_PI > {snr_thr}")
 
     # Detect columns
-    ra_col  = _find_col(tab, ["RA", "ra", "RA_deg", "RAJ2000", "optRA"])
-    dec_col = _find_col(tab, ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"])
-    rm_col  = _find_col(tab, ["RM", "RM_rad_m2", "rm", "RM_obs", "RM_obs_rad_m2"])
-    err_col = _find_col(tab, ["e_RM", "RM_ERR", "RM_err", "dRM", "ERR_RM", "RM_err"])
+    ra_col  = _find_col(tab, RA_COL_OPTIONS)
+    dec_col = _find_col(tab, DEC_COL_OPTIONS)
+
+    rm_col, err_col, title_suffix, file_suffix = _resolve_rm_columns(tab, science_options)
+
 
     if ra_col is None or dec_col is None:
         raise KeyError(
@@ -295,20 +330,25 @@ def plot_rm_bubble_map(
 
     # Colorbar
     cbar = fig.colorbar(sc, ax=ax, pad=0.01)
-    cbar.set_label(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+    if title_suffix == "":
+        cbar.set_label(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+    else:
+        cbar.set_label(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
 
-    # Title (light)
+
+    # Title 
     field = _get_option(science_options, "targetfield", "field")
     z = _get_option(science_options, "z_cluster", None)
     if z is not None:
-        ax.set_title(f"{field} — RM bubble map (z={float(z):.3f})")
+        ax.set_title(f"{field} — RM bubble map (z={float(z):.3f}){title_suffix}")
     else:
-        ax.set_title(f"{field} — RM bubble map")
+        ax.set_title(f"{field} — RM bubble map{title_suffix}")
 
     fig.tight_layout()
 
     # Outputs
-    base = f"rm_bubble_map_{field}"
+    base = f"rm_bubble_map_{field}{file_suffix}"
+
     png_path = plot_dir / f"{base}.png"
     pdf_path = pdf_dir / f"{base}.pdf"
     fig.savefig(png_path, bbox_inches="tight")
