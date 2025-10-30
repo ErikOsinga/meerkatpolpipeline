@@ -6,11 +6,15 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
-from astropy.constants import c
 from astropy.coordinates import SkyCoord
 from astropy.cosmology import Planck18
 from astropy.io import fits
 from astropy.table import Table
+from astropy.visualization import (
+    AsinhStretch,
+    AsymmetricPercentileInterval,
+    ImageNormalize,
+)
 from astropy.wcs import WCS
 from matplotlib.colors import TwoSlopeNorm
 
@@ -275,7 +279,6 @@ def plot_rm_bubble_map(
     # Coordinates
     ra  = np.asarray(tab[ra_col], dtype=float)
     dec = np.asarray(tab[dec_col], dtype=float)
-    coords = SkyCoord(ra * u.deg, dec * u.deg, frame="icrs")
 
     # RM (+ optional uncertainty, not drawn but may be useful later)
     RM = _as_quantity(tab[rm_col]).to(u.rad / u.m**2).value
@@ -285,7 +288,7 @@ def plot_rm_bubble_map(
         except Exception:
             RM_err = np.asarray(tab[err_col])
     else:
-        RM_err = None
+        RM_err = None  # noqa: F841
 
     # Bubble sizes
     scale_func = str(_get_option(science_options, "bubble_scale_function")).lower()
@@ -360,12 +363,172 @@ def plot_rm_bubble_map(
     return {"png": png_path, "pdf": pdf_path}
 
 
+def plot_rm_bubble_map_on_stokesI(
+    science_options: dict | ScienceRMSynth1DOptions,
+    rms1d_catalog: Path,
+    stokesI_MFS: Path,
+    center_coord: SkyCoord,
+    plot_dir: Path,
+    logger=None,
+):
+    """
+    Bubble map of RM at source sky positions (RA/Dec) overlaid on a Stokes-I MFS image.
+    Color: blue (RM<0) to red (RM>0); bubble area ~ (|RM|^p) * bubble_scaling_factor.
+    Saves PNG to `plot_dir` and PDF to `plot_dir/pdfs`.
+    """
+    if logger is None:
+        logger = PrintLogger()
+
+    plot_dir = Path(plot_dir)
+    plot_dir.mkdir(parents=True, exist_ok=True)
+    pdf_dir = plot_dir / "pdfs"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+
+    # --- Read catalogue and apply cuts
+    tab = Table.read(str(rms1d_catalog))
+
+    snr_thr = float(_get_option(science_options, "snr_threshold", 7.0))
+    if "SNR_PI" not in tab.colnames:
+        raise KeyError("Required column 'SNR_PI' not found for SNR filtering.")
+    tab = tab[tab["SNR_PI"] > snr_thr]
+    logger.info(f"Selected {len(tab)} sources with SNR_PI > {snr_thr}")
+
+    # RA/Dec detection
+    ra_col  = _find_col(tab, ["RA", "ra", "RA_deg", "RAJ2000", "optRA"])
+    dec_col = _find_col(tab, ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"])
+    if ra_col is None or dec_col is None:
+        raise KeyError(
+            "Could not find RA/Dec columns. Tried: "
+            "RA/ra/RA_deg/RAJ2000/optRA and DEC/Dec/dec/DEC_deg/DEJ2000/optDec."
+        )
+
+    # RM columns (GRM correction aware)
+    rm_col, err_col, title_suffix, file_suffix = _resolve_rm_columns(tab, science_options)
+
+    # Values
+    ra  = np.asarray(tab[ra_col], dtype=float)
+    dec = np.asarray(tab[dec_col], dtype=float)
+    RM  = _as_quantity(tab[rm_col]).to(u.rad / u.m**2).value
+
+    # Bubble sizes
+    scale_func = str(_get_option(science_options, "bubble_scale_function", "linear")).lower()
+    power = 1 if scale_func == "linear" else 2
+    scaling = float(_get_option(science_options, "bubble_scaling_factor", 1e4))
+    sizes = (np.abs(RM) ** power) * scaling
+    sizes = np.where(np.isfinite(sizes), sizes, 0.0)
+    sizes = np.maximum(sizes, 10.0)
+
+    # Color normalization for RM
+    finite_rm = RM[np.isfinite(RM)]
+    vabs = np.nanmax(np.abs(finite_rm)) if finite_rm.size else 1.0
+    if not np.isfinite(vabs) or vabs == 0:
+        vabs = 1.0
+    rm_norm = TwoSlopeNorm(vmin=-vabs, vcenter=0.0, vmax=+vabs)
+    rm_cmap = "coolwarm"
+
+    # --- Read Stokes-I MFS image & WCS
+    stokesI_MFS = Path(stokesI_MFS)
+    if not stokesI_MFS.exists():
+        raise FileNotFoundError(f"Stokes I MFS file not found: {stokesI_MFS}")
+
+    with fits.open(stokesI_MFS) as hdul:
+        # find first HDU with image data
+        ihdu = None
+        for h in hdul:
+            if (h.data is not None) and (h.data.size > 0):
+                ihdu = h
+                break
+        if ihdu is None:
+            raise ValueError(f"No image data found in {stokesI_MFS}")
+
+        data = ihdu.data
+        hdr = ihdu.header
+
+    # Squeeze and pick a 2D plane if needed (take the first along extra axes)
+    data = np.squeeze(data)
+    while data.ndim > 2:
+        data = data[0]
+    if data.ndim != 2:
+        raise ValueError("Image is not 2D after squeezing.")
+
+    # Celestial WCS
+    wcs = WCS(hdr).celestial
+
+    # Display scaling: asinh with robust percentile cuts
+    finite = np.isfinite(data)
+    if not np.any(finite):
+        raise ValueError("Image contains no finite pixels.")
+    p_lo, p_hi = AsymmetricPercentileInterval(1, 99.5).get_limits(data[finite])
+    norm = ImageNormalize(vmin=p_lo, vmax=p_hi, stretch=AsinhStretch(a=0.02))
+
+    # --- Plot
+    fig = plt.figure(figsize=(5.4, 4.6))
+    ax = plt.subplot(111, projection=wcs)
+    im = ax.imshow(data, origin="lower", cmap="gray", norm=norm)  # noqa: F841
+
+    # Scatter bubbles at world coords
+    sc = ax.scatter(
+        ra, dec,
+        c=RM, s=sizes,
+        cmap=rm_cmap, norm=rm_norm,
+        linewidths=0.4, edgecolors="k", alpha=0.9,
+        transform=ax.get_transform("world"),
+    )
+
+    # Mark cluster centre
+    ax.plot(
+        center_coord.ra.deg, center_coord.dec.deg,
+        marker="*", ms=10, mec="k", mfc="none", lw=1.0,
+        transform=ax.get_transform("world"),
+    )
+
+    # Axes & grid (WCSAxes handles labels/units)
+    ax.grid(color="white", alpha=0.2, ls=":", lw=0.8)
+
+    # Colorbar for RM
+    cbar = fig.colorbar(sc, ax=ax, pad=0.01, fraction=0.045)
+    if title_suffix:
+        cbar.set_label(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+    else:
+        cbar.set_label(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+
+    # Title
+    field = _get_option(science_options, "targetfield", "field")
+    z = _get_option(science_options, "z_cluster", None)
+    if z is not None:
+        ax.set_title(f"{field} — RM bubble map on Stokes I (z={float(z):.3f}){title_suffix}")
+    else:
+        ax.set_title(f"{field} — RM bubble map on Stokes I{title_suffix}")
+
+    fig.tight_layout()
+
+    # Outputs
+    base = f"rm_bubble_on_stokesI_{field}{file_suffix}"
+    png_path = plot_dir / f"{base}.png"
+    pdf_path = pdf_dir / f"{base}.pdf"
+    fig.savefig(png_path, bbox_inches="tight")
+    fig.savefig(pdf_path, bbox_inches="tight")
+    plt.close(fig)
+
+    logger.info(f"Saved RM bubble map on Stokes I: {png_path.name} and {pdf_path.name}")
+
+    return {"png": png_path, "pdf": pdf_path}
+
+
+
+
+
+
+
+
+
 def generate_science_plots(
     science_options: ScienceRMSynth1DOptions,
     rms1d_catalog: Path,
     rms1d_fdf: Path,
     rms1d_spectra: Path,
     center_coord: SkyCoord,
+    stokesI_MFS: Path,
     output_dir: Path,
     logger=None,
 ) -> None:
@@ -392,6 +555,16 @@ def generate_science_plots(
         science_options,
         rms1d_catalog,
         center_coord,
+        plot_dir=output_dir,
+        logger=logger,
+    )
+
+    # Plot RM bubble on stokes I image
+    plot_rm_bubble_map_on_stokesI(
+        science_options,
+        rms1d_catalog,
+        stokesI_MFS=stokesI_MFS,
+        center_coord=center_coord,
         plot_dir=output_dir,
         logger=logger,
     )

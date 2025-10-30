@@ -959,6 +959,7 @@ def process_science_fields(
             rms1d_fdf=rms1d_fdf,
             rms1d_spectra=rms1d_spectra,
             center_coord=center_coord,
+            stokesI_MFS=MFS_image,
             output_dir=science_plots_workdir,
             logger=logger
         )
