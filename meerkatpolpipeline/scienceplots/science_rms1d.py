@@ -252,10 +252,10 @@ def plot_rm_bubble_map(
         RM_err = None
 
     # Bubble sizes
-    scale_func = str(_get_option(science_options, "bubble_scale_function", "linear")).lower()
+    scale_func = str(_get_option(science_options, "bubble_scale_function")).lower()
     power = 1 if scale_func == "linear" else 2
-    scaling = float(_get_option(science_options, "bubble_scaling_factor", 1e4))
-    sizes = (np.abs(RM) ** power) * scaling
+    scaling = float(_get_option(science_options, "bubble_scaling_factor"))
+    sizes = (np.abs(RM) ** power) / scaling
     # ensure a visible minimum size
     sizes = np.where(np.isfinite(sizes), sizes, 0.0)
     sizes = np.maximum(sizes, 10.0)
