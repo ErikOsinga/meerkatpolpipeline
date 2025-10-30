@@ -14,6 +14,8 @@ from astropy.visualization import (
     AsinhStretch,
     AsymmetricPercentileInterval,
     ImageNormalize,
+    LinearStretch,
+    ZScaleInterval,
 )
 from astropy.wcs import WCS
 from matplotlib.colors import TwoSlopeNorm
@@ -394,8 +396,8 @@ def plot_rm_bubble_map_on_stokesI(
     logger.info(f"Selected {len(tab)} sources with SNR_PI > {snr_thr}")
 
     # RA/Dec detection
-    ra_col  = _find_col(tab, ["RA", "ra", "RA_deg", "RAJ2000", "optRA"])
-    dec_col = _find_col(tab, ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"])
+    ra_col  = _find_col(tab, RA_COL_OPTIONS)
+    dec_col = _find_col(tab, DEC_COL_OPTIONS)
     if ra_col is None or dec_col is None:
         raise KeyError(
             "Could not find RA/Dec columns. Tried: "
@@ -414,9 +416,9 @@ def plot_rm_bubble_map_on_stokesI(
     scale_func = str(_get_option(science_options, "bubble_scale_function", "linear")).lower()
     power = 1 if scale_func == "linear" else 2
     scaling = float(_get_option(science_options, "bubble_scaling_factor", 1e4))
-    sizes = (np.abs(RM) ** power) * scaling
+    sizes = (np.abs(RM) ** power) / scaling
     sizes = np.where(np.isfinite(sizes), sizes, 0.0)
-    sizes = np.maximum(sizes, 10.0)
+    # sizes = np.maximum(sizes, 10.0)
 
     # Color normalization for RM
     finite_rm = RM[np.isfinite(RM)]
@@ -458,8 +460,15 @@ def plot_rm_bubble_map_on_stokesI(
     finite = np.isfinite(data)
     if not np.any(finite):
         raise ValueError("Image contains no finite pixels.")
-    p_lo, p_hi = AsymmetricPercentileInterval(1, 99.5).get_limits(data[finite])
-    norm = ImageNormalize(vmin=p_lo, vmax=p_hi, stretch=AsinhStretch(a=0.02))
+    
+    # Robust percentiles for stretch
+    # p_lo, p_hi = AsymmetricPercentileInterval(1, 99.5).get_limits(data[finite])
+    # norm = ImageNormalize(vmin=p_lo, vmax=p_hi, stretch=AsinhStretch(a=0.02))
+
+    # DS9 default contrast is ~0.25
+    zint = ZScaleInterval(contrast=0.25)
+    vmin, vmax = zint.get_limits(data[finite])
+    norm = ImageNormalize(vmin=vmin, vmax=vmax, stretch=LinearStretch())
 
     # --- Plot
     fig = plt.figure(figsize=(5.4, 4.6))
