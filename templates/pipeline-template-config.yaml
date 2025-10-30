@@ -132,3 +132,79 @@ selfcal:
   # for the extract step, remove sources outside a box of this size around phase center
   remove_outside_center_box: 1.5
 
+
+coarse_cube_imaging:
+  enable: true
+  # -fit-rm only available in newest WSClean
+  no_fit_rm: true
+  # also image for MFS
+  also_image_for_mfs: true
+  # can only run pybdsf on MFS image, so if True, above needs to be true
+  run_pybdsf: true
+  # leakage is unreliable above 0.5 degrees, and in Lband its kinda close to fwhm
+  filter_pybdsf_cat_radius_deg: 0.5
+
+
+compare_to_nvss:
+  enable: false
+  # default path to NVSS FITS images and catalogue files
+  nvss_dir: /path/to/NVSS/images/
+  # region denoting where to extract the flux
+  flux_extraction_regions: /path/to/sources_in_field.reg
+  # or how many regions from NVSS to get (from brightest to faintest in polint)
+  ### TODO: implement this feature
+  # nvss_max_regions: 10
+
+
+validation:
+  enable: true
+  # plot top 10 brightest source spectra
+  top_n_spectra: 10
+  # plot top 10 brightest source spectra with channels < 35% flagging only
+  flag_threshold_pct: 35
+
+
+fine_cube_imaging:
+  # do many channel imaging
+  enable: true
+  # goal is to have channels of this width in MHz
+  chanwidth_MHz: 5
+  startfreq_MHz: 950
+  # note that L band leakage is questionable above 1400 MHz
+  endfreq_MHz: 1500
+  # can use -fit-rm only with newest WSClean
+  no_fit_rm: true
+  # will convolve cube to this resolution
+  beam_limit_asec: 15
+  # overwrite cube to write a new one
+  overwrite_cube: true
+  # flag channel if rms above this (Jy/beam)
+  channel_rms_limit_Jybeam: 1e-3
+  # flag channel if visibility flag pct above this
+  channel_flag_limit_pct: 40.0
+
+rmsynth1d:
+  enable: true
+  rmsynth_1d_config_template: /path/to/meerkatpolpipeline/templates/rmsynth1d_config_template.ini
+  module_directory: /path/to/POSSUM_Polarimetry_Pipeline/pipeline/modules
+  # optionally provide your own catalogue file, otherwise defaults to PYBDSF
+  catalog_file: null
+  # SNR limit in stokes I to apply
+  snr: 20
+  # location of Hutschenreuter map for GRM correction
+  hutschenreuter_map: /path/to/faraday2020v2.fits
+
+validate_rmsynth1d:
+  enable: true
+  snr_threshold: 7.0
+
+  # chan_for_i_cutout: null
+  # chan_for_qu_cutout: null
+
+science_plots_rms1d:
+  enable: true
+  z_cluster: 0.0546
+  snr_threshold: 7.0
+  bubble_scaling_factor: 1e0
+  # currently options are null or hutschenreuter
+  grm_correction: hutschenreuter
