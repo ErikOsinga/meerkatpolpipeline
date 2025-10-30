@@ -633,6 +633,8 @@ def running_scatter_vs_radius(
         M=Mfix,
     )
 
+    logger.info(f"Made {len(rs.medians_x)} running bins from {len(RM)} sources")
+
     # Helper: summarize bootstrap/object arrays -> (median, low, high)
     def _summarize(arr):
         """
@@ -766,7 +768,7 @@ def running_scatter_vs_radius(
         )
 
         # set tick and spine colors to match
-        secax.tick_params(axis="x", colors=KPC_AXIS_COLOR)
+        secax.tick_params(axis="x", colors=KPC_AXIS_COLOR, which="both")
         secax.spines["top"].set_color(KPC_AXIS_COLOR)
         secax.xaxis.label.set_color(KPC_AXIS_COLOR)
 
