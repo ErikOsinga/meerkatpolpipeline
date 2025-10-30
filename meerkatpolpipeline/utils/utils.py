@@ -44,6 +44,7 @@ def str2bool(v: str) -> bool:
 def parse_comma_separated(value: str) -> list[str]:
     return value.split(',')
 
+
 def read_fits_data_and_frequency(filename: Path) -> tuple[np.ndarray, np.ndarray, WCS]:
     """Read a FITS file, return the image data, frequency from CRVAL3 in Hz and wcs"""
     with fits.open(filename) as hdul:
@@ -606,3 +607,5 @@ def _get_option(opts, key, default=None):
         return opts[key]
     except Exception:
         return getattr(opts, key, default)
+
+
