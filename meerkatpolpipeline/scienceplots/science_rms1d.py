@@ -534,6 +534,23 @@ def plot_rm_bubble_map_on_stokesI(
 
         data = ihdu.data
         hdr = ihdu.header
+    
+    # Celestial WCS
+    wcs = WCS(hdr).celestial
+
+    # Optional cutout around the centre
+    width_deg = _get_option(science_options, "mfs_image_width_deg", None)
+    if width_deg is not None:
+        try:
+            size = (width_deg * u.deg, width_deg * u.deg)
+        except Exception:
+            # be robust if user passes a Quantity already
+            size = (float(width_deg) * u.deg, float(width_deg) * u.deg)
+        cut = Cutout2D(
+            data, position=center_coord, size=size, wcs=wcs, mode="trim"
+        )
+        data = cut.data
+        wcs = cut.wcs
 
     # Squeeze and pick a 2D plane if needed (take the first along extra axes)
     data = np.squeeze(data)
