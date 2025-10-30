@@ -12,6 +12,7 @@ from astropy.cosmology import Planck18
 from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
+from matplotlib.colors import TwoSlopeNorm
 
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import PrintLogger, _get_option
@@ -49,8 +50,8 @@ class ScienceRMSynth1DOptions(BaseOptions):
     """SNR threshold in polarized intensity for making science plots. Default 7.0"""
     z_cluster: float | None = None
     """Redshift of the cluster."""
-    bubble_scaling_factor: float = 1e4
-    """Scaling factor for bubble sizes in RM bubble plot. Default 1e4"""
+    bubble_scaling_factor: float = 1e0
+    """Scaling factor (division) for bubble sizes in RM bubble plot. Default 1."""
     bubble_scale_function: str = "linear"
     """Scaling function for bubble sizes in RM bubble plot. Default 'linear', also supports 'quadratic'."""
 
@@ -258,10 +259,9 @@ def plot_rm_bubble_map(
     sizes = (np.abs(RM) ** power) / scaling
     # ensure a visible minimum size
     sizes = np.where(np.isfinite(sizes), sizes, 0.0)
-    sizes = np.maximum(sizes, 10.0)
+    # sizes = np.maximum(sizes, 10.0)
 
     # Color mapping: blue (neg) -> white (0) -> red (pos)
-    from matplotlib.colors import TwoSlopeNorm
     finite_rm = RM[np.isfinite(RM)]
     if finite_rm.size == 0:
         vabs = 1.0
