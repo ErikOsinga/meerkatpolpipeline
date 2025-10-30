@@ -99,7 +99,7 @@ def plot_rm_vs_radius(
     ra_col  = _find_col(tab, ["RA", "ra", "RA_deg", "RAJ2000", "optRA"])
     dec_col = _find_col(tab, ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"])
     rm_col  = _find_col(tab, ["RM", "RM_rad_m2", "rm", "RM_obs", "RM_obs_rad_m2"])
-    err_col = _find_col(tab, ["e_RM", "RM_ERR", "RM_err", "dRM", "ERR_RM"])
+    err_col = _find_col(tab, ["e_RM", "RM_ERR", "RM_err", "dRM", "ERR_RM", "RM_err"])
 
     if ra_col is None or dec_col is None:
         raise KeyError(
