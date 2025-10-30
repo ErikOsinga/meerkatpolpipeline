@@ -88,6 +88,9 @@ def plot_rm_vs_radius(
     plot_dir = Path(plot_dir)
     plot_dir.mkdir(parents=True, exist_ok=True)
 
+    pdf_dir = plot_dir / "pdfs"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+
     # Read catalogue
     tab = Table.read(str(rms1d_catalog))
 
@@ -172,7 +175,7 @@ def plot_rm_vs_radius(
     if have_kpc_axis:
         base += f"_z{float(z):.3f}"
     png_path = plot_dir / f"{base}.png"
-    pdf_path = plot_dir / f"{base}.pdf"
+    pdf_path = pdf_dir / f"{base}.pdf"
 
     fig.savefig(png_path, bbox_inches="tight")
     fig.savefig(pdf_path, bbox_inches="tight")
