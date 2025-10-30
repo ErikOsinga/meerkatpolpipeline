@@ -29,6 +29,8 @@ class RMSynth1Doptions(BaseOptions):
     """SNR threshold in Stokes I for doing RM synthesis. Default 20"""
     overwrite: bool = False
     """Overwrite existing output files? Default False, in which case it will skip this step if output already exists"""
+    hutschenreuter_map: Path | None = None
+    """Path to Hutschenreuter Galactic RM map FITS file. If provided, will do Galactic RM correction using this map."""
 
 
 def _coerce_to_str(v: Any) -> str:

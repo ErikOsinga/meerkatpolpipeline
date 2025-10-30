@@ -42,6 +42,9 @@ from meerkatpolpipeline.rmsynth.validate_rmsynth import make_rm_validation_plots
 from meerkatpolpipeline.scienceplots import science_rms1d
 from meerkatpolpipeline.sclient import run_singularity_command
 from meerkatpolpipeline.selfcal import _facetselfcal
+from meerkatpolpipeline.utils.galactic_rm_hutschenreuter import (
+    correct_galactic_rm_hutschenreuter,
+)
 from meerkatpolpipeline.utils.rename_pybdsf_cat import rename_columns
 from meerkatpolpipeline.utils.utils import (
     execute_command,
@@ -558,6 +561,17 @@ def process_science_fields(
         # Grab center coords from any image
         center_coord = get_fits_image_center(imageset_I.image_pbcor[0])
 
+        # attempt to find the MFS image
+        imageset_I_mfs = get_imset_from_prefix(
+            prefix=str(cube_imaging_workdir / "MFSimaging" / "IQUimages" / (cube_imaging_options['targetfield']+'_stokesI') ),
+            pol="i",
+            validate=True,
+            chanout=12, # default
+            pbcor_done=True, # default
+            can_be_pbcor = ["image"] # default, coarse_cube_imaging only does pbcor for 'image' files.
+        )
+        MFS_image = get_pbcor_mfs_image_from_imset(imageset_I_mfs)
+
     if not sourcelist_fits_filtered.exists() or not sourcelist_reg_filtered.exists(): 
         msg = f"PYBDSF results not found in {cube_imaging_workdir}, please check if PYBDSF was run correctly. Expected {sourcelist_fits_filtered}"
         logger.error(msg)
@@ -889,6 +903,17 @@ def process_science_fields(
             stokesI_cube_path=stokesIcube,
             rmsynth1d_workdir=rmsynth1d_workdir,
         )
+
+        if rmsynth1d_options['hutschenreuter_map'] is not None:
+            # Run galactic correction with Hutschenreuter map
+            task_galactic_correction = task(correct_galactic_rm_hutschenreuter, name="hutschenreuter_galactic_correction")
+            rms1d_catalog = task_galactic_correction(
+                rms1d_catalog,
+                rmmap_huts=rmsynth1d_options['hutschenreuter_map'],
+            )
+            logger.info(f"Applied Hutschenreuter galactic RM correction using map at {rmsynth1d_options['hutschenreuter_map']}")
+        else:
+            logger.info("No Hutschenreuter galactic RM correction applied. Set 'hutschenreuter_map' in strategy file to apply.")
 
 
     ########## step 11: Verify RMSynth1D ##########
