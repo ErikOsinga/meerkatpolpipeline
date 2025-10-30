@@ -559,16 +559,6 @@ def plot_rm_bubble_map_on_stokesI(
         data = cut.data
         wcs = cut.wcs
 
-    # Squeeze and pick a 2D plane if needed (take the first along extra axes)
-    data = np.squeeze(data)
-    while data.ndim > 2:
-        data = data[0]
-    if data.ndim != 2:
-        raise ValueError("Image is not 2D after squeezing.")
-
-    # Celestial WCS
-    wcs = WCS(hdr).celestial
-
     # Display scaling: asinh with robust percentile cuts
     finite = np.isfinite(data)
     if not np.any(finite):
