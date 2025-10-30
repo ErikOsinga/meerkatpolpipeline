@@ -49,6 +49,9 @@ RM_COL_OPTIONS = ["RM", "RM_rad_m2", "rm", "RM_obs", "RM_obs_rad_m2"]
 RM_ERR_COL_OPTIONS = ["e_RM", "RM_ERR", "RM_err", "dRM", "ERR_RM", "RM_err"]
 RA_COL_OPTIONS = ["RA", "ra", "RA_deg", "RAJ2000", "optRA"]
 DEC_COL_OPTIONS = ["DEC", "Dec", "dec", "DEC_deg", "DEJ2000", "optDec"]
+KPC_AXIS_COLOR = "#1f77b4" # mpl default blue
+# muted orange ("#e07b39") for more contrast,
+# teal ("#008b8b") more subtle
 
 class ScienceRMSynth1DOptions(BaseOptions):
     """A basic class to handle options for science plots after 1D RM synthesis. """
@@ -755,10 +758,18 @@ def running_scatter_vs_radius(
     # Secondary kpc axis (top) if redshift given
     if have_kpc_axis:
         secax = ax.secondary_xaxis("top", functions=(arcmin_to_kpc, kpc_to_arcmin))
+
         secax.set_xlabel(
             r"Radius to centre ($\mathrm{kpc}$)"
-            + f"  [Planck18, $z={float(z):.3f}$]"
+            + f"  [Planck18, $z={float(z):.3f}$]",
+            color=KPC_AXIS_COLOR,
         )
+
+        # set tick and spine colors to match
+        secax.tick_params(axis="x", colors=KPC_AXIS_COLOR)
+        secax.spines["top"].set_color(KPC_AXIS_COLOR)
+        secax.xaxis.label.set_color(KPC_AXIS_COLOR)
+
 
     ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
 
