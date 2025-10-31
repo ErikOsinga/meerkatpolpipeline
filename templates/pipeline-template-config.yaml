@@ -4,7 +4,7 @@
 #  "targetfield",
 #  "lofar_container",
 #  "casa_container",
-# "defaults",
+#  "defaults",
 
 version: 0.1
 # string matching target field name
@@ -55,9 +55,7 @@ defaults:
     # cleanup fits channel images from selfcal rounds that are not the last round
     cleanup_channel_images: true
 
-
 ## STEP SPECIFIC SECTIONS BELOW
-
 # here you can put parameters that are likely to change per target
 download_preprocess:
   # enable or disable the download step
@@ -75,7 +73,6 @@ download_preprocess:
   # then even if download step is disabled, ms_name will be used to determine the
   # location of the MS, so it can be used in caracal.
   
-
 crosscal:
   # enable or disable the crosscal step
   enable: true
@@ -98,7 +95,6 @@ crosscal:
   obsconf_bpcal: J1939-6342
   obsconf_fcal: J1939-6342
 
-
 check_calibrator:
   # enable or disable the check_calibrator step
   enable: true
@@ -110,7 +106,6 @@ check_calibrator:
   no_fit_rm: true
   # image gain cal as well?
   image_gaincal: false
-
 
 selfcal:
   # selfcal with facetselfcal. This does DI, DD, and Extraction.
@@ -132,7 +127,6 @@ selfcal:
   # for the extract step, remove sources outside a box of this size around phase center
   remove_outside_center_box: 1.5
 
-
 coarse_cube_imaging:
   enable: true
   # -fit-rm only available in newest WSClean
@@ -144,7 +138,6 @@ coarse_cube_imaging:
   # leakage is unreliable above 0.5 degrees, and in Lband its kinda close to fwhm
   filter_pybdsf_cat_radius_deg: 0.5
 
-
 compare_to_nvss:
   enable: false
   # default path to NVSS FITS images and catalogue files
@@ -155,14 +148,12 @@ compare_to_nvss:
   ### TODO: implement this feature
   # nvss_max_regions: 10
 
-
 validation:
   enable: true
   # plot top 10 brightest source spectra
   top_n_spectra: 10
   # plot top 10 brightest source spectra with channels < 35% flagging only
   flag_threshold_pct: 35
-
 
 fine_cube_imaging:
   # do many channel imaging
