@@ -198,6 +198,17 @@ def check_create_symlink(symlink: Path, original_path: Path) -> Path:
         logger.info(f"Symlink {symlink} already exists. Skipping symlink creation.")
     return symlink
 
+
+def rename_suffix_as_caracal(suffix: str) -> str:
+    """Replace + and - only when surrounded by digits."""
+    PLUS_BETWEEN_DIGITS = re.compile(r'(?<=\d)\+(?=\d)')
+    MINUS_BETWEEN_DIGITS = re.compile(r'(?<=\d)-(?=\d)')
+
+    suffix = PLUS_BETWEEN_DIGITS.sub('_p_', suffix)
+    suffix = MINUS_BETWEEN_DIGITS.sub('_m_', suffix)
+    return suffix
+
+
 def find_calibrated_ms(
         crosscal_base_dir: Path,
         preprocessed_ms: Path,
@@ -223,11 +234,8 @@ def find_calibrated_ms(
     if not suffix.endswith(".ms"):
         suffix += ".ms"
 
-    # caracal renames as follows
-    if "+" in suffix:
-        suffix = suffix.replace('+','_p_')
-    if "-" in suffix:
-        suffix = suffix.replace('-','_m_')
+    # caracal renames as follows ("J0508+1230-cal.ms" -> "J0508_p_1230-cal.ms")
+    suffix = rename_suffix_as_caracal(suffix)
 
     for subdir in look_in_subdirs:
         ms_path = crosscal_base_dir / subdir / (preprocessed_ms.stem + suffix)
