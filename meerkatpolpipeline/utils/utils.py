@@ -223,6 +223,12 @@ def find_calibrated_ms(
     if not suffix.endswith(".ms"):
         suffix += ".ms"
 
+    # caracal renames as follows
+    if "+" in suffix:
+        suffix = suffix.replace('+','_p_')
+    if "-" in suffix:
+        suffix = suffix.replace('-','_m_')
+
     for subdir in look_in_subdirs:
         ms_path = crosscal_base_dir / subdir / (preprocessed_ms.stem + suffix)
         if ms_path.exists():
