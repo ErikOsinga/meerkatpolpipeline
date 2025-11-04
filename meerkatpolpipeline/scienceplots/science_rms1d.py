@@ -954,7 +954,8 @@ def running_scatter_vs_radius(
         # Secondary kpc axis on top (colored as you set elsewhere)
         if have_kpc_axis:
             secax = ax.secondary_xaxis("top", functions=(arcmin_to_kpc, kpc_to_arcmin))
-            kpc_color = "#1f77b4"
+            kpc_color = "C1"
+            # kpc_color = "#1f77b4"
             secax.set_xlabel(
                 r"Radius to centre ($\mathrm{kpc}$)"
                 + f"  [Planck18, $z={float(z):.3f}$]",
