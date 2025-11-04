@@ -119,8 +119,8 @@ def _presentation_mode(science_options, logger=None):
     rc_overrides = {
         "savefig.facecolor": (1.0, 0.0, 0.0, 0.0),  # transparent figure bg
         # keep ticks/labels visible regardless of style
-        "xtick.color": "white",
-        "ytick.color": "white",
+        "xtick.color": "black",
+        "ytick.color": "black",
         "axes.labelcolor": "black",
         "axes.edgecolor": "black",
         "xtick.top": True,
@@ -334,6 +334,9 @@ def plot_rm_vs_radius(
                 r"Radius to centre ($\mathrm{kpc}$)"
                 + f"  [Planck18, $z={float(z):.3f}$]"
             )
+            if science_options['presentation']:
+                secax.tick_params(axis="x", color="C1", labelcolor="C1")
+
 
         # Light grid, tight layout
         ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
@@ -348,6 +351,12 @@ def plot_rm_vs_radius(
 
         png_path = plot_dir / f"{base}.png"
         pdf_path = pdf_dir / f"{base}.pdf"
+
+        if science_options['presentation']:
+            # apparently cant style labels and ticks in different colors, so have to hardcode
+            ax.tick_params(axis="x", color="black", labelcolor="white")  # lines black, labels white
+            ax.tick_params(axis="y", color="black", labelcolor="white")  # lines black, labels white
+
 
         fig.savefig(png_path, bbox_inches="tight")
         fig.savefig(pdf_path, bbox_inches="tight")
