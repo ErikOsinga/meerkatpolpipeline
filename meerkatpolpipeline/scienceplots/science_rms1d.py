@@ -28,6 +28,7 @@ from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import PrintLogger, _get_option
 from meerkatpolpipeline.scienceplots.science_utils import runningstatistics, RunningStatisticsResult
 from meerkatpolpipeline.validation.rms_vs_freq import compute_rms_from_imagelist
+from meerkatpolpipeline.check_racs.target_vs_racs import get_beam_from_header
 
 
 # Set plotting style. Avoid requiring an external LaTeX installation; use mathtext with serif fonts.
@@ -1253,7 +1254,12 @@ def plot_summary_text_panel(
         lines.append(r"$R_{\mathrm{500}}$: n/a")
     if stokesI_MFS is not None:
         stokesI_rms = compute_rms_from_imagelist([stokesI_MFS])[0]
-        lines.append(f"Stokes I image RMS approx: {stokesI_rms/1e6:.3e} muJy/beam")
+        lines.append(f"Stokes I image RMS approx: {stokesI_rms*1e6:.2e} muJy/beam")
+        with fits.open(stokesI_MFS) as hdul:
+            hdr = hdul[0].header
+        bmaj, bmin, bpa = get_beam_from_header(hdr)
+        lines.append(f"Beam: {bmaj*3600:.2f}\" x {bmin*3600:.2f}\" @ {bpa:.1f} deg")
+
     if z is not None:
         lines.append(f"Redshift: $z={float(z):.3f}$")
     else:
