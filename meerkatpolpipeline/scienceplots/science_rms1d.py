@@ -27,6 +27,7 @@ from astropy.visualization.wcsaxes import SphericalCircle
 from meerkatpolpipeline.options import BaseOptions
 from meerkatpolpipeline.utils.utils import PrintLogger, _get_option
 from meerkatpolpipeline.scienceplots.science_utils import runningstatistics, RunningStatisticsResult
+from meerkatpolpipeline.validation.rms_vs_freq import compute_rms_from_imagelist
 
 
 # Set plotting style. Avoid requiring an external LaTeX installation; use mathtext with serif fonts.
@@ -1170,6 +1171,7 @@ def plot_summary_text_panel(
     center_coord: SkyCoord,
     plot_dir: Path,
     logger=None,
+    stokesI_MFS: Path | None = None,
 ):
     """
     Render a publication-grade text summary:
@@ -1249,6 +1251,9 @@ def plot_summary_text_panel(
         lines.append(f"$R_{{\\mathrm{{500}}}}$: {float(r500d):.3f} deg  ({r500_arcmin:.1f} arcmin)")
     else:
         lines.append(r"$R_{\mathrm{500}}$: n/a")
+    if stokesI_MFS is not None:
+        stokesI_rms = compute_rms_from_imagelist([stokesI_MFS])[0]
+        lines.append(f"Stokes I image RMS approx: {stokesI_rms/1e6:.3e} muJy/beam")
     if z is not None:
         lines.append(f"Redshift: $z={float(z):.3f}$")
     else:
@@ -1371,6 +1376,7 @@ def generate_science_plots(
         science_options,
         rms1d_catalog,
         center_coord,
+        stokesI_MFS=stokesI_MFS,
         plot_dir=output_dir,
         logger=logger,
     )
