@@ -449,63 +449,70 @@ def plot_rm_bubble_map(
     cmap = "coolwarm"
 
     # Figure
-    fig, ax = plt.subplots(figsize=(5.0, 4.2))
+    with _presentation_mode(science_options, logger=logger):
+        fig, ax = plt.subplots(figsize=(5.0, 4.2))
 
-    sc = ax.scatter(
-        ra, dec,
-        c=RM, s=sizes,
-        cmap=cmap, norm=norm,
-        linewidths=0.4, edgecolors="k", alpha=0.9,
-    )
+        sc = ax.scatter(
+            ra, dec,
+            c=RM, s=sizes,
+            cmap=cmap, norm=norm,
+            linewidths=0.4, edgecolors="k", alpha=0.9,
+        )
 
-    # Mark cluster centre
-    ax.plot(center_coord.ra.deg, center_coord.dec.deg, marker="*", ms=10, mec="k", mfc="none", lw=1.0)
+        # Mark cluster centre
+        ax.plot(center_coord.ra.deg, center_coord.dec.deg, marker="*", ms=10, mec="k", mfc="none", lw=1.0)
 
-    # Optional R500 overlay
-    r500_deg = _get_option(science_options, "cluster_r500_deg", None)
-    if r500_deg is not None:
-        try:
-            _draw_r500_circle_plain(ax, center_coord, float(r500_deg))
-        except Exception as e:
-            logger.warning(f"Could not draw R500 circle (plain): {e}")
-
-
-    # Axes and labels
-    ax.set_xlabel(r"$\mathrm{RA}\;(\deg)$")
-    ax.set_ylabel(r"$\mathrm{Dec}\;(\deg)$")
-    ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
-
-    # Astronomical convention: RA increases to the left
-    ax.invert_xaxis()
-
-    # Colorbar
-    cbar = fig.colorbar(sc, ax=ax, pad=0.01)
-    if title_suffix == "":
-        cbar.set_label(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
-    else:
-        cbar.set_label(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+        # Optional R500 overlay
+        r500_deg = _get_option(science_options, "cluster_r500_deg", None)
+        if r500_deg is not None:
+            try:
+                _draw_r500_circle_plain(ax, center_coord, float(r500_deg))
+            except Exception as e:
+                logger.warning(f"Could not draw R500 circle (plain): {e}")
 
 
-    # Title 
-    field = _get_option(science_options, "targetfield", "field")
-    z = _get_option(science_options, "z_cluster", None)
-    if z is not None:
-        ax.set_title(f"{field} — RM bubble map (z={float(z):.3f}){title_suffix}")
-    else:
-        ax.set_title(f"{field} — RM bubble map{title_suffix}")
+        # Axes and labels
+        ax.set_xlabel(r"$\mathrm{RA}\;(\deg)$")
+        ax.set_ylabel(r"$\mathrm{Dec}\;(\deg)$")
+        ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
 
-    fig.tight_layout()
+        # Astronomical convention: RA increases to the left
+        ax.invert_xaxis()
 
-    # Outputs
-    base = f"rm_bubble_map_{field}{file_suffix}"
+        # Colorbar
+        cbar = fig.colorbar(sc, ax=ax, pad=0.01)
+        if title_suffix == "":
+            cbar.set_label(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+        else:
+            cbar.set_label(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
 
-    png_path = plot_dir / f"{base}.png"
-    pdf_path = pdf_dir / f"{base}.pdf"
-    fig.savefig(png_path, bbox_inches="tight")
-    fig.savefig(pdf_path, bbox_inches="tight")
-    plt.close(fig)
 
-    logger.info(f"Saved RM bubble map: {png_path.name} and {pdf_path.name}")
+        # Title 
+        field = _get_option(science_options, "targetfield", "field")
+        z = _get_option(science_options, "z_cluster", None)
+        if z is not None:
+            ax.set_title(f"{field} — RM bubble map (z={float(z):.3f}){title_suffix}")
+        else:
+            ax.set_title(f"{field} — RM bubble map{title_suffix}")
+
+        if science_options['presentation']:
+            # apparently cant style labels and ticks in different colors, so have to hardcode
+            ax.tick_params(axis="x", color="black", labelcolor="white")  # lines black, labels white
+            ax.tick_params(axis="y", color="black", labelcolor="white")  # lines black, labels white
+
+
+        fig.tight_layout()
+
+        # Outputs
+        base = f"rm_bubble_map_{field}{file_suffix}"
+
+        png_path = plot_dir / f"{base}.png"
+        pdf_path = pdf_dir / f"{base}.pdf"
+        fig.savefig(png_path, bbox_inches="tight")
+        fig.savefig(pdf_path, bbox_inches="tight")
+        plt.close(fig)
+
+        logger.info(f"Saved RM bubble map: {png_path.name} and {pdf_path.name}")
 
     return {"png": png_path, "pdf": pdf_path}
 
