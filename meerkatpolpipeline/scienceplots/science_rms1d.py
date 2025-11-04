@@ -113,16 +113,23 @@ def _presentation_mode(science_options, logger=None):
     style_path = _get_option(science_options, "figstyle", None)
 
     if not use_presentation:
-        # no-op
         yield
         return
 
-    # Transparent outer figure background when saving
-    rc_overrides = {"savefig.facecolor": (1.0, 0.0, 0.0, 0.0)}  # RGBA with alpha=0 → transparent
+    rc_overrides = {
+        "savefig.facecolor": (1.0, 0.0, 0.0, 0.0),  # transparent figure bg
+        # keep ticks/labels visible regardless of style
+        "xtick.color": "black",
+        "ytick.color": "black",
+        "axes.labelcolor": "black",
+        "axes.edgecolor": "black",
+        "xtick.top": True,
+        "ytick.right": True,
+        "xtick.minor.visible": True,
+        "ytick.minor.visible": True,
+    }
 
-    # Apply rc overrides in a temporary context
     with mpl.rc_context(rc=rc_overrides):
-        # Optionally apply a style just for this figure
         if style_path is not None:
             try:
                 with plt.style.context(str(style_path)):
@@ -130,7 +137,6 @@ def _presentation_mode(science_options, logger=None):
                     return
             except Exception as e:
                 logger.warning(f"Could not load figstyle '{style_path}': {e}. Continuing without it.")
-        # No style path → just the rc overrides
         yield
 
 
