@@ -637,64 +637,71 @@ def plot_rm_bubble_map_on_stokesI(
     norm = ImageNormalize(vmin=vmin, vmax=vmax, stretch=LinearStretch())
 
     # --- Plot
-    fig = plt.figure(figsize=(5.4, 4.6))
-    ax = plt.subplot(111, projection=wcs)
-    im = ax.imshow(data, origin="lower", cmap="gray", norm=norm)  # noqa: F841
+    with _presentation_mode(science_options, logger=logger):
+        fig = plt.figure(figsize=(5.4, 4.6))
+        ax = plt.subplot(111, projection=wcs)
+        im = ax.imshow(data, origin="lower", cmap="gray", norm=norm)  # noqa: F841
 
-    # Scatter bubbles at world coords
-    sc = ax.scatter(
-        ra, dec,
-        c=RM, s=sizes,
-        cmap=rm_cmap, norm=rm_norm,
-        linewidths=0.4, edgecolors="k", alpha=0.9,
-        transform=ax.get_transform("world"),
-    )
+        # Scatter bubbles at world coords
+        sc = ax.scatter(
+            ra, dec,
+            c=RM, s=sizes,
+            cmap=rm_cmap, norm=rm_norm,
+            linewidths=0.4, edgecolors="k", alpha=0.9,
+            transform=ax.get_transform("world"),
+        )
 
-    # Mark cluster centre
-    ax.plot(
-        center_coord.ra.deg, center_coord.dec.deg,
-        marker="*", ms=10, mec="k", mfc="none", lw=1.0,
-        transform=ax.get_transform("world"),
-    )
+        # Mark cluster centre
+        ax.plot(
+            center_coord.ra.deg, center_coord.dec.deg,
+            marker="*", ms=10, mec="k", mfc="none", lw=1.0,
+            transform=ax.get_transform("world"),
+        )
 
-    # Optional R500 overlay (WCS)
-    r500_deg = _get_option(science_options, "cluster_r500_deg", None)
-    if r500_deg is not None:
-        try:
-            _draw_r500_circle_wcs(ax, center_coord, float(r500_deg))
-        except Exception as e:
-            logger.warning(f"Could not draw R500 circle (WCS): {e}")
+        # Optional R500 overlay (WCS)
+        r500_deg = _get_option(science_options, "cluster_r500_deg", None)
+        if r500_deg is not None:
+            try:
+                _draw_r500_circle_wcs(ax, center_coord, float(r500_deg))
+            except Exception as e:
+                logger.warning(f"Could not draw R500 circle (WCS): {e}")
 
 
-    # Axes & grid (WCSAxes handles labels/units)
-    ax.grid(color="white", alpha=0.2, ls=":", lw=0.8)
+        # Axes & grid (WCSAxes handles labels/units)
+        ax.grid(color="white", alpha=0.2, ls=":", lw=0.8)
 
-    # Colorbar for RM
-    cbar = fig.colorbar(sc, ax=ax, pad=0.01, fraction=0.045)
-    if title_suffix:
-        cbar.set_label(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
-    else:
-        cbar.set_label(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+        # Colorbar for RM
+        cbar = fig.colorbar(sc, ax=ax, pad=0.01, fraction=0.045)
+        if title_suffix:
+            cbar.set_label(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+        else:
+            cbar.set_label(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
 
-    # Title
-    field = _get_option(science_options, "targetfield", "field")
-    z = _get_option(science_options, "z_cluster", None)
-    if z is not None:
-        ax.set_title(f"{field} — RM bubble map on Stokes I (z={float(z):.3f})\n{title_suffix}")
-    else:
-        ax.set_title(f"{field} — RM bubble map on Stokes I\n{title_suffix}")
+        # Title
+        field = _get_option(science_options, "targetfield", "field")
+        z = _get_option(science_options, "z_cluster", None)
+        if z is not None:
+            ax.set_title(f"{field} — RM bubble map on Stokes I (z={float(z):.3f})\n{title_suffix}")
+        else:
+            ax.set_title(f"{field} — RM bubble map on Stokes I\n{title_suffix}")
 
-    ax.set_xlabel(r"$\mathrm{RA}$")
-    ax.set_ylabel(r"$\mathrm{Dec}$")
-    fig.tight_layout()
+        ax.set_xlabel(r"$\mathrm{RA}$")
+        ax.set_ylabel(r"$\mathrm{Dec}$")
 
-    # Outputs
-    base = f"rm_bubble_on_stokesI_{field}{file_suffix}"
-    png_path = plot_dir / f"{base}.png"
-    pdf_path = pdf_dir / f"{base}.pdf"
-    fig.savefig(png_path, bbox_inches="tight")
-    fig.savefig(pdf_path, bbox_inches="tight")
-    plt.close(fig)
+        if science_options['presentation']:
+            # apparently cant style labels and ticks in different colors, so have to hardcode
+            ax.tick_params(axis="x", color="black", labelcolor="white")  # lines black, labels white
+            ax.tick_params(axis="y", color="black", labelcolor="white")  # lines black, labels white
+
+        fig.tight_layout()
+
+        # Outputs
+        base = f"rm_bubble_on_stokesI_{field}{file_suffix}"
+        png_path = plot_dir / f"{base}.png"
+        pdf_path = pdf_dir / f"{base}.pdf"
+        fig.savefig(png_path, bbox_inches="tight")
+        fig.savefig(pdf_path, bbox_inches="tight")
+        plt.close(fig)
 
     logger.info(f"Saved RM bubble map on Stokes I: {png_path.name} and {pdf_path.name}")
 
@@ -910,99 +917,109 @@ def running_scatter_vs_radius(
     use_xerr = (binvis == "upperpanel")
     xerr_to_use = xerr if use_xerr else None
 
-    # Figure layout
-    if want_lowerpanel:
-        fig, (ax, ax2) = plt.subplots(
-            2, 1, sharex=True, figsize=(5.6, 5.6), height_ratios=[2.6, 1.0]
-        )
-    else:
-        fig, ax = plt.subplots(figsize=(5.2, 6.9))
-        ax2 = None
-
-    # --- Top panel: sigma vs radius (with optional y-errors and optional x-whiskers)
-    if elo is not None and ehi is not None:
-        ax.errorbar(
-            x, sigma,
-            xerr=xerr_to_use, yerr=[elo, ehi],
-            fmt="o", ms=3.5, lw=1.1, elinewidth=0.9,
-            capsize=2.0,
-            alpha=0.95, color='k'
-        )
-    else:
-        ax.errorbar(
-            x, sigma,
-            xerr=xerr_to_use,
-            fmt="o", ms=3.5, lw=1.1, elinewidth=0.9,
-            capsize=2.0 if use_xerr else 0.0,
-            alpha=0.95, color='k'
-        )
-
-    ax.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
-    if file_suffix:
-        ax.set_ylabel(r"$\sigma_{\mathrm{RM,corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
-    else:
-        ax.set_ylabel(r"$\sigma_{\mathrm{RM}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
-
-    # Secondary kpc axis on top (colored as you set elsewhere)
-    if have_kpc_axis:
-        secax = ax.secondary_xaxis("top", functions=(arcmin_to_kpc, kpc_to_arcmin))
-        kpc_color = "#1f77b4"
-        secax.set_xlabel(
-            r"Radius to centre ($\mathrm{kpc}$)"
-            + f"  [Planck18, $z={float(z):.3f}$]",
-            color=kpc_color,
-        )
-        secax.tick_params(axis="x", colors=kpc_color)
-        secax.spines["top"].set_color(kpc_color)
-        secax.xaxis.label.set_color(kpc_color)
-
-    ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
-
-    # --- Lower panel content
-    if want_lowerpanel and ax2 is not None:
-        if show_rminmax_panel:
-            # Show r_min and r_max of each running bin
-            rmin_arcmin = left_bounds
-            rmax_arcmin = right_bounds
-            if have_kpc_axis:
-                rmin = arcmin_to_kpc(rmin_arcmin)
-                rmax = arcmin_to_kpc(rmax_arcmin)
-                ylab = r"$r_{\min},\,r_{\max}\;(\mathrm{kpc})$"
-            else:
-                rmin = rmin_arcmin
-                rmax = rmax_arcmin
-                ylab = r"$r_{\min},\,r_{\max}\;(\mathrm{arcmin})$"
-
-            ax2.plot(x, rmin, "-", ms=2.8, lw=1.0, label=r"$r_{\min}$",color='C0')
-            ax2.plot(x, rmax, "-", ms=2.8, lw=1.0, label=r"$r_{\max}$",color='C1')
-            ax2.plot(x, arcmin_to_kpc(x), "o-", ms=2.8, lw=1.0, label=r"$r_{\mathrm{median}}$",color='k')
-            ax2.set_ylabel(ylab)
-            ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
-            ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
-            ax2.legend(frameon=False, loc="best")
+    with _presentation_mode(science_options, logger=logger):
+        # Figure layout
+        if want_lowerpanel:
+            fig, (ax, ax2) = plt.subplots(
+                2, 1, sharex=True, figsize=(5.6, 5.6), height_ratios=[2.6, 1.0]
+            )
         else:
-            # Fixed-width: show N per bin (as before)
-            Npoints = np.asarray(rs.Npoints, int)
-            ax2.plot(x, Npoints, "s-", ms=3.0, lw=1.0)
-            ax2.set_ylabel(r"$N_{\mathrm{bin}}$")
-            ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
-            ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+            fig, ax = plt.subplots(figsize=(5.2, 6.9))
+            ax2 = None
 
-    fig.tight_layout()
+        # --- Top panel: sigma vs radius (with optional y-errors and optional x-whiskers)
+        if elo is not None and ehi is not None:
+            ax.errorbar(
+                x, sigma,
+                xerr=xerr_to_use, yerr=[elo, ehi],
+                fmt="o", ms=3.5, lw=1.1, elinewidth=0.9,
+                capsize=2.0,
+                alpha=0.95, color='k'
+            )
+        else:
+            ax.errorbar(
+                x, sigma,
+                xerr=xerr_to_use,
+                fmt="o", ms=3.5, lw=1.1, elinewidth=0.9,
+                capsize=2.0 if use_xerr else 0.0,
+                alpha=0.95, color='k'
+            )
 
-    # Filenames
-    field = _get_option(science_options, "targetfield", "field")
-    method = str(_get_option(science_options, "running_scatter_method", "iqr")).lower()
-    base = f"running_scatter_vs_radius_{field}_method-{method}"
-    if have_kpc_axis:
-        base += f"_z{float(z):.3f}"
-    base += file_suffix  # '' or '_grm-hutschenreuter'
+        ax.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
+        if file_suffix:
+            ax.set_ylabel(r"$\sigma_{\mathrm{RM,corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+        else:
+            ax.set_ylabel(r"$\sigma_{\mathrm{RM}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
 
-    png_path = plot_dir / f"{base}.png"
-    pdf_path = pdf_dir / f"{base}.pdf"
-    fig.savefig(png_path, bbox_inches="tight")
-    fig.savefig(pdf_path, bbox_inches="tight")
-    plt.close(fig)
+        # Secondary kpc axis on top (colored as you set elsewhere)
+        if have_kpc_axis:
+            secax = ax.secondary_xaxis("top", functions=(arcmin_to_kpc, kpc_to_arcmin))
+            kpc_color = "#1f77b4"
+            secax.set_xlabel(
+                r"Radius to centre ($\mathrm{kpc}$)"
+                + f"  [Planck18, $z={float(z):.3f}$]",
+                color=kpc_color,
+            )
+            secax.tick_params(axis="x", colors=kpc_color)
+            secax.spines["top"].set_color(kpc_color)
+            secax.xaxis.label.set_color(kpc_color)
+
+        ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+
+        if science_options['presentation']:
+            # apparently cant style labels and ticks in different colors, so have to hardcode
+            ax.tick_params(axis="x", color="black", labelcolor="white")  # lines black, labels white
+            ax.tick_params(axis="y", color="black", labelcolor="white")  # lines black, labels white
+
+        # --- Lower panel content
+        if want_lowerpanel and ax2 is not None:
+            if science_options['presentation']:
+                # apparently cant style labels and ticks in different colors, so have to hardcode
+                ax2.tick_params(axis="x", color="black", labelcolor="white")
+
+            if show_rminmax_panel:
+                # Show r_min and r_max of each running bin
+                rmin_arcmin = left_bounds
+                rmax_arcmin = right_bounds
+                if have_kpc_axis:
+                    rmin = arcmin_to_kpc(rmin_arcmin)
+                    rmax = arcmin_to_kpc(rmax_arcmin)
+                    ylab = r"$r_{\min},\,r_{\max}\;(\mathrm{kpc})$"
+                else:
+                    rmin = rmin_arcmin
+                    rmax = rmax_arcmin
+                    ylab = r"$r_{\min},\,r_{\max}\;(\mathrm{arcmin})$"
+
+                ax2.plot(x, rmin, "-", ms=2.8, lw=1.0, label=r"$r_{\min}$",color='C0')
+                ax2.plot(x, rmax, "-", ms=2.8, lw=1.0, label=r"$r_{\max}$",color='C1')
+                ax2.plot(x, arcmin_to_kpc(x), "o-", ms=2.8, lw=1.0, label=r"$r_{\mathrm{median}}$",color='k')
+                ax2.set_ylabel(ylab)
+                ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
+                ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+                ax2.legend(frameon=False, loc="best")
+            else:
+                # Fixed-width: show N per bin (as before)
+                Npoints = np.asarray(rs.Npoints, int)
+                ax2.plot(x, Npoints, "s-", ms=3.0, lw=1.0)
+                ax2.set_ylabel(r"$N_{\mathrm{bin}}$")
+                ax2.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
+                ax2.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+
+        fig.tight_layout()
+
+        # Filenames
+        field = _get_option(science_options, "targetfield", "field")
+        method = str(_get_option(science_options, "running_scatter_method", "iqr")).lower()
+        base = f"running_scatter_vs_radius_{field}_method-{method}"
+        if have_kpc_axis:
+            base += f"_z{float(z):.3f}"
+        base += file_suffix  # '' or '_grm-hutschenreuter'
+
+        png_path = plot_dir / f"{base}.png"
+        pdf_path = pdf_dir / f"{base}.pdf"
+        fig.savefig(png_path, bbox_inches="tight")
+        fig.savefig(pdf_path, bbox_inches="tight")
+        plt.close(fig)
 
     logger.info(f"Saved running scatter vs radius plot: {png_path.name} and {pdf_path.name}")
 
@@ -1100,40 +1117,46 @@ def plot_mfs_image_publication(
     cbar_label = f"Stokes I ({bunit})" if bunit else "Stokes I"
 
     # Plot
-    fig = plt.figure(figsize=(5.4, 4.6))
-    ax = plt.subplot(111, projection=wcs)
-    im = ax.imshow(data, origin="lower", cmap="inferno", norm=norm)  # noqa: F841
+    with _presentation_mode(science_options, logger=logger):
+        fig = plt.figure(figsize=(5.4, 4.6))
+        ax = plt.subplot(111, projection=wcs)
+        im = ax.imshow(data, origin="lower", cmap="inferno", norm=norm)  # noqa: F841
 
-    # Optional R500 overlay (WCS)
-    r500_deg = _get_option(science_options, "cluster_r500_deg", None)
-    if r500_deg is not None:
-        try:
-            _draw_r500_circle_wcs(ax, center_coord, float(r500_deg))
-        except Exception as e:
-            logger.warning(f"Could not draw R500 circle (WCS): {e}")
+        # Optional R500 overlay (WCS)
+        r500_deg = _get_option(science_options, "cluster_r500_deg", None)
+        if r500_deg is not None:
+            try:
+                _draw_r500_circle_wcs(ax, center_coord, float(r500_deg))
+            except Exception as e:
+                logger.warning(f"Could not draw R500 circle (WCS): {e}")
 
 
-    # Axis cosmetics (publication-leaning)
-    ax.grid(alpha=0.15, linestyle=":", linewidth=0.8)
-    ax.set_xlabel(r"$\mathrm{RA}$")
-    ax.set_ylabel(r"$\mathrm{Dec}$")
+        # Axis cosmetics (publication-leaning)
+        ax.grid(alpha=0.15, linestyle=":", linewidth=0.8)
+        ax.set_xlabel(r"$\mathrm{RA}$")
+        ax.set_ylabel(r"$\mathrm{Dec}$")
 
-    # Colorbar
-    cbar = fig.colorbar(ax.images[0], ax=ax, pad=0.01, fraction=0.046)
-    cbar.set_label(cbar_label)
+        # Colorbar
+        cbar = fig.colorbar(ax.images[0], ax=ax, pad=0.01, fraction=0.046)
+        cbar.set_label(cbar_label)
 
-    # Title
-    ax.set_title(f"{field} — Stokes I (MFS)")
+        # Title
+        ax.set_title(f"{field} — Stokes I (MFS)")
 
-    fig.tight_layout()
+        if science_options['presentation']:
+            # apparently cant style labels and ticks in different colors, so have to hardcode
+            ax.tick_params(axis="x", color="black", labelcolor="white")  # lines black, labels white
+            ax.tick_params(axis="y", color="black", labelcolor="white")  # lines black, labels white
 
-    # Save
-    base = f"mfs_image_{field}"
-    png_path = plot_dir / f"{base}.png"
-    pdf_path = pdf_dir / f"{base}.pdf"
-    fig.savefig(png_path, bbox_inches="tight")
-    fig.savefig(pdf_path, bbox_inches="tight")
-    plt.close(fig)
+        fig.tight_layout()
+
+        # Save
+        base = f"mfs_image_{field}"
+        png_path = plot_dir / f"{base}.png"
+        pdf_path = pdf_dir / f"{base}.pdf"
+        fig.savefig(png_path, bbox_inches="tight")
+        fig.savefig(pdf_path, bbox_inches="tight")
+        plt.close(fig)
 
     logger.info(f"Saved MFS image: {png_path.name} and {pdf_path.name}")
 
