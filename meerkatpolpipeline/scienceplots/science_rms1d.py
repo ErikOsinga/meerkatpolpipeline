@@ -119,8 +119,8 @@ def _presentation_mode(science_options, logger=None):
     rc_overrides = {
         "savefig.facecolor": (1.0, 0.0, 0.0, 0.0),  # transparent figure bg
         # keep ticks/labels visible regardless of style
-        "xtick.color": "black",
-        "ytick.color": "black",
+        "xtick.color": "white",
+        "ytick.color": "white",
         "axes.labelcolor": "black",
         "axes.edgecolor": "black",
         "xtick.top": True,
