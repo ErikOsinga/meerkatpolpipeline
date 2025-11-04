@@ -17,6 +17,7 @@ from astropy.visualization import (
     LinearStretch,
     ZScaleInterval,
 )
+from contextlib import contextmanager
 from astropy.wcs import WCS
 from matplotlib.colors import TwoSlopeNorm
 from astropy.nddata import Cutout2D
@@ -91,6 +92,46 @@ class ScienceRMSynth1DOptions(BaseOptions):
     """If set, crop the MFS image to a square of this width (deg) centered on `center_coord`."""
     cluster_r500_deg: float | None = None
     """If set, draw a yellow dashed circle of this radius (deg) centered on `center_coord`, labeled $R_{\\mathrm{500}}$."""
+    presentation: bool = False
+    """If True, use presentation styling (transparent figure bg, optional custom style)."""
+    figstyle: Path | None = None
+    """Optional Matplotlib style file to load when presentation=True."""
+
+
+@contextmanager
+def _presentation_mode(science_options, logger=None):
+    """
+    Temporarily enable presentation styling:
+      - optional plt.style.use(path)
+      - savefig.facecolor transparent (outside axes)
+    Reverts automatically on exit.
+    """
+    if logger is None:
+        logger = PrintLogger()
+
+    use_presentation = bool(_get_option(science_options, "presentation", False))
+    style_path = _get_option(science_options, "figstyle", None)
+
+    if not use_presentation:
+        # no-op
+        yield
+        return
+
+    # Transparent outer figure background when saving
+    rc_overrides = {"savefig.facecolor": (1.0, 0.0, 0.0, 0.0)}  # RGBA with alpha=0 → transparent
+
+    # Apply rc overrides in a temporary context
+    with mpl.rc_context(rc=rc_overrides):
+        # Optionally apply a style just for this figure
+        if style_path is not None:
+            try:
+                with plt.style.context(str(style_path)):
+                    yield
+                    return
+            except Exception as e:
+                logger.warning(f"Could not load figstyle '{style_path}': {e}. Continuing without it.")
+        # No style path → just the rc overrides
+        yield
 
 
 def _find_col(tbl: Table, candidates):
@@ -261,50 +302,50 @@ def plot_rm_vs_radius(
         def kpc_to_arcmin(x):
             return x / kpc_per_arcmin
 
+    with _presentation_mode(science_options, logger=logger):
+        fig, ax = plt.subplots(figsize=(5.0, 3.8))  # compact
 
-    fig, ax = plt.subplots(figsize=(5.0, 3.8))  # compact
+        # Scatter (with errorbars if available)
+        if RM_err is not None:
+            ax.errorbar(
+                r_arcmin, RM, yerr=RM_err, fmt="o", ms=3.5, lw=1.0, elinewidth=0.8,
+                capsize=1.8, alpha=0.9,
+            )
+        else:
+            ax.plot(r_arcmin, RM, "o", ms=3.5, alpha=0.9)
 
-    # Scatter (with errorbars if available)
-    if RM_err is not None:
-        ax.errorbar(
-            r_arcmin, RM, yerr=RM_err, fmt="o", ms=3.5, lw=1.0, elinewidth=0.8,
-            capsize=1.8, alpha=0.9,
-        )
-    else:
-        ax.plot(r_arcmin, RM, "o", ms=3.5, alpha=0.9)
+        ax.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
+        if title_suffix == "":
+            ax.set_ylabel(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+        else:
+            ax.set_title(title_suffix)
+            ax.set_ylabel(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
 
-    ax.set_xlabel(r"Radius to centre ($\mathrm{arcmin}$)")
-    if title_suffix == "":
-        ax.set_ylabel(r"$\mathrm{RM}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
-    else:
-        ax.set_title(title_suffix)
-        ax.set_ylabel(r"$\mathrm{RM}_{\mathrm{corr}}\;(\mathrm{rad}\,\mathrm{m}^{-2})$")
+        # Secondary x-axis in kpc if z is provided
+        if have_kpc_axis:
+            secax = ax.secondary_xaxis("top", functions=(arcmin_to_kpc, kpc_to_arcmin))
+            secax.set_xlabel(
+                r"Radius to centre ($\mathrm{kpc}$)"
+                + f"  [Planck18, $z={float(z):.3f}$]"
+            )
 
-    # Secondary x-axis in kpc if z is provided
-    if have_kpc_axis:
-        secax = ax.secondary_xaxis("top", functions=(arcmin_to_kpc, kpc_to_arcmin))
-        secax.set_xlabel(
-            r"Radius to centre ($\mathrm{kpc}$)"
-            + f"  [Planck18, $z={float(z):.3f}$]"
-        )
+        # Light grid, tight layout
+        ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
+        fig.tight_layout()
 
-    # Light grid, tight layout
-    ax.grid(alpha=0.2, linestyle=":", linewidth=0.8)
-    fig.tight_layout()
+        # Filenames
+        field = getattr(science_options, "targetfield", None) or "field"
+        base = f"rm_vs_radius_{field}"
+        if have_kpc_axis:
+            base += f"_z{float(z):.3f}"
+        base += file_suffix  # add '' or '_grm-hutschenreuter'
 
-    # Filenames
-    field = getattr(science_options, "targetfield", None) or "field"
-    base = f"rm_vs_radius_{field}"
-    if have_kpc_axis:
-        base += f"_z{float(z):.3f}"
-    base += file_suffix  # add '' or '_grm-hutschenreuter'
+        png_path = plot_dir / f"{base}.png"
+        pdf_path = pdf_dir / f"{base}.pdf"
 
-    png_path = plot_dir / f"{base}.png"
-    pdf_path = pdf_dir / f"{base}.pdf"
-
-    fig.savefig(png_path, bbox_inches="tight")
-    fig.savefig(pdf_path, bbox_inches="tight")
-    plt.close(fig)
+        fig.savefig(png_path, bbox_inches="tight")
+        fig.savefig(pdf_path, bbox_inches="tight")
+        plt.close(fig)
 
     logger.info(f"Saved RM vs radius plot: {png_path.name} and {pdf_path.name}")
 
