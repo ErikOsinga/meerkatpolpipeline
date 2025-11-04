@@ -1164,6 +1164,143 @@ def plot_mfs_image_publication(
     return {"png": png_path, "pdf": pdf_path}
 
 
+def plot_summary_text_panel(
+    science_options: dict | ScienceRMSynth1DOptions,
+    rms1d_catalog: Path,
+    center_coord: SkyCoord,
+    plot_dir: Path,
+    logger=None,
+):
+    """
+    Render a publication-grade text summary:
+      - Target name
+      - R500 (deg; also arcmin if available)
+      - Redshift z
+      - # of RMs within R500 (after SNR cut and GRM selection)
+      - RM surface density [per deg^2], assuming a 0.5 deg radius catalogue footprint
+      - std(RM) within R500
+      - iqr(RM) within R500
+    """
+    if logger is None:
+        logger = PrintLogger()
+
+    plot_dir = Path(plot_dir)
+    plot_dir.mkdir(parents=True, exist_ok=True)
+    pdf_dir = plot_dir / "pdfs"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+
+    # Read and filter catalogue
+    tab = Table.read(str(rms1d_catalog))
+
+    snr_thr = float(_get_option(science_options, "snr_threshold", 7.0))
+    if "SNR_PI" not in tab.colnames:
+        raise KeyError("Required column 'SNR_PI' not found for SNR filtering.")
+    tab = tab[tab["SNR_PI"] > snr_thr]
+
+    # Columns and RM choice (GRM aware)
+    ra_col  = _find_col(tab, RA_COL_OPTIONS)
+    dec_col = _find_col(tab, DEC_COL_OPTIONS)
+    if ra_col is None or dec_col is None:
+        raise KeyError(f"Could not find RA/Dec columns. Tried: {RA_COL_OPTIONS} / {DEC_COL_OPTIONS}")
+    rm_col, err_col, title_suffix, file_suffix = _resolve_rm_columns(tab, science_options)
+
+    # Coordinates and separations
+    coords = SkyCoord(tab[ra_col] * u.deg, tab[dec_col] * u.deg, frame="icrs")
+    sep_deg = coords.separation(center_coord).to(u.deg).value
+
+    # RM values (in rad m^-2)
+    RM = _as_quantity(tab[rm_col]).to(u.rad / u.m**2).value
+
+    # Inputs
+    field = _get_option(science_options, "targetfield", "field")
+    z     = _get_option(science_options, "z_cluster", None)
+    r500d = _get_option(science_options, "cluster_r500_deg", None)
+
+    # Within R500 (if available)
+    if r500d is not None:
+        mask_r500 = np.isfinite(sep_deg) & (sep_deg <= float(r500d))
+        RM_in = RM[mask_r500]
+        n_in = int(np.sum(mask_r500))
+        if np.sum(np.isfinite(RM_in)) >= 2:
+            rm_std = float(np.nanstd(RM_in, ddof=1))
+        else:
+            rm_std = np.nan
+        if np.sum(np.isfinite(RM_in)) >= 1:
+            q25, q75 = np.nanpercentile(RM_in, [25.0, 75.0])
+            rm_iqr = float(q75 - q25)
+        else:
+            rm_iqr = np.nan
+    else:
+        n_in = None
+        rm_std = np.nan
+        rm_iqr = np.nan
+
+    # RM surface density [deg^-2] assuming 0.5 deg radius coverage
+    # (use all SNR-selected rows)
+    n_total = int(len(tab))
+    area_deg2 = np.pi * (0.5 ** 2)
+    rm_per_deg2 = n_total / area_deg2 if area_deg2 > 0 else np.nan
+
+    # Compose lines (mathtext where helpful)
+    lines = []
+    lines.append(f"Target: {field}")
+    if r500d is not None:
+        r500_arcmin = 60.0 * float(r500d)
+        lines.append(f"$R_{{\\mathrm{{500}}}}$: {float(r500d):.3f} deg  ({r500_arcmin:.1f} arcmin)")
+    else:
+        lines.append(r"$R_{\mathrm{500}}$: n/a")
+    if z is not None:
+        lines.append(f"Redshift: $z={float(z):.3f}$")
+    else:
+        lines.append("Redshift: n/a")
+    if n_in is not None:
+        lines.append(f"\# RMs within $1\\times R_{{\\mathrm{{500}}}}$: {n_in:d}")
+    else:
+        lines.append(r"\# RMs within $1\times R_{\mathrm{500}}$: n/a")
+
+    lines.append(f"RM density (per deg$^2$) [footprint $r=0.5$ deg]: {rm_per_deg2:.2f}")
+    if np.isfinite(rm_std):
+        lines.append(r"$\mathrm{std}(\mathrm{RM})$ within $R_{\mathrm{500}}$: " + f"{rm_std:.2f} rad m$^{{-2}}$")
+    else:
+        lines.append(r"$\mathrm{std}(\mathrm{RM})$ within $R_{\mathrm{500}}$: n/a")
+    if np.isfinite(rm_iqr):
+        lines.append(r"$\mathrm{IQR}(\mathrm{RM})$ within $R_{\mathrm{500}}$: " + f"{rm_iqr:.2f} rad m$^{{-2}}$")
+    else:
+        lines.append(r"$\mathrm{IQR}(\mathrm{RM})$ within $R_{\mathrm{500}}$: n/a")
+
+    # Render: white axis, black text (independent of presentation theme)
+    with _presentation_mode(science_options, logger=logger):
+        fig, ax = plt.subplots(figsize=(6.0, 4.2))
+        ax.set_facecolor("white")
+        for side in ("top", "right", "left", "bottom"):
+            if side in ax.spines:
+                ax.spines[side].set_visible(False)
+        ax.set_xticks([]); ax.set_yticks([])
+        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+
+        # Left-aligned text block
+        y = 0.90
+        for ln in lines:
+            ax.text(0.03, y, ln, ha="left", va="top", fontsize=12, color="black")
+            y -= 0.10
+
+        # Title (include GRM note if any)
+        title_suffix = "" if file_suffix == "" else " — GRM corrected"
+        ax.set_title(f"{field} — Summary{title_suffix}", color="black", fontsize=12)
+
+        fig.tight_layout()
+
+        base = f"summary_text_{field}{file_suffix}"
+        png_path = plot_dir / f"{base}.png"
+        pdf_path = pdf_dir / f"{base}.pdf"
+        fig.savefig(png_path, bbox_inches="tight")
+        fig.savefig(pdf_path, bbox_inches="tight")
+        plt.close(fig)
+
+    logger.info(f"Saved summary text panel: {png_path.name} and {pdf_path.name}")
+    return {"png": png_path, "pdf": pdf_path}
+
+
 def generate_science_plots(
     science_options: ScienceRMSynth1DOptions,
     rms1d_catalog: Path,
@@ -1225,6 +1362,15 @@ def generate_science_plots(
         science_options,
         stokesI_MFS=stokesI_MFS,
         center_coord=center_coord,
+        plot_dir=output_dir,
+        logger=logger,
+    )
+
+    # Summary text panel
+    plot_summary_text_panel(
+        science_options,
+        rms1d_catalog,
+        center_coord,
         plot_dir=output_dir,
         logger=logger,
     )
