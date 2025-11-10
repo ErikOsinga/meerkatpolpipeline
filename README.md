@@ -37,6 +37,10 @@ or if you want an editable, dev tooled installation, replace the last line with
 uv pip install -e .[dev]
 ```
 
+You will have to install CARAcal separately, see https://github.com/caracal-pipeline/caracal and https://caracal.readthedocs.io/en/stable/caracalREADME.html
+
+For DI/DD self-calibration you will also need to have a singularity container with the LOFAR software. I recommend those built by Frits Sweijen, download them at https://tikk3r.github.io/flocs/.
+
 
 ## Running a Prefect server
 
@@ -62,7 +66,7 @@ Simply call the pipeline as follows:
 python meerkatpolpipeline/flows/Lband_reduction.py --cli-config-file ./meerkatpolpipeline/templates/pipeline-template-config.yaml --working-dir ./path/to/workdir/
 ```
 
-using a configuration file that you can create starting from the example configuration file.
+using a configuration file that you can create starting from the example configuration file. You can find the example configuration file in `./templates/pipeline-template-config.yaml`
 
 ### Recommended preamble to the script
 A summary of environment variables to set to make the pipeline behave well
@@ -71,6 +75,9 @@ A summary of environment variables to set to make the pipeline behave well
 export PREFECT_LOGGING_TO_API_MAX_LOG_SIZE=3000000
 # use Agg backend for MPL
 export MPLBACKEND=Agg
+
+# set max open file limit high for polarisation cubes
+ulimit -n 9000
 
 # start pipeline
 python meerkatpolpipeline/flows/Lband_reduction.py \
