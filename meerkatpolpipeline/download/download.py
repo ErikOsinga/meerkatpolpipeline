@@ -66,8 +66,19 @@ def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, te
         logger.info(f"The output path '{output_path}' already exists. Assuming MS is already downloaded")
 
     else: # download MS from link
-        cmd = f"wget --tries {downloadoptions['tries']} --waitretry={downloadoptions['waitretry_seconds']} -c -O {output_path} {downloadoptions['link']}"
-        
+
+        logger.info(f"Downloading MS from {downloadoptions['link']} to {output_path}")
+
+        # https://man7.org/linux/man-pages/man1/wget.1.html
+        cmd = (
+            f"wget -q --show-progress --progress=dot:giga " # progress dot every megabyte
+            # there are eight dots in a cluster, and 32 dots on each line (so each line contains 32M).
+            f"--tries {downloadoptions['tries']} "
+            f"--waitretry={downloadoptions['waitretry_seconds']} "
+            f"-c -O {output_path} {downloadoptions['link']}"
+        )
+
+
         execute_command(cmd, test=test)
 
         if test:
