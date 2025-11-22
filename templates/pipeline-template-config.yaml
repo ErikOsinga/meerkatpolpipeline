@@ -41,7 +41,8 @@ defaults:
     # backend if using caracal
     backend: singularity
     # location of carcal files, flagging strategy etc.
-    caracal_files: '/path/to/caracal_files/'
+    # grab these from https://github.com/caracal-pipeline/caracal/tree/master/caracal/data/meerkat_files
+    caracal_files: '/path/to/meerkat_files/'
     # template strategy for caracal (see e.g. templates/caracal-polcal-strategy.yml)
     caracal_template_strategy: /path/to/meerkatpolpipeline/templates/caracal-polcal-strategy.yml
 
