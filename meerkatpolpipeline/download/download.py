@@ -90,7 +90,7 @@ def download_and_extract(downloadoptions: DownloadOptions, working_dir: Path, te
         cmd = f"tar -xzf {output_path} -C {working_dir}"
         execute_command(cmd)
         # grab the MS name from the download link
-        unpacked_ms_name = working_dir / downloadoptions['link'].name.split('.tar.gz')[0]
+        unpacked_ms_name = working_dir / Path(downloadoptions['link']).name.split('.tar.gz')[0]
         # check whether we can find it
         assert unpacked_ms_name.exists(), f"Unpacked MS {unpacked_ms_name} does not exist, please check the download link and the tar.gz file."
         # rename the MS to the expected name
