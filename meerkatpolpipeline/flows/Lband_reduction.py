@@ -38,6 +38,7 @@ from meerkatpolpipeline.download.clipping import copy_and_clip_ms
 from meerkatpolpipeline.download.download import download_and_extract
 from meerkatpolpipeline.measurementset import load_field_intents_csv, msoverview_summary
 from meerkatpolpipeline.rmsynth.rmsynth1d import run_rmsynth1d
+from meerkatpolpipeline.rmsynth.rmsynth3d import run_rmsynth3d
 from meerkatpolpipeline.rmsynth.validate_rmsynth import make_rm_validation_plots
 from meerkatpolpipeline.scienceplots import science_rms1d
 from meerkatpolpipeline.sclient import run_singularity_command
@@ -938,6 +939,21 @@ def process_science_fields(
         )
 
     ########## step 12: RM synthesis 3D ##########
+    if "rmsynth3d" in enabled_operations:
+        rmsynth3d_workdir = working_dir / "rmsynth3d"
+        rmsynth3d_workdir.mkdir(exist_ok=True)
+
+        rmsynth3d_options = get_options_from_strategy(strategy, operation="rmsynth3d")
+
+        logger.info("Starting RMSynth3D step")
+
+        # Run RM synthesis in 3D on the image cubes
+        task_rmsynth3d = task(run_rmsynth3d, name="rmsynth_3d")
+        rmsynth3d_resultdir = task_rmsynth3d(
+            rmsynth3d_options,
+            stokesI_cube_path=stokesIcube,
+            rmsynth3d_workdir=rmsynth3d_workdir,
+        )
 
 
     ########## step 13: Verify RMSynth3D ##########
