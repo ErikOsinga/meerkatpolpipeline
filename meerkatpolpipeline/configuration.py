@@ -19,6 +19,7 @@ from meerkatpolpipeline.cube_imaging.cube_imaging import (
 from meerkatpolpipeline.download.download import DownloadOptions
 from meerkatpolpipeline.logging import logger
 from meerkatpolpipeline.rmsynth.rmsynth1d import RMSynth1Doptions
+from meerkatpolpipeline.rmsynth.rmsynth3d import RMSynth3Doptions
 from meerkatpolpipeline.rmsynth.validate_rmsynth import ValidateRMsynth1dOptions
 from meerkatpolpipeline.scienceplots.science_rms1d import ScienceRMSynth1DOptions
 from meerkatpolpipeline.selfcal._facetselfcal import SelfCalOptions
@@ -68,6 +69,7 @@ STRATEGY_OPTIONS_MAPPING = {
     "rmsynth1d": RMSynth1Doptions,
     "validate_rmsynth1d": ValidateRMsynth1dOptions,
     "science_plots_rms1d": ScienceRMSynth1DOptions,
+    "rmsynth3d": RMSynth3Doptions,
     # TODO
 }
 
