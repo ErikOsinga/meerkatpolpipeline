@@ -633,6 +633,8 @@ def process_science_fields(
             chunk_rows=4096, # default 
         )
         flag_results_per_ms, centers_mhz, avg_flag_pct, sum_counts = future.result()
+        np.save(validate_field_workdir / "flagstat_freq_centers_mhz.npy", centers_mhz)
+        np.save(validate_field_workdir / "flagstat_avg_flag_pct.npy", avg_flag_pct)
 
         # Plotting flagging percentage per MS
         for ms, c_mhz, flag_pct, _ in flag_results_per_ms:
@@ -812,9 +814,14 @@ def process_science_fields(
         bad_channel_indices = stokes_iqu_cube_channels.channel_numbers[rms_qu_average > fine_cube_imaging_options['channel_rms_limit_Jybeam']]
         logger.info(f"Number of channels flagged due to high RMS (> {fine_cube_imaging_options['channel_rms_limit_Jybeam']} Jy/beam) in Q/U after convolution: {len(bad_channel_indices)}")
 
+        # save rms for use in inverse variance weighting in RM synthesis
         np.save(fine_cube_imaging_workdir / "rms_qu_average.npy",rms_qu_average)
 
-        # also flag channels above a certain flag percentage
+        # load flagstat frequencies and percentages from 'validation' step
+        centers_mhz = np.load(validate_field_workdir / "flagstat_freq_centers_mhz.npy")
+        avg_flag_pct = np.load(validate_field_workdir / "flagstat_avg_flag_pct.npy")
+
+        # flag channels above a certain flag percentage
         flag_mask, _ = flag_image_freqs.flag_image_freqs(
             centers_mhz, avg_flag_pct, stokes_iqu_cube_channels.frequencies/1e6, # make sure both frequencies are in same units
             threshold_pct=fine_cube_imaging_options['channel_flag_limit_pct'],
