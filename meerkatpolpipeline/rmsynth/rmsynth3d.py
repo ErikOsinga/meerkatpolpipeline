@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from prefect.logging import get_run_logger
-from rmsynth1d import create_config_from_template
 
 from meerkatpolpipeline.options import BaseOptions
+from meerkatpolpipeline.rmsynth.rmsynth1d import create_config_from_template
 from meerkatpolpipeline.utils.utils import execute_command
 
 
@@ -40,6 +40,13 @@ def run_rmsynth3d(rmsynth3d_options: dict | RMSynth3Doptions, stokesI_cube_path:
 
     """
     logger = get_run_logger()
+
+    if not rmsynth3d_options['overwrite']:
+        # TODO: should check for all expected output files, not just one
+        expected_output_file = rmsynth3d_workdir / f"{rmsynth3d_options['targetfield']}.pipeline_3d_PhiPeakPIfit_rm2.fits"
+        if expected_output_file.exists():
+            logger.info(f"RMSynth 3D output file {expected_output_file} already exists and overwrite is False. Skipping RMSynth 3D step.")
+            return rmsynth3d_workdir
 
     module_dir = Path(rmsynth3d_options["module_directory"]).expanduser().resolve()
     if not module_dir.exists():
