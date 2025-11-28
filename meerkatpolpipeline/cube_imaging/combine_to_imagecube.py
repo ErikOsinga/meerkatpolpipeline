@@ -111,6 +111,7 @@ def normalize_file_input(file_input: FileInput) -> list[Path]:
 
 def build_cube_from_files(
     files: list[Path],
+    stokes: str,
     nchan: int,
     width_Mhz: float,
     reference_chan0: Path,
@@ -186,10 +187,12 @@ def build_cube_from_files(
     hdr["CRVAL3"] = ref_freq
     hdr["CRPIX3"] = 1
 
-    # Add a simple STOKES axis (I) for completeness
+    # Add a simple STOKES axis for completeness
     hdr["CTYPE4"] = "STOKES"
     hdr["CUNIT4"] = ""
-    hdr["CRVAL4"] = 1.0  # 1 = I
+    # 1 = I, 2 = Q, 3 = U
+    crval4 = {"I": 1, "Q": 2, "U": 3}.get(stokes.upper(), 1)
+    hdr["CRVAL4"] = crval4 
     hdr["CRPIX4"] = 1.0
     hdr["CDELT4"] = 1.0
 
@@ -208,6 +211,7 @@ def write_cube(cube: np.ndarray, header: fits.Header, output_path: Path, overwri
 
 def combine_to_cube(
     file_input: FileInput,
+    stokes: str, # "I", "Q", or "U"
     reference_chan0: Path,
     output: Path,
     nchan: int = 170,
@@ -241,6 +245,7 @@ def combine_to_cube(
     files = normalize_file_input(file_input)
     cube, header = build_cube_from_files(
         files=files,
+        stokes=stokes,
         nchan=nchan,
         width_Mhz=width_Mhz,
         reference_chan0=Path(reference_chan0),

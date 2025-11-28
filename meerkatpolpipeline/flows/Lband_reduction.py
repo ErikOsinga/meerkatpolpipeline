@@ -836,6 +836,7 @@ def process_science_fields(
         with tags("stokes-i"):
             task_combine_to_cube(
                 file_input=stokesI_convolved_images,
+                stokes="I",
                 reference_chan0=stokesI_convolved_images[0],
                 output=stokesIcube,
                 nchan=len(imageset_I_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
@@ -850,6 +851,7 @@ def process_science_fields(
         with tags("stokes-q"):
             task_combine_to_cube(
                 file_input=stokesQ_convolved_images,
+                stokes="Q",
                 reference_chan0=stokesQ_convolved_images[0],
                 output=stokesQcube,
                 nchan=len(imageset_Q_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
@@ -864,6 +866,7 @@ def process_science_fields(
         with tags("stokes-u"):
             task_combine_to_cube(
                 file_input=stokesU_convolved_images,
+                stokes="U",
                 reference_chan0=stokesU_convolved_images[0],
                 output=stokesUcube,
                 nchan=len(imageset_U_fine.image_pbcor), # note that we require nchan to be the original number of channels before convolution and flagging
