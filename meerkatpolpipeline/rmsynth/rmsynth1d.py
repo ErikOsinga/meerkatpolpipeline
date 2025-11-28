@@ -43,9 +43,11 @@ def _coerce_to_str(v: Any) -> str:
 
 
 def create_config_from_template(
-    rmsynth1d_options: dict | RMSynth1Doptions,
+    rmsynth_options: dict,  # or dict | RMSynth1Doptions | RMSynth3Doptions
+    template_option_key: str,
     stokesI_cube_path: Path,
     output_path: Path,
+    snr_option_key: str | None = None,
 ) -> Path:
     """
     Read a POSSUM pipeline .ini template and overwrite only the [DEFAULT] keys
@@ -53,16 +55,24 @@ def create_config_from_template(
 
     Parameters
     ----------
-    rmsynth1d_options : dict created from RMSynth1Doptions 
+    rmsynth_options : dict-like
         Must contain:
           - 'targetfield': str
-          - 'rmsynth_1d_config_template': Path-like to the template .ini
+          - template_option_key: Path-like to the template .ini
+          - 'working_directory': str or Path (for logging_directory)
           - Any other keys intended for [DEFAULT] (e.g., data_file, working_directory, etc.)
-    
-    stokesI_cube_path: Path to the Stokes I cube file for this targetfield.
-    
-    output_path: Path for the output .ini
-    
+          - If snr_option_key is not None: that key must be present and integer-like.
+    template_option_key : str
+        Key in rmsynth_options that points to the template path
+        (e.g. 'rmsynth_3d_config_template' or 'rmsynth_1d_config_template').
+    stokesI_cube_path : Path
+        Path to the Stokes I cube file for this targetfield.
+    output_path : Path
+        Path for the output .ini
+    snr_option_key : str or None, optional
+        If provided, also create 'catalog_file_snr' in the [DEFAULT] section based on:
+        catalog_file -> catalog_file_snr = "<base>.<snr>sig.fits"
+
     Returns
     -------
     output_path : Path
@@ -76,13 +86,13 @@ def create_config_from_template(
       (subject to ConfigParser reserialization).
     """
 
-    template_path = Path(rmsynth1d_options["rmsynth_1d_config_template"]).expanduser().resolve()
+    # Resolve template path from the provided key
+    template_path = Path(rmsynth_options[template_option_key]).expanduser().resolve()
     if not template_path.exists():
         raise FileNotFoundError(f"Template not found: {template_path}")
 
     # Load template
     config = ConfigParser(interpolation=None)  # leave %-style literals untouched as strings
-    # Preserve key case in output? ConfigParser lowercases by default. We'll accept lowercase keys.
     with template_path.open("r", encoding="utf-8") as f:
         config.read_file(f)
 
@@ -91,20 +101,27 @@ def create_config_from_template(
         raise ValueError("Template INI file is missing [DEFAULT] section.")
 
     # Build the set of default keys to write: every user-specified key except the special ones
-    special_keys = {"rmsynth_1d_config_template", "enable"}
-    # also do logging_directory = working_directory
-    rmsynth1d_options['logging_directory'] = rmsynth1d_options['working_directory']
-    for k, v in rmsynth1d_options.items():
+    special_keys = {template_option_key, "enable"}
+
+    # logging_directory = working_directory
+    rmsynth_options["logging_directory"] = rmsynth_options["working_directory"]
+
+    for k, v in rmsynth_options.items():
         if k in special_keys:
             continue
         # We always allow overriding targetfield and any other defaults
         config["DEFAULT"][k] = _coerce_to_str(v)
 
-    # also do data_file pointing to stokes I cube
+    # Ensure data_file points to Stokes I cube
     config["DEFAULT"]["data_file"] = str(stokesI_cube_path.resolve())
 
-    # then write SNR version of catalogue file
-    config["DEFAULT"]["catalog_file_snr"] = config["DEFAULT"]["catalog_file"].replace(".fits",f".{rmsynth1d_options['snr']:d}sig.fits")
+    # Optional: SNR-based catalogue file (1D-style behaviour)
+    if snr_option_key is not None:
+        snr_value = int(rmsynth_options[snr_option_key])
+        catalog_file = config["DEFAULT"]["catalog_file"]
+        config["DEFAULT"]["catalog_file_snr"] = catalog_file.replace(
+            ".fits", f".{snr_value:d}sig.fits"
+        )
 
     # Write out
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -156,9 +173,11 @@ def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path:
 
     # Create config file from template
     config_path = create_config_from_template(
-        rmsynth1d_options,
-        stokesI_cube_path,
+        rmsynth_options=rmsynth1d_options,
+        template_option_key="rmsynth_1d_config_template",
+        stokesI_cube_path=stokesI_cube_path,
         output_path=rmsynth1d_workdir / "rmsynth_1d_config.ini",
+        snr_option_key="snr",
     )
     logger.info(f"Created RMSynth 1D config file at {config_path}")
 
