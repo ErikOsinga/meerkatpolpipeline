@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 from pathlib import Path
 
 from prefect.logging import get_run_logger
@@ -26,7 +27,20 @@ class RMSynth3Doptions(BaseOptions):
     """Overwrite existing output files? Default False, in which case it will skip this step if output already exists"""
 
 
-def run_rmsynth3d(rmsynth3d_options: dict | RMSynth3Doptions, stokesI_cube_path: Path, rmsynth3d_workdir: Path) -> Path:
+def write_noise_file(out_path: Path, rms: np.ndarray) -> None:
+    # Each line: a single float value; preserve scientific notation if needed
+    with out_path.open("w") as f:
+        for v in rms:
+            if np.isfinite(v):
+                f.write(f"{v:.8g}\n")
+            else:
+                f.write("nan\n")
+
+def run_rmsynth3d(rmsynth3d_options: dict | RMSynth3Doptions,
+                  stokesI_cube_path: Path,
+                  rmsynth3d_workdir: Path,
+                  rms_qu_average: list[float] | None = None
+) -> Path:
     """
     Run 3D rm synthesis using the POSSUM_Polarimetry_Pipeline setup
     
@@ -60,6 +74,12 @@ def run_rmsynth3d(rmsynth3d_options: dict | RMSynth3Doptions, stokesI_cube_path:
         rmsynth3d_options['working_directory'] = rmsynth3d_workdir.expanduser().resolve()
     else:
         rmsynth3d_workdir = Path(rmsynth3d_options['working_directory']).expanduser().resolve()
+
+    if rms_qu_average is not None:
+        # write .dat file with 1 line of rms value per channel
+        noise_file_path = rmsynth3d_workdir / f"{rmsynth3d_options['targetfield']}.noise.dat"
+        logger.info(f"Writing noise file for RMSynth 3D from provided Q/U rms per channel. Writing to {noise_file_path}")
+        write_noise_file(noise_file_path, np.array(rms_qu_average))
 
     # Create config file from template
     config_path = create_config_from_template(

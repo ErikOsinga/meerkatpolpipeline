@@ -812,6 +812,8 @@ def process_science_fields(
         bad_channel_indices = stokes_iqu_cube_channels.channel_numbers[rms_qu_average > fine_cube_imaging_options['channel_rms_limit_Jybeam']]
         logger.info(f"Number of channels flagged due to high RMS (> {fine_cube_imaging_options['channel_rms_limit_Jybeam']} Jy/beam) in Q/U after convolution: {len(bad_channel_indices)}")
 
+        np.save(fine_cube_imaging_workdir / "rms_qu_average.npy",rms_qu_average)
+
         # also flag channels above a certain flag percentage
         flag_mask, _ = flag_image_freqs.flag_image_freqs(
             centers_mhz, avg_flag_pct, stokes_iqu_cube_channels.frequencies/1e6, # make sure both frequencies are in same units
@@ -948,6 +950,9 @@ def process_science_fields(
 
         rmsynth3d_options = get_options_from_strategy(strategy, operation="rmsynth3d")
 
+        # load the rms vs channel index after convolution
+        rms_qu_average = np.load(fine_cube_imaging_workdir / "rms_qu_average.npy")
+
         logger.info("Starting RMSynth3D step")
 
         # Run RM synthesis in 3D on the image cubes
@@ -956,6 +961,7 @@ def process_science_fields(
             rmsynth3d_options,
             stokesI_cube_path=stokesIcube,
             rmsynth3d_workdir=rmsynth3d_workdir,
+            rms_qu_average=rms_qu_average
         )
 
 
