@@ -238,6 +238,8 @@ def combine_to_cube(
         # Skip processing if output exists and overwrite is False
         logger.info(f"Output {output} exists and overwrite is False; skipping combine_to_cube.")
         return output
+    else:
+        logger.info(f"Combining files into cube at {output}")
     
     if flag_chans is None:
         flag_chans = []

@@ -42,6 +42,25 @@ def _coerce_to_str(v: Any) -> str:
     return str(v)
 
 
+def find_last_log_file(logs_directory: Path) -> Path | None:
+    log_files = sorted(logs_directory.glob("*.log"))
+    if not log_files:
+        return None
+    return log_files[-1]
+
+
+def check_pipeline_complete(log_file_path):
+    with open(log_file_path) as file:
+        log_contents = file.read()
+    
+    if "Pipeline stopping due to errors" in log_contents:
+        return "Failed"
+
+    if "Pipeline complete." in log_contents:
+        return "Completed"
+    else:
+        return "Failed"
+
 def create_config_from_template(
     rmsynth_options: dict,  # or dict | RMSynth1Doptions | RMSynth3Doptions
     template_option_key: str,
@@ -193,6 +212,16 @@ def run_rmsynth1d(rmsynth1d_options: dict | RMSynth1Doptions, stokesI_cube_path:
     if result.returncode != 0:
         logger.error(f"RMSynth 1D failed with stderr:\n{result.stderr}")
         raise RuntimeError("RMSynth 1D execution failed.")
+    
+    logfile = find_last_log_file(rmsynth1d_workdir)
+    if logfile is None:
+        logger.error("No log file found after RMSynth 1D execution.")
+        raise RuntimeError("RMSynth 1D execution failed: no log file found.")
+    
+    status = check_pipeline_complete(logfile)
+    if status != "Completed":
+        logger.error(f"RMSynth 1D pipeline did not complete successfully. Check log file at {logfile}")
+        raise RuntimeError("RMSynth 1D execution failed: pipeline did not complete successfully.")
     
     logger.info("RMSynth 1D completed successfully.")
 

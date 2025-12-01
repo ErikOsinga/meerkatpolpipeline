@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-import numpy as np
 from pathlib import Path
 
+import numpy as np
 from prefect.logging import get_run_logger
 
 from meerkatpolpipeline.options import BaseOptions
-from meerkatpolpipeline.rmsynth.rmsynth1d import create_config_from_template
+from meerkatpolpipeline.rmsynth.rmsynth1d import (
+    check_pipeline_complete,
+    create_config_from_template,
+    find_last_log_file,
+)
 from meerkatpolpipeline.utils.utils import execute_command
 
 
@@ -103,6 +107,16 @@ def run_rmsynth3d(rmsynth3d_options: dict | RMSynth3Doptions,
     if result.returncode != 0:
         logger.error(f"RMSynth 3D failed with stderr:\n{result.stderr}")
         raise RuntimeError("RMSynth 3D execution failed.")
+    
+    logfile = find_last_log_file(rmsynth3d_workdir)
+    if logfile is None:
+        logger.error("No log file found after RMSynth 3D execution.")
+        raise RuntimeError("RMSynth 3D execution failed: no log file found.")
+    
+    status = check_pipeline_complete(logfile)
+    if status != "Completed":
+        logger.error(f"RMSynth 3D pipeline did not complete successfully. Check log file at {logfile}")
+        raise RuntimeError("RMSynth 3D execution failed: pipeline did not complete successfully.")
     
     logger.info("RMSynth 3D completed successfully.")
 
