@@ -95,9 +95,9 @@ def process_science_fields(
         casa_additional_bind = []
 
     ########## step 1: download & clip channels ##########
+    download_workdir = working_dir / "download"
     if "download_preprocess" in enabled_operations:
         download_options = get_options_from_strategy(strategy, operation="download_preprocess")
-        download_workdir = working_dir / "download"
 
         # create subdirectory 'download'
         download_workdir.mkdir(exist_ok=True) # runs can be repeated
@@ -170,8 +170,8 @@ def process_science_fields(
 
 
     ########## step 2: cross-calibration with either casa or caracal ##########
+    crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
     if "crosscal" in enabled_operations:
-        crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
         crosscal_base_dir.mkdir(exist_ok=True) # runs can be repeated
 
         field_intents_csv = crosscal_base_dir / "field_intents.csv"
@@ -299,7 +299,6 @@ def process_science_fields(
         crosscal_dir = None
 
     if crosscal_dir is None:
-        crosscal_base_dir = working_dir / "crosscal" # /caracal or /casacrosscal
         logger.warning(f"No cross-calibration step was performed, checking for calibrated MS in {crosscal_base_dir} subdirectories")
         
         calibrated_cal_ms = find_calibrated_ms(
@@ -325,8 +324,8 @@ def process_science_fields(
         crosscal_dir = calibrated_target_ms.parent
 
     ########## step 3: check polarisation calibrator ##########
+    check_calibrator_workdir = working_dir / "check_calibrator"
     if "check_calibrator" in enabled_operations:
-        check_calibrator_workdir = working_dir / "check_calibrator"
         check_calibrator_workdir.mkdir(exist_ok=True)
 
         check_calibrator_options = get_options_from_strategy(strategy, operation="check_calibrator")
@@ -394,9 +393,8 @@ def process_science_fields(
 
 
     ########## step 4: facetselfcal ##########
+    selfcal_workdir = working_dir / "selfcal"
     if "selfcal" in enabled_operations:
-
-        selfcal_workdir = working_dir / "selfcal"
         selfcal_workdir.mkdir(exist_ok=True)
 
         # figure out where the calibrated target MS is and copy it to selfcal_workdir if needed
@@ -580,8 +578,8 @@ def process_science_fields(
 
     # TODO: switch step 6 and 7, attempt to compare NVSS to the top_n_spectra, after we determine these automatically.
     ########## step 6: preliminary check of IQUV cubes vs NVSS ##########
+    nvss_comparison_workdir = working_dir / "nvss_comparison"
     if "compare_to_nvss" in enabled_operations:
-        nvss_comparison_workdir = working_dir / "nvss_comparison"
         nvss_comparison_workdir.mkdir(exist_ok=True)
         
         logger.info("Starting compare_to_nvss step")
@@ -600,8 +598,8 @@ def process_science_fields(
 
     
     ########## step 7: after we've run PYBDSF on small cube, can check spectra of brightest sources ##########
+    validate_field_workdir = working_dir / "validation"
     if "validation" in enabled_operations:
-        validate_field_workdir = working_dir / "validation"
         validate_field_workdir.mkdir(exist_ok=True)
 
         validation_options = get_options_from_strategy(strategy, operation="validation")
@@ -930,8 +928,8 @@ def process_science_fields(
 
 
     ########## step 11: Verify RMSynth1D ##########
+    validate_rmsynth1d_workdir = working_dir / "validate_rmsynth1d"
     if "validate_rmsynth1d" in enabled_operations:
-        validate_rmsynth1d_workdir = working_dir / "validate_rmsynth1d"
         validate_rmsynth1d_workdir.mkdir(exist_ok=True)
 
         validation_rmsynth1d_options = get_options_from_strategy(strategy, operation="validate_rmsynth1d")
@@ -951,8 +949,8 @@ def process_science_fields(
         )
 
     ########## step 12: RM synthesis 3D ##########
+    rmsynth3d_workdir = working_dir / "rmsynth3d"
     if "rmsynth3d" in enabled_operations:
-        rmsynth3d_workdir = working_dir / "rmsynth3d"
         rmsynth3d_workdir.mkdir(exist_ok=True)
 
         rmsynth3d_options = get_options_from_strategy(strategy, operation="rmsynth3d")
@@ -976,8 +974,8 @@ def process_science_fields(
 
 
     ########## step 14: Science plots ##########
+    science_plots_workdir = working_dir / "science_plots_rms1d"
     if 'science_plots_rms1d' in enabled_operations:
-        science_plots_workdir = working_dir / "science_plots_rms1d"
         science_plots_workdir.mkdir(exist_ok=True)
 
         science_plots_options = get_options_from_strategy(strategy, operation="science_plots_rms1d")
