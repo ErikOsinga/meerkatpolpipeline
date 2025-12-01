@@ -48,13 +48,14 @@ def plot_rms_vs_channel_from_imlist(imagelist: list[Path], rmsvalues: np.ndarray
         output_prefix (str): Prefix for the output plot filename.
     Returns:
         np.ndarray: Array of frequencies in Hz corresponding to each channel.
+        channels: Array of channel numbers corresponding to each image.
     """
     channels = np.array([find_channel_number(img.stem) for img in imagelist])
     frequencies_Hz = get_channel_frequencies(imagelist)
     frequencies_MHz = frequencies_Hz / 1e6
 
     fig, ax = plt.subplots()
-    ax.plot(channels, rmsvalues, marker="o", linestyle="-", label="RMS")
+    ax.plot(channels, rmsvalues, marker=".", linestyle="-", label="RMS")
     ax.set_xlabel("Channel number")
     ax.set_ylabel("RMS value [Jy/beam]")
     ax.grid(True)
@@ -76,4 +77,4 @@ def plot_rms_vs_channel_from_imlist(imagelist: list[Path], rmsvalues: np.ndarray
     fig.savefig(out_full, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    return frequencies_Hz
+    return frequencies_Hz, channels
