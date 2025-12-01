@@ -780,6 +780,7 @@ def process_science_fields(
             rms_per_Q_channel=rms_per_Q_image,
             rms_per_U_channel=rms_per_U_image,
         )
+        # note that .frequencies and .channel_numbers are only for the convoled images that survived the convolution
 
         # plot rms vs channel index after convolution
         task_plot_rms = task(rms_vs_freq.plot_rms_vs_channel_from_imlist, name="plot_rms_after_convolution")
@@ -812,8 +813,13 @@ def process_science_fields(
         bad_channel_indices = stokes_iqu_cube_channels.channel_numbers[rms_qu_average > fine_cube_imaging_options['channel_rms_limit_Jybeam']]
         logger.info(f"Number of channels flagged due to high RMS (> {fine_cube_imaging_options['channel_rms_limit_Jybeam']} Jy/beam) in Q/U after convolution: {len(bad_channel_indices)}")
 
+        # add missing channels to rms_qu_average for channels that were not convolved due to large beam size
+        full_rms_qu_average = np.full(len(imageset_I_fine.image_pbcor), np.nan)
+        for idx, chan_num in enumerate(stokes_iqu_cube_channels.channel_numbers):
+            full_rms_qu_average[chan_num] = rms_qu_average[idx]
+
         # save rms for use in inverse variance weighting in RM synthesis
-        np.save(fine_cube_imaging_workdir / "rms_qu_average.npy",rms_qu_average)
+        np.save(fine_cube_imaging_workdir / "full_rms_qu_average.npy", full_rms_qu_average)
 
         # load flagstat frequencies and percentages from 'validation' step
         centers_mhz = np.load(validate_field_workdir / "flagstat_freq_centers_mhz.npy")
@@ -956,7 +962,7 @@ def process_science_fields(
         rmsynth3d_options = get_options_from_strategy(strategy, operation="rmsynth3d")
 
         # load the rms vs channel index after convolution
-        rms_qu_average = np.load(fine_cube_imaging_workdir / "rms_qu_average.npy")
+        full_rms_qu_average = np.load(fine_cube_imaging_workdir / "full_rms_qu_average.npy")
 
         logger.info("Starting RMSynth3D step")
 
@@ -966,7 +972,7 @@ def process_science_fields(
             rmsynth3d_options,
             stokesI_cube_path=stokesIcube,
             rmsynth3d_workdir=rmsynth3d_workdir,
-            rms_qu_average=rms_qu_average
+            rms_qu_average=full_rms_qu_average
         )
 
 
