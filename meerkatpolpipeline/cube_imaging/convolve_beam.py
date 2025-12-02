@@ -4,7 +4,7 @@
 # Convolve fits image(s) to a target beam.
 #
 # Written in python3 by Andrea Botteon (andrea.botteon@inaf.it) and based on https://github.com/mhardcastle/ddf-pipeline/blob/offsets_compact/scripts/convolve.py
-# 
+#
 # Adapted by Erik Osinga:
 
 Convolve FITS image(s) to a target beam.
@@ -45,7 +45,9 @@ __all__ = [
     "flatten_to_2d",
     "read_beam_from_template",
     "convolve_to_beam",
+    "convolve_cube_to_beam",
     "convolve_images",
+    "convolve_cubes",
     "parse_args",
     "main",
 ]
@@ -54,6 +56,7 @@ __all__ = [
 @dataclass(frozen=True)
 class BeamParams:
     """Target restoring beam (arcsec, arcsec, deg)."""
+
     bmaj_arcsec: float
     bmin_arcsec: float
     bpa_deg: float
@@ -68,6 +71,17 @@ class BeamParams:
     def suffix(self) -> str:
         # Used for filenames when suffix_mode == "beam"
         return f"{self.bmaj_arcsec:.1f}x{self.bmin_arcsec:.1f}"
+
+
+def _fftn(a):
+    """Wrapper using scipy FFT with all cores."""
+
+    return scipy.fft.fftn(a, workers=-1)
+
+
+def _ifftn(a):
+    """Wrapper using scipy IFFT with all cores."""
+    return scipy.fft.ifftn(a, workers=-1)
 
 
 def flatten_to_2d(hdulist: fits.HDUList) -> fits.PrimaryHDU:
@@ -107,7 +121,16 @@ def flatten_to_2d(hdulist: fits.HDUList) -> fits.PrimaryHDU:
     new_header = w2.to_header()
     new_header["NAXIS"] = 2
 
-    for k in ("EQUINOX", "EPOCH", "BMAJ", "BMIN", "BPA", "RESTFRQ", "TELESCOP", "OBSERVER"):
+    for k in (
+        "EQUINOX",
+        "EPOCH",
+        "BMAJ",
+        "BMIN",
+        "BPA",
+        "RESTFRQ",
+        "TELESCOP",
+        "OBSERVER",
+    ):
         val = header.get(k)
         if val is not None:
             new_header[k] = val
@@ -141,8 +164,54 @@ def read_beam_from_template(template: Path) -> BeamParams:
         )
 
 
-def convolve_to_beam(infile: Path, beam: BeamParams, outfile: Path | None = None,
-                     overwrite: bool = True) -> Path:
+def _prepare_convolution(
+    infile: Path,
+    header: fits.Header,
+    target_params: BeamParams,
+) -> tuple[Beam, object, float]:
+    """
+    From a FITS header and target beam parameters, build:
+
+    - target_beam : radio_beam.Beam instance
+    - kernel      : 2D convolution kernel
+    - scale       : flux scaling factor (target_beam.sr / old_beam.sr)
+
+    Raises ValueError if deconvolution is impossible or beam is zero.
+    """
+    old_beam = Beam.from_fits_header(header)
+
+    if (old_beam.major <= 0 * u.deg) or (old_beam.minor <= 0 * u.deg):
+        raise ValueError(f"{infile}: existing beam is zero.")
+
+    target_beam = target_params.to_radio_beam()
+
+    # Try deconvolution (if impossible, radio_beam will raise)
+    try:
+        dcb = target_beam.deconvolve(old_beam)
+    except Exception as e:
+        raise ValueError(f"{infile}: cannot convolve to a smaller/narrower beam; {e}")
+
+    # Pixel scale (absolute value in arcsec/pixel; FITS CDELT can be negative)
+    cdelt2 = header.get("CDELT2")
+    if cdelt2 is None:
+        cd2_2 = header.get("CD2_2")
+        if cd2_2 is None:
+            raise KeyError(f"{infile}: missing CDELT2/CD2_2 for pixel scale.")
+        pixscale_arcsec = abs(float(cd2_2)) * 3600.0
+    else:
+        pixscale_arcsec = abs(float(cdelt2)) * 3600.0
+
+    kernel = dcb.as_kernel(pixscale_arcsec * u.arcsec)
+
+    # Flux rescaling by beam area ratio (Jy/beam images)
+    scale = (target_beam.sr / old_beam.sr).to_value()
+
+    return target_beam, kernel, scale
+
+
+def convolve_to_beam(
+    infile: Path, beam: BeamParams, outfile: Path | None = None, overwrite: bool = True
+) -> Path:
     """
     Convolve a FITS image to the target beam. Returns the output Path.
 
@@ -152,7 +221,9 @@ def convolve_to_beam(infile: Path, beam: BeamParams, outfile: Path | None = None
     infile = Path(infile)
     if outfile is None:
         outfile = infile.with_suffix("")  # strip ".fits"
-        outfile = outfile.with_name(f"{outfile.name}_{beam.suffix()}").with_suffix(".fits")
+        outfile = outfile.with_name(f"{outfile.name}_{beam.suffix()}").with_suffix(
+            ".fits"
+        )
 
     if outfile.exists() and not overwrite:
         logging.info(f"{outfile} exists and overwrite=False; skipping convolution..")
@@ -161,39 +232,13 @@ def convolve_to_beam(infile: Path, beam: BeamParams, outfile: Path | None = None
     with fits.open(infile, memmap=False) as hdul:
         # Prepare data and headers
         hdu2d = flatten_to_2d(hdul)
-        old_beam = Beam.from_fits_header(hdul[0].header)
 
-        if (old_beam.major <= 0 * u.deg) or (old_beam.minor <= 0 * u.deg):
-            raise ValueError(f"{infile}: existing beam is zero.")
-
-        target_beam = beam.to_radio_beam()
-
-        # Try deconvolution (if impossible, radio_beam will raise a ValueError)
-        try:
-            dcb = target_beam.deconvolve(old_beam)
-        except Exception as e:
-            raise ValueError(f"{infile}: cannot convolve to a smaller/narrower beam; {e}")
-
-        # Pixel scale (absolute value in arcsec/pixel; FITS CDELT can be negative)
-        cdelt2 = hdul[0].header.get("CDELT2")
-        if cdelt2 is None:
-            # Try CD2_2 if CDELT2 not present
-            cd2_2 = hdul[0].header.get("CD2_2")
-            if cd2_2 is None:
-                raise KeyError(f"{infile}: missing CDELT2/CD2_2 for pixel scale.")
-            pixscale_arcsec = abs(float(cd2_2)) * 3600.0
-        else:
-            pixscale_arcsec = abs(float(cdelt2)) * 3600.0
-
-        # Build convolution kernel
-        kernel = dcb.as_kernel(pixscale_arcsec * u.arcsec)
-
-        # FFT wrappers: use scipy FFT with all cores
-        def _fftn(a):
-            return scipy.fft.fftn(a, workers=-1)
-
-        def _ifftn(a):
-            return scipy.fft.ifftn(a, workers=-1)
+        # Build kernel and scaling
+        target_beam, kernel, scale = _prepare_convolution(
+            infile=infile,
+            header=hdul[0].header,
+            target_params=beam,
+        )
 
         # Convolution (allow_huge for big images)
         smoothed = convolve_fft(
@@ -208,8 +253,7 @@ def convolve_to_beam(infile: Path, beam: BeamParams, outfile: Path | None = None
         )
 
         # Flux rescaling by beam area ratio (Jy/beam images)
-        rr = target_beam.sr / old_beam.sr
-        smoothed = smoothed * rr.to_value()
+        smoothed = smoothed * scale
 
         # Update header with target beam
         out_header = hdul[0].header.copy()
@@ -273,7 +317,9 @@ def convolve_images(
         if output_dir is None:
             if suffix_mode == "beam":
                 outfile = infile.with_suffix("")
-                outfile = outfile.with_name(f"{outfile.name}_{target.suffix()}").with_suffix(".fits")
+                outfile = outfile.with_name(
+                    f"{outfile.name}_{target.suffix()}"
+                ).with_suffix(".fits")
             else:
                 outfile = infile  # will overwrite in place if allowed
         else:
@@ -289,10 +335,177 @@ def convolve_images(
             results.append(out)
             logging.info(f"Created: {out}")
         except Exception as e:
-            logging.warning(f"Failed convolving: {infile} with error {e}. Skipping deconv.")
+            logging.warning(
+                f"Failed convolving: {infile} with error {e}. Skipping deconv."
+            )
 
     return results
 
+
+def convolve_cube_to_beam(
+    infile: Path,
+    beam: BeamParams,
+    outfile: Path | None = None,
+    overwrite: bool = True,
+) -> Path:
+    """
+    Convolve a FITS cube spatially (RA/DEC) to the target beam.
+
+    - Works for NAXIS >= 3 (e.g. RA,DEC,FREQ,STOKES or RA,DEC,FREQ).
+    - Assumes the spatial axes are the last two axes of the data array
+      (standard radio FITS convention: shape like (stokes, freq, dec, ra)).
+    - All non-spatial axes (e.g. frequency and Stokes) are preserved; the
+      same 2D kernel is applied independently to every plane.
+
+    If impossible (target smaller than current, or deconvolution fails),
+    raises ValueError.
+
+    Output is saved as float32 (BITPIX=-32).
+    """
+    infile = Path(infile)
+    if outfile is None:
+        outfile = infile.with_suffix("")
+        outfile = outfile.with_name(f"{outfile.name}_{beam.suffix()}").with_suffix(
+            ".fits"
+        )
+
+    if outfile.exists() and not overwrite:
+        logging.info(f"{outfile} exists and overwrite=False; skipping convolution..")
+        return outfile
+
+    with fits.open(infile, memmap=False) as hdul:
+        header = hdul[0].header
+        data = hdul[0].data
+
+        if data is None:
+            raise ValueError(f"{infile}: no data in primary HDU.")
+
+        if data.ndim < 3:
+            raise ValueError(
+                f"{infile}: data has ndim={data.ndim}; convolve_cube_to_beam "
+                "is intended for cubes (ndim >= 3)."
+            )
+
+        ny, nx = data.shape[-2], data.shape[-1]
+
+        # Build kernel and scaling based on header
+        target_beam, kernel, scale = _prepare_convolution(
+            infile=infile,
+            header=header,
+            target_params=beam,
+        )
+
+        # Flatten all non-spatial axes into one leading axis
+        reshaped = np.asarray(data, dtype=float).reshape(-1, ny, nx)
+        smoothed_flat = np.empty_like(reshaped, dtype=float)
+
+        # Convolve each plane independently
+        for i in range(reshaped.shape[0]):
+            smoothed_flat[i] = convolve_fft(
+                reshaped[i],
+                kernel,
+                allow_huge=True,
+                fftn=_fftn,
+                ifftn=_ifftn,
+                boundary="fill",
+                fill_value=0.0,
+                preserve_nan=True,
+            )
+
+        # Apply flux scaling
+        smoothed_flat *= scale
+
+        # Restore original cube shape
+        smoothed = smoothed_flat.reshape(data.shape)
+
+        out_header = header.copy()
+        out_header.update(target_beam.to_header_keywords())
+
+    out_hdu = fits.PrimaryHDU(np.asarray(smoothed, dtype=np.float32), header=out_header)
+    out_hdu.writeto(outfile, overwrite=overwrite)
+    return outfile
+
+
+def convolve_cubes(
+    inputs: list[Path] | Path,
+    target_beam: BeamParams | None = None,
+    template: Path | None = None,
+    output_dir: Path | None = None,
+    suffix_mode: str = "beam",
+    overwrite: bool = True,
+) -> list[Path]:
+    """
+    High-level API to convolve one or many FITS cubes.
+
+    Parameters
+    ----------
+    inputs : list[Path] | Path
+        Single file or list of files.
+    target_beam : BeamParams | None
+        Target beam. Required unless template is provided.
+    template : Path | None
+        FITS file from which to read target beam (overrides target_beam if given).
+    output_dir : Path | None
+        If set, outputs are written to this directory. Otherwise next to inputs.
+    suffix_mode : str
+        "beam" -> append "_<bmaj>x<bmin>.fits";
+        "keep" -> keep original name, only change directory.
+    overwrite : bool
+        Allow overwriting existing files.
+
+    Returns
+    -------
+    list[Path]
+        Paths of created files.
+    """
+    files: list[Path] = [inputs] if isinstance(inputs, Path) else list(inputs)
+    if not files:
+        raise FileNotFoundError("No input files provided.")
+
+    if template is not None:
+        target = read_beam_from_template(Path(template))
+    else:
+        if target_beam is None:
+            raise ValueError("Provide either 'target_beam' or 'template'.")
+        target = target_beam
+
+    results: list[Path] = []
+    for infile in files:
+        infile = Path(infile)
+        if not infile.exists():
+            raise FileNotFoundError(f"Input not found: {infile}")
+
+        if output_dir is None:
+            if suffix_mode == "beam":
+                outfile = infile.with_suffix("")
+                outfile = outfile.with_name(
+                    f"{outfile.name}_{target.suffix()}"
+                ).with_suffix(".fits")
+            else:
+                outfile = infile  # will overwrite in place if allowed
+        else:
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            if suffix_mode == "beam":
+                outfile = output_dir / f"{infile.stem}_{target.suffix()}.fits"
+            else:
+                outfile = output_dir / infile.name
+
+        try:
+            out = convolve_cube_to_beam(
+                infile=infile,
+                beam=target,
+                outfile=outfile,
+                overwrite=overwrite,
+            )
+            results.append(out)
+            logging.info(f"Created cube: {out}")
+        except Exception as e:
+            logging.warning(
+                f"Failed convolving cube: {infile} with error {e}. Skipping this file."
+            )
+
+    return results
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -334,6 +547,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Logging level.",
     )
     p.add_argument(
+        "--mode",
+        choices=["image", "cube", "auto"],
+        default="auto",
+        help=(
+            'How to treat input files: "image" for 2D images only, '
+            '"cube" for RA/DEC convolution of cubes (NAXIS>=3), '
+            '"auto" (default) inspects NAXIS per file and routes 2D to image, '
+            ">=3 to cube."
+        ),
+    )
+    p.add_argument(
         "infiles",
         nargs="+",
         help="Input FITS file(s).",
@@ -343,7 +567,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
-    logging.basicConfig(level=getattr(logging, args.loglevel), format="%(levelname)s: %(message)s")
+    logging.basicConfig(
+        level=getattr(logging, args.loglevel), format="%(levelname)s: %(message)s"
+    )
 
     beam: BeamParams | None = None
     if args.beam is not None:
@@ -370,17 +596,83 @@ def main(argv: Sequence[str] | None = None) -> None:
         target.bpa_deg,
     )
 
-    created = convolve_images(
-        inputs=inputs,
-        beam=beam,
-        template=template,
-        output_dir=outdir,
-        suffix_mode=args.suffix_mode,
-        overwrite=args.overwrite,
-    )
+    created: list[Path] = []
 
-    for p in created:
-        logging.info("Wrote %s", p)
+    if args.mode == "image":
+        # Force all inputs through the image path
+        created = convolve_images(
+            inputs=inputs,
+            target_beam=beam,
+            template=template,
+            output_dir=outdir,
+            suffix_mode=args.suffix_mode,
+            overwrite=args.overwrite,
+        )
+
+    elif args.mode == "cube":
+        # Force all inputs through the cube path
+        created = convolve_cubes(
+            inputs=inputs,
+            target_beam=beam,
+            template=template,
+            output_dir=outdir,
+            suffix_mode=args.suffix_mode,
+            overwrite=args.overwrite,
+        )
+
+    else:
+        # auto: inspect NAXIS per file and route accordingly
+        image_files: list[Path] = []
+        cube_files: list[Path] = []
+
+        for f in inputs:
+            try:
+                with fits.open(f, memmap=False) as hdul:
+                    data = hdul[0].data
+                if data is None:
+                    logging.warning("%s has no data in primary HDU; skipping.", f)
+                    continue
+                if data.ndim <= 2:
+                    image_files.append(f)
+                else:
+                    cube_files.append(f)
+            except Exception as e:
+                logging.warning("Failed inspecting %s (error: %s); skipping.", f, e)
+
+        if image_files:
+            logging.info(
+                "Found %d 2D image(s); convolving as images.",
+                len(image_files),
+            )
+            created.extend(
+                convolve_images(
+                    inputs=image_files,
+                    target_beam=beam,
+                    template=template,
+                    output_dir=outdir,
+                    suffix_mode=args.suffix_mode,
+                    overwrite=args.overwrite,
+                )
+            )
+
+        if cube_files:
+            logging.info(
+                "Found %d cube(s); convolving spatially as cubes.",
+                len(cube_files),
+            )
+            created.extend(
+                convolve_cubes(
+                    inputs=cube_files,
+                    target_beam=beam,
+                    template=template,
+                    output_dir=outdir,
+                    suffix_mode=args.suffix_mode,
+                    overwrite=args.overwrite,
+                )
+            )
+
+    for pth in created:
+        logging.info("Wrote %s", pth)
 
 
 if __name__ == "__main__":

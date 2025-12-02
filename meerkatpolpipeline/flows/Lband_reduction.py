@@ -29,7 +29,11 @@ from meerkatpolpipeline.configuration import (
 )
 from meerkatpolpipeline.cube_imaging.beam_info_vs_freq import generate_beam_plots
 from meerkatpolpipeline.cube_imaging.combine_to_imagecube import combine_to_cube
-from meerkatpolpipeline.cube_imaging.convolve_beam import BeamParams, convolve_images
+from meerkatpolpipeline.cube_imaging.convolve_beam import (
+    BeamParams,
+    convolve_cubes,
+    convolve_images,
+)
 from meerkatpolpipeline.cube_imaging.cube_imaging import (
     create_stokesIQU_cube_channels_from_imagelists,
     go_wsclean_cube_imaging_target,
@@ -974,6 +978,54 @@ def process_science_fields(
             rmsynth3d_workdir=rmsynth3d_workdir,
             rms_qu_average=full_rms_qu_average
         )
+
+        if rmsynth3d_options['also_lowres']:
+
+            logger.info(f"Starting convolution of cube images to {rmsynth3d_options['lowres_beam_asec']} arcsec")
+
+            target_beam = BeamParams(
+                bmaj_arcsec=rmsynth3d_options['lowres_beam_asec'],
+                bmin_arcsec=rmsynth3d_options['lowres_beam_asec'],
+                bpa_deg=0
+            )
+
+            task_convolve_cubes = task(convolve_cubes, name="convolve_cubes_lowres")
+            with tags("stokes-i"):
+                # stokesIcube
+                stokesIcube_lowres: list[Path] = task_convolve_cubes(
+                    inputs=stokesIcube,
+                    target_beam=target_beam,
+                    output_dir=fine_cube_imaging_workdir / "convolved_images",
+                    suffix_mode="beam",
+                    overwrite=False
+                )
+            with tags("stokes-q"):
+                # stokesQcube
+                stokesQcube_lowres: list[Path] = task_convolve_cubes(
+                    inputs=stokesQcube,
+                    target_beam=target_beam,
+                    output_dir=fine_cube_imaging_workdir / "convolved_images",
+                    suffix_mode="beam",
+                    overwrite=False
+                )
+            with tags("stokes-u"):
+                # stokesUcube
+                stokesUcube_lowres: list[Path] = task_convolve_cubes(
+                    inputs=stokesUcube,
+                    target_beam=target_beam,
+                    output_dir=fine_cube_imaging_workdir / "convolved_images",
+                    suffix_mode="beam",
+                    overwrite=False
+                )
+
+            # Run RM synthesis in 3D on the LOW RES image cubes
+            task_rmsynth3d = task(run_rmsynth3d, name="rmsynth_3d")
+            rmsynth3d_resultdir_lowres = task_rmsynth3d(
+                rmsynth3d_options,
+                stokesI_cube_path=stokesIcube_lowres,
+                rmsynth3d_workdir= rmsynth3d_workdir / "lowres",
+                rms_qu_average=full_rms_qu_average
+            )
 
 
     ########## step 13: Verify RMSynth3D ##########

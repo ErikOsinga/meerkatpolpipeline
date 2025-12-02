@@ -29,6 +29,10 @@ class RMSynth3Doptions(BaseOptions):
     """Optional: Path to working directory for this step. If 'null' will assign a default working directory."""
     overwrite: bool = False
     """Overwrite existing output files? Default False, in which case it will skip this step if output already exists"""
+    also_lowres: bool = False
+    """Also do a low-resolution version of RM synthesis?"""
+    lowres_beam_asec: float = 120
+    """Lowres beam FWHM in arcsec. Will convolve to this circular beam."""
 
 
 def write_noise_file(out_path: Path, rms: np.ndarray) -> None:
@@ -59,6 +63,15 @@ def run_rmsynth3d(rmsynth3d_options: dict | RMSynth3Doptions,
     """
     logger = get_run_logger()
 
+    # Set working directory, checking for user overwrite
+    if rmsynth3d_options['working_directory'] is None:
+        rmsynth3d_options['working_directory'] = rmsynth3d_workdir.expanduser().resolve()
+    else:
+        rmsynth3d_workdir = Path(rmsynth3d_options['working_directory']).expanduser().resolve()
+
+    rmsynth3d_workdir.mkdir(exist_ok=True, parents=True)
+
+    # Check whether user wants to force a rerun
     if not rmsynth3d_options['overwrite']:
         # TODO: should check for all expected output files, not just one
         expected_output_file = rmsynth3d_workdir / f"{rmsynth3d_options['targetfield']}.pipeline_3d_PhiPeakPIfit_rm2.fits"
@@ -72,12 +85,6 @@ def run_rmsynth3d(rmsynth3d_options: dict | RMSynth3Doptions,
 
     if not stokesI_cube_path.exists():
         raise FileNotFoundError(f"Stokes I cube not found: {stokesI_cube_path}")
-
-    # Set working directory, checking for user overwrite
-    if rmsynth3d_options['working_directory'] is None:
-        rmsynth3d_options['working_directory'] = rmsynth3d_workdir.expanduser().resolve()
-    else:
-        rmsynth3d_workdir = Path(rmsynth3d_options['working_directory']).expanduser().resolve()
 
     if rms_qu_average is not None:
         # write .dat file with 1 line of rms value per channel
