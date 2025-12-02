@@ -526,7 +526,7 @@ def process_science_fields(
 
     else:
         wsclean_output_dir = cube_imaging_workdir / "IQUimages"
-        logger.warning(f"Small cube imaging step is disabled, skipping small cube imaging. Looking for IQU cubes in {wsclean_output_dir}...")
+        logger.warning(f"Coarse cube imaging step is disabled, skipping coarse cube imaging. Looking for IQU cubes in {wsclean_output_dir}...")
 
         full_prefix = str(wsclean_output_dir / ( cube_imaging_options['targetfield']+'_stokesI') )
 
@@ -602,7 +602,7 @@ def process_science_fields(
         )
 
     
-    ########## step 7: after we've run PYBDSF on small cube, can check spectra of brightest sources ##########
+    ########## step 7: after we've run PYBDSF on coarse cube, can check spectra of brightest sources ##########
     validate_field_workdir = working_dir / "validation"
     if "validation" in enabled_operations:
         validate_field_workdir.mkdir(exist_ok=True)
