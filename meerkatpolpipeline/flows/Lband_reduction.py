@@ -313,7 +313,8 @@ def process_science_fields(
         calibrated_target_ms = find_calibrated_ms(
             crosscal_base_dir,
             preprocessed_ms,
-            suffix="-corr.ms"
+            # "-{target}-corr.ms" is the default for the caracal split MS with the corrected target 
+            suffix=f"-{strategy['targetfield']}-corr.ms"
         )
     
     

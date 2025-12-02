@@ -131,7 +131,7 @@ def obtain_by_intent(mapping: dict, intent: str) -> tuple[int, str]:
             return fid, fieldname
     raise ValueError(f"Did not find {intent=} automatically. Looked in {mapping}.")
 
-def determine_calibrators(caracal_options: CrossCalOptions, ms_summary: dict) -> CrossCalOptions:
+def determine_calibrators(caracal_options: CrossCalOptions | dict, ms_summary: dict) -> CrossCalOptions:
     """Determine calibrators automatically or from user input"""
 
     logger = get_run_logger()
