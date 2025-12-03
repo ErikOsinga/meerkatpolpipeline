@@ -78,6 +78,8 @@ def run_rmsynth3d(rmsynth3d_options: dict | RMSynth3Doptions,
         if expected_output_file.exists():
             logger.info(f"RMSynth 3D output file {expected_output_file} already exists and overwrite is False. Skipping RMSynth 3D step.")
             return rmsynth3d_workdir
+        else:
+            logger.info(f"RMSynth 3D output file {expected_output_file} doesnt exist. Running RMSynth 3D...")
 
     module_dir = Path(rmsynth3d_options["module_directory"]).expanduser().resolve()
     if not module_dir.exists():
