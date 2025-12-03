@@ -993,31 +993,31 @@ def process_science_fields(
             task_convolve_cubes = task(convolve_cubes, name="convolve_cubes_lowres")
             with tags("stokes-i"):
                 # stokesIcube
-                stokesIcube_lowres: list[Path] = task_convolve_cubes(
+                stokesIcube_lowres: Path = task_convolve_cubes(
                     inputs=stokesIcube,
                     target_beam=target_beam,
                     output_dir=fine_cube_imaging_workdir / "convolved_images",
                     suffix_mode="beam",
                     overwrite=False
-                )
+                )[0] # unpack the list[Path]
             with tags("stokes-q"):
                 # stokesQcube
-                stokesQcube_lowres: list[Path] = task_convolve_cubes(
+                stokesQcube_lowres: Path = task_convolve_cubes(
                     inputs=stokesQcube,
                     target_beam=target_beam,
                     output_dir=fine_cube_imaging_workdir / "convolved_images",
                     suffix_mode="beam",
                     overwrite=False
-                )
+                )[0] # unpack the list[Path]
             with tags("stokes-u"):
                 # stokesUcube
-                stokesUcube_lowres: list[Path] = task_convolve_cubes(
+                stokesUcube_lowres: Path = task_convolve_cubes(
                     inputs=stokesUcube,
                     target_beam=target_beam,
                     output_dir=fine_cube_imaging_workdir / "convolved_images",
                     suffix_mode="beam",
                     overwrite=False
-                )
+                )[0] # unpack the list[Path]
 
             # Run RM synthesis in 3D on the LOW RES image cubes
             task_rmsynth3d = task(run_rmsynth3d, name="rmsynth_3d")
