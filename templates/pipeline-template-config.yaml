@@ -200,3 +200,11 @@ science_plots_rms1d:
   bubble_scaling_factor: 1e0
   # currently options are null or hutschenreuter
   grm_correction: hutschenreuter
+
+
+rmsynth3d:
+  enable: true
+  rmsynth_3d_config_template: ./templates/rmsynth3d_config_template.ini
+  module_directory: /net/rijn9/data2/osinga/meerkatBfields/software/POSSUM_Polarimetry_Pipeline/pipeline/modules
+  also_lowres: true
+  lowres_beam_asec: 120
