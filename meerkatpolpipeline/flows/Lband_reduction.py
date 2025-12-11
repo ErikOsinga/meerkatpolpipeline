@@ -1020,7 +1020,7 @@ def process_science_fields(
                 )[0] # unpack the list[Path]
 
             # Run RM synthesis in 3D on the LOW RES image cubes
-            task_rmsynth3d = task(run_rmsynth3d, name="rmsynth_3d")
+            task_rmsynth3d = task(run_rmsynth3d, name="rmsynth_3d_lowres")
             rmsynth3d_resultdir_lowres = task_rmsynth3d(
                 rmsynth3d_options,
                 stokesI_cube_path=stokesIcube_lowres,
