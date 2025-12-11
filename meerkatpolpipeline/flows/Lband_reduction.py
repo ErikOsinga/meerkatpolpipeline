@@ -1019,12 +1019,15 @@ def process_science_fields(
                     overwrite=False
                 )[0] # unpack the list[Path]
 
+            # have to reset the working dir to 'lowres'
+            rmsynth3d_options['working_directory'] = rmsynth3d_workdir / "lowres"
+
             # Run RM synthesis in 3D on the LOW RES image cubes
-            task_rmsynth3d = task(run_rmsynth3d, name="rmsynth_3d_lowres")
-            rmsynth3d_resultdir_lowres = task_rmsynth3d(
+            task_rmsynth3d_lowres = task(run_rmsynth3d, name="rmsynth_3d_lowres")
+            rmsynth3d_resultdir_lowres = task_rmsynth3d_lowres(
                 rmsynth3d_options,
                 stokesI_cube_path=stokesIcube_lowres,
-                rmsynth3d_workdir= rmsynth3d_workdir / "lowres",
+                rmsynth3d_workdir=rmsynth3d_options['working_directory'],
                 rms_qu_average=full_rms_qu_average
             )
 
