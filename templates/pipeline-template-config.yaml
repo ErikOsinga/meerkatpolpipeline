@@ -82,10 +82,10 @@ crosscal:
 
   # OPTIONAL: parent directory of MS, this is where caracal will write its output
   # if not given, will determine it from the download step.
-  msdir: /data2/osinga/meerkatBfields/meerkatpolpipeline/tests/temp/caracal
+  msdir_caracal: /data2/osinga/meerkatBfields/meerkatpolpipeline/tests/temp/caracal
   # OPTIONAL: name of ms, without ".ms", as ".ms" will be appended
   # if not given, will determine it from the download step.
-  dataid: "target_ms"
+  dataid_caracal: "target_ms"
 
   # e.g. if we dont want to let the script determine the calibrators
   auto_determine_obsconf: false
