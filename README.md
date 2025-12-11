@@ -154,6 +154,12 @@ Caught exception: Table DataManager error: Invalid operation: TSM: no array in r
 I'm not sure what's causing this as previous gaincal steps do work and there seems to be nothing writing to the MODEL_DATA column in between the steps, but I found that if this happens, it's because of the `crystalball_skymodel: true` setting. Try using the other config template [caracal-polcal-strategy-no-crystalbal.yml](https://github.com/ErikOsinga/meerkatpolpipeline/blob/main/templates/caracal-polcal-strategy-no-crystalbal.yml) that has this set to False. Note that the skymodel might be (?) less accurate then. See also [this caracal issue](https://github.com/caracal-pipeline/caracal/issues/1408)
 
 
+### 4. Illegal instruction in RM-tools (SIGILL)
 
+It could be that the hardware you're trying to run on is not agreeing with the FFT instructions. Try downgrading finufft, e.g.
+
+```
+uv pip install finufft==2.2.0
+```
 
 
