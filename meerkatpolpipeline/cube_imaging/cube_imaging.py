@@ -34,6 +34,8 @@ class CoarseCubeImagingOptions(BaseOptions):
     """ also run pybdsf on the Stokes I MFS image to create a source catalogue. Requires also_image_for_mfs=True"""
     filter_pybdsf_cat_radius_deg: float | None = None
     """ filter the pybdsf source catalogue to only include sources within this radius (degrees) from the field centre. If None, no filtering is done."""
+    band: str = 'L'
+    """ Which MeerKAT band the data is. Valid options are 'L' and 'UHF' (lowercase allowed)."""
 
     # TODO: add size, scale, channels_out etc parameters for wsclean
 
@@ -62,6 +64,8 @@ class FineCubeImagingOptions(BaseOptions):
     """Flag channels above this RMS level when combining to image cube. Default 1e-3 Jy/beam"""
     channel_flag_limit_pct: float = 50.0
     """Flag the entire channel if higher percentage of visibilities flagged at this frequency. Default 50.0% """
+    band: str = 'L'
+    """ Which MeerKAT band the data is. Valid options are 'L' and 'UHF' (lowercase allowed)."""
     # TODO: add size, scale, channels_out etc parameters for wsclean
 
 
@@ -225,7 +229,12 @@ def go_wsclean_cube_imaging_target(
         open_files_limit=None, # can change this if 'error writing to temporary file' appears in WSClean during reorder step
     )
 
-    imageset_I = pbcor_cubes_target(imageset_I, working_dir / "pbcor_images", pol='i')
+    imageset_I = pbcor_cubes_target(
+        imageset_I,
+        working_dir / "pbcor_images",
+        pol='i',
+        band=cube_imaging_options['band']
+    )
 
     # ----- Stokes QU (multiscale OFF) -----
     # Build fresh options to avoid inheriting multiscale from I.
@@ -253,8 +262,18 @@ def go_wsclean_cube_imaging_target(
     )
     imageset_Q, imageset_U = imagesets_QU
 
-    imageset_Q = pbcor_cubes_target(imageset_Q, working_dir / "pbcor_images", pol='q')
-    imageset_U = pbcor_cubes_target(imageset_U, working_dir / "pbcor_images", pol='u')
+    imageset_Q = pbcor_cubes_target(
+        imageset_Q,
+        working_dir / "pbcor_images",
+        pol='q',
+        band=cube_imaging_options['band'],
+    )
+    imageset_U = pbcor_cubes_target(
+        imageset_U, 
+        working_dir / "pbcor_images", 
+        pol='u',
+        band=cube_imaging_options['band']
+    )
 
 
     if cube_imaging_options['also_image_for_mfs']:
@@ -276,15 +295,19 @@ def go_wsclean_cube_imaging_target(
         )
 
         # can put pbcor images in same directory as coarse cubes
-        imageset_I_mfs = pbcor_cubes_target(imageset_I_mfs, working_dir / "pbcor_images", pol='i')
-
+        imageset_I_mfs = pbcor_cubes_target(
+                            imageset_I_mfs,
+                            working_dir / "pbcor_images",
+                            pol='i',
+                            band=cube_imaging_options['band']
+                         )
     else:
         imageset_I_mfs = None
 
     return imageset_I, imageset_Q, imageset_U, imageset_I_mfs
 
 
-def pbcor_cubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> ImageSet:
+def pbcor_cubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str, band: str = 'L') -> ImageSet:
     """
     Do PB correction for cubes made in go_wsclean_cube_imaging_target.
     """
@@ -300,9 +323,8 @@ def pbcor_cubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> 
     elif pol.lower() == 'u':
         globstr = path_split[0] + "-*U-image.fits"
 
-    # TODO: make script aware of Meerkat Band (eg. L or UHF)
-    print("TODO: make script aware of Meerkat Band (eg. L or UHF)")
-    calculate_pb(globstr, band='L', outdir=outdir_pbcor_images)
+    # Calculate primary beam for the given band
+    calculate_pb(globstr, band=band, outdir=outdir_pbcor_images)
 
     globstr_pbcor = f"{outdir_pbcor_images}/*-I-pb_model.fits"
 
@@ -314,6 +336,7 @@ def pbcor_cubes_target(imset: ImageSet, outdir_pbcor_images: Path, pol: str) -> 
 
 
 def _normalize_ms_list(ms: Path | list[Path]) -> list[Path]:
+    """Makes sure ms is always of type list[Path] """
     if isinstance(ms, (str, Path)):
         return [Path(ms)]
     return [Path(p) for p in ms]
@@ -430,6 +453,14 @@ def compute_chanout_from_chanwidth(
 
     start_MHz, end_MHz, freqmin_ms, freqmax_ms = _resolve_bounds_MHz(ms, cube_imaging_options)
     bandwidth_MHz = (end_MHz - start_MHz)
+
+    # double check that the user has given the correct band 
+    # uhf = 544-1088 MHz, Lband = 856-1711 MHz
+    if start_MHz < 856 and cube_imaging_options['band'].upper() == 'L':
+        raise ValueError(f"Found {start_MHz=} but the user has indicated L-band. This starts at 856 MHz.")
+    
+    if start_MHz > 1088 and cube_imaging_options['band'].lower() == 'uhf':
+        raise ValueError(f"Found {start_MHz=} but the user has indicated UHF band. This ends at 1088 MHz.")
 
     # Floor ensures resulting width <= target (unless bandwidth < target).
     channels_out = int(np.floor(bandwidth_MHz / target_width_MHz))

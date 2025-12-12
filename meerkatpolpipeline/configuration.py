@@ -199,7 +199,13 @@ def verify_configuration(input_strategy: Strategy, raise_on_error: bool = True) 
                         assert options["also_image_for_mfs"], "Error in coarse_cube_imaging settings: If run_pybdsf is True, also_image_for_mfs must be True as well."
                 except Exception as exception:
                     errors.append(f"{exception}")
-    
+
+                # double check that 'band' is one of 'L' or 'UHF', upper/lowercase
+                assert options["band"] in ["L", "l", "UHF", "uhf"], f"Error in {operation} settings. Found band={options['band']} but must be 'L or 'UHF'. "
+            
+            if operation == "fine_cube_imaging":
+                assert options["band"] in ["L", "l", "UHF", "uhf"], f"Error in {operation} settings. Found band={options['band']} but must be 'L or 'UHF'. "
+
 
     valid_config = len(errors) == 0
     if not valid_config:
