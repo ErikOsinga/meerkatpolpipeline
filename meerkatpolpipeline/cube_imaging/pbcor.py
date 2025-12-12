@@ -75,9 +75,9 @@ def calculate_pb(globstr: str, band: str ='L', outdir: Path = Path('./'), verbos
 
     NOTE THAT DIFFERENT CHANNELS-OUT WILL REQUIRE RE-RUNNING THIS SCRIPT BECAUSE CHANNEL NUMBERS WILL BE DIFFERENT
     """
-    if band == "L":
+    if band.upper() == "L":
         beammodel=JimBeam('MKAT-AA-L-JIM-2020') # model for L-band
-    elif band == "UHF":
+    elif band.upper() == "UHF":
         beammodel = JimBeam('MKAT-AA-UHF-JIM-2020') # model for UHF band
     else:
         raise ValueError(f"Band {band} beam not implemented")
